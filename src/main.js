@@ -88,7 +88,9 @@ function init(){
   bindUI();onResize();status.ready=true;status.scene={terrain:true,forest:true,bird:true,water:true,clouds:true,stars:true,fauna:true,sky:true,rain:true};
   if(opts.broadcast){$('intro').classList.add('off');document.body.classList.add('no-ui');}
   if(opts.tv)setTVMode(true);
-  void connectClimate(true);
+  // Normal visits wait for the explicit choice on the intro screen.
+  // TV/broadcast may reuse a permission already granted, without prompting.
+  if(opts.broadcast||opts.tv)void connectClimate(true);
   if(opts.selftest)window.setTimeout(selfTest,2500);
   requestAnimationFrame(animate);
 }
