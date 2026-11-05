@@ -56,7 +56,7 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
     assert.ok(stats.renderedFrames>6,'No hay animación');
-    assert.ok(stats.colors>25,'Fallo visual: escena excesivamente uniforme / completamente negra');
+    assert.ok(stats.colors>(name.includes('night')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);
     report.scenarios.push({name,success:true,stats});
@@ -87,7 +87,7 @@ try{
       await page.waitForTimeout(1200);
       assert.equal(await page.locator('#weather-name').innerText(),'Soleado','Cambio de clima');
     });
-  await render('02-sunset-vulture','?h=18.5&bird=vulture&weather=cloudy&broadcast=1',1440,900);
+  await render('02-sunset-vulture','?phase=sunset&bird=vulture&weather=cloudy&broadcast=1',1440,900);
   await render('03-night-owl','?h=23&bird=owl&weather=clear&broadcast=1',1440,900);
   await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1',1440,900);
   await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog',390,844,

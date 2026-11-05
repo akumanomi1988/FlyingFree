@@ -26,7 +26,7 @@ npm run build
 | Key | Action |
 |---|---|
 | B | Open/close bird selector |
-| 1, 2, 3, 4 | Dawn, noon, sunset, night |
+| 1, 2, 3, 4 | Actual astronomical dawn, solar noon, sunset, night |
 | 5 | Change weather |
 | 6, 7, 8 | Time speed ×1, ×60, ×600 |
 | Space | Wing beat |
@@ -36,7 +36,7 @@ npm run build
 | F | Fullscreen |
 | Esc | Close panels |
 
-URLs: `?h=6.4`, `?bird=owl`, `?weather=storm`, `?broadcast=1`, `?selftest=1`.
+URLs: `?phase=dawn`, `?phase=sunset`, `?h=6.4`, `?bird=owl`, `?weather=storm`, `?broadcast=1`, `?selftest=1`.
 
 ## Testing
 `npm test` exercises the deterministic math, solar clock and bird paths.
