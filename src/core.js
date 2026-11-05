@@ -16,18 +16,18 @@ export function terrainHeight(x,z,seed=1988){
   return -32+Math.max(0,shore)*(ridge+hills);
 }
 export const BIRDS=[
- {id:'kestrel',name:'Cernícalo',color:0xc6a075,wings:1.04,alt:205,radius:380,speed:1,flight:'hover',flapRate:5.4,visualScale:9,habitat:'Laderas y praderas',detail:'Vigila el terreno y se mantiene suspendido ante posibles presas.'},
- {id:'hummingbird',name:'Colibrí',color:0x3cb9a0,wings:.42,alt:64,radius:138,speed:2.0,flight:'hover',flapRate:18,visualScale:5.2,habitat:'Flores del bosque',detail:'Cernido rápido, maniobras cortas y búsqueda de néctar.'},
- {id:'vulture',name:'Buitre leonado',color:0x92705a,wings:1.75,alt:345,radius:620,speed:.67,flight:'soar',flapRate:1.2,visualScale:11.3,habitat:'Térmicas de montaña',detail:'Aprovecha corrientes ascendentes para planear sin esfuerzo.'},
- {id:'swift',name:'Vencejo',color:0x4f6879,wings:1.13,alt:260,radius:540,speed:2.25,flight:'dash',flapRate:8.8,visualScale:8,habitat:'Cielo abierto',detail:'Giros veloces y amplias rutas por el aire.'},
- {id:'albatross',name:'Albatros',color:0xd4d7ce,wings:2.15,alt:45,radius:1900,speed:.73,flight:'marine',flapRate:.7,visualScale:11.5,habitat:'Alta mar',detail:'Planeo dinámico sobre el oleaje con aleteo mínimo.'},
- {id:'osprey',name:'Águila pescadora',color:0x907860,wings:1.55,alt:190,radius:1050,speed:1.16,flight:'soar',flapRate:2.6,visualScale:11,habitat:'Costa y marismas',detail:'Patrulla el agua y realiza aproximaciones rápidas.'},
- {id:'owl',name:'Búho real',color:0x9b8167,wings:1.36,alt:165,radius:440,speed:.78,flight:'nocturnal',flapRate:3.2,visualScale:11,habitat:'Bosques nocturnos',detail:'Actividad nocturna, vuelos bajos y pausas en el bosque.'},
- {id:'eagle',name:'Águila real',color:0x76583f,wings:1.83,alt:405,radius:780,speed:.92,flight:'soar',flapRate:2.0,visualScale:12,habitat:'Cumbres rocosas',detail:'Planeo circular sobre la montaña y vuelos de exploración.'},
- {id:'kingfisher',name:'Martín pescador',color:0x267b99,wings:.70,alt:47,radius:480,speed:1.60,flight:'dash',flapRate:9.5,visualScale:6.2,habitat:'Riberas y lagunas',detail:'Vuela rápido a baja altura cerca de la superficie.'},
- {id:'heron',name:'Garza real',color:0x8999a3,wings:1.70,alt:78,radius:780,speed:.55,flight:'wade',flapRate:1.95,visualScale:12,habitat:'Marisma',detail:'Movimiento pausado y vuelo de aleteo profundo.'},
- {id:'gull',name:'Gaviota',color:0xe1e0d2,wings:1.44,alt:112,radius:1600,speed:1.14,flight:'marine',flapRate:2.4,visualScale:10,habitat:'Acantilados y mar',detail:'Aprovecha el viento costero y sigue el oleaje.'},
- {id:'swallow',name:'Golondrina',color:0x2c5163,wings:.86,alt:125,radius:350,speed:1.98,flight:'dash',flapRate:8.4,visualScale:7.5,habitat:'Praderas',detail:'Cambios de rumbo muy rápidos mientras busca insectos.'}
+ {id:'kestrel',name:'Cernícalo',color:0xc6a075,wings:1.04,alt:205,radius:380,speed:1,flight:'hover',flapRate:5.4,wingspan:0.75,habitat:'Laderas y praderas',detail:'Vigila el terreno y se mantiene suspendido ante posibles presas.'},
+ {id:'hummingbird',name:'Colibrí',color:0x3cb9a0,wings:.42,alt:64,radius:138,speed:2.0,flight:'hover',flapRate:18,wingspan:0.11,habitat:'Flores del bosque',detail:'Cernido rápido, maniobras cortas y búsqueda de néctar.'},
+ {id:'vulture',name:'Buitre leonado',color:0x92705a,wings:1.75,alt:345,radius:620,speed:.67,flight:'soar',flapRate:1.2,wingspan:2.65,habitat:'Térmicas de montaña',detail:'Aprovecha corrientes ascendentes para planear sin esfuerzo.'},
+ {id:'swift',name:'Vencejo',color:0x4f6879,wings:1.13,alt:260,radius:540,speed:2.25,flight:'dash',flapRate:8.8,wingspan:0.43,habitat:'Cielo abierto',detail:'Giros veloces y amplias rutas por el aire.'},
+ {id:'albatross',name:'Albatros',color:0xd4d7ce,wings:2.15,alt:45,radius:1900,speed:.73,flight:'marine',flapRate:.7,wingspan:3.2,habitat:'Alta mar',detail:'Planeo dinámico sobre el oleaje con aleteo mínimo.'},
+ {id:'osprey',name:'Águila pescadora',color:0x907860,wings:1.55,alt:190,radius:1050,speed:1.16,flight:'soar',flapRate:2.6,wingspan:1.65,habitat:'Costa y marismas',detail:'Patrulla el agua y realiza aproximaciones rápidas.'},
+ {id:'owl',name:'Búho real',color:0x9b8167,wings:1.36,alt:165,radius:440,speed:.78,flight:'nocturnal',flapRate:3.2,wingspan:1.65,habitat:'Bosques nocturnos',detail:'Actividad nocturna, vuelos bajos y pausas en el bosque.'},
+ {id:'eagle',name:'Águila real',color:0x76583f,wings:1.83,alt:405,radius:780,speed:.92,flight:'soar',flapRate:2.0,wingspan:2.2,habitat:'Cumbres rocosas',detail:'Planeo circular sobre la montaña y vuelos de exploración.'},
+ {id:'kingfisher',name:'Martín pescador',color:0x267b99,wings:.70,alt:47,radius:480,speed:1.60,flight:'dash',flapRate:9.5,wingspan:0.26,habitat:'Riberas y lagunas',detail:'Vuela rápido a baja altura cerca de la superficie.'},
+ {id:'heron',name:'Garza real',color:0x8999a3,wings:1.70,alt:78,radius:780,speed:.55,flight:'wade',flapRate:1.95,wingspan:1.9,habitat:'Marisma',detail:'Movimiento pausado y vuelo de aleteo profundo.'},
+ {id:'gull',name:'Gaviota',color:0xe1e0d2,wings:1.44,alt:112,radius:1600,speed:1.14,flight:'marine',flapRate:2.4,wingspan:1.25,habitat:'Acantilados y mar',detail:'Aprovecha el viento costero y sigue el oleaje.'},
+ {id:'swallow',name:'Golondrina',color:0x2c5163,wings:.86,alt:125,radius:350,speed:1.98,flight:'dash',flapRate:8.4,wingspan:0.32,habitat:'Praderas',detail:'Cambios de rumbo muy rápidos mientras busca insectos.'}
 ];
 export const WEATHER=[
  {id:'clear',name:'Despejado',cloud:.10,rain:0,fog:0},
