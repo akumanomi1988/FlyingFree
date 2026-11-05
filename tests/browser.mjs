@@ -112,18 +112,29 @@ try{
       assert.equal(await page.locator('#tv-overlay').isVisible(),true);
       await page.context().grantPermissions(['geolocation']);
       await page.context().setGeolocation({latitude:40.42837,longitude:-3.71252});
+      let weatherRequests=0;
       await page.route('https://api.open-meteo.com/v1/forecast*',async(route)=>{
+        weatherRequests++;
         const u=new URL(route.request().url());
         assert.equal(u.searchParams.get('latitude'),'40.4');
         assert.equal(u.searchParams.get('longitude'),'-3.7');
         await route.fulfill({status:200,contentType:'application/json',
-          body:JSON.stringify({current:{temperature_2m:14.3,apparent_temperature:11.5,weather_code:61,cloud_cover:91,precipitation:1.0,relative_humidity_2m:78,wind_speed_10m:27}})});
+          body:JSON.stringify({current:{temperature_2m:weatherRequests===1?14.3:19.1,apparent_temperature:11.5,weather_code:61,cloud_cover:91,precipitation:1.0,relative_humidity_2m:78,wind_speed_10m:27}})});
       });
       await page.locator('#tv-consent').click();
       await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.live===true,{timeout:20000});
       assert.equal(await page.locator('#tv-temp').innerText(),'14 °C');
       assert.match(await page.locator('#tv-weather').innerText(),/LLUVIA/i);
       assert.equal(await page.locator('#tv-attribution').isVisible(),true);
+      // Advance wall-clock time without waiting 30 real minutes. The renderer
+      // must fetch a fresh observation and update the TV temperature.
+      await page.evaluate(()=>{
+        const originalNow=Date.now.bind(Date);
+        Date.now=()=>originalNow()+31*60*1000;
+      });
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.temperature===19,{timeout:12000});
+      assert.equal(weatherRequests,2,'El clima no se actualiza tras caducar la caché');
+      assert.equal(await page.locator('#tv-temp').innerText(),'19 °C');
       const body=await page.locator('body').innerText();
       assert.equal(body.includes('40.4'),false,'coordinates leaked into visible UI');
       assert.equal(body.includes('-3.7'),false,'longitude leaked into visible UI');
