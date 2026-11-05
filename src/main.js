@@ -25,7 +25,7 @@ let timeOverride=opts.hour!=null||Boolean(opts.phase);
 let weatherOverride=Boolean(opts.weather);
 let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
  opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
-let climatePending=false,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
+let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
 let currentWeather=opts.weather||chooseWeather(new Date(simMs));
@@ -442,16 +442,36 @@ function revealTVControls(){
   controlsTimeout=setTimeout(()=>$('tv-actions').classList.remove('active'),5500);
 }
 async function connectClimate(onlyPreviouslyGranted=false){
- if(climatePending)return;climatePending=true;
+ // A visible user click must never be swallowed by the silent permission restore.
+ // The explicit attempt supersedes an in-flight silent restore.
+ if(climatePending&&(!climateInitialRestore||onlyPreviouslyGranted))return;
+ const attempt=++climateAttempt;
+ climatePending=true;climateInitialRestore=onlyPreviouslyGranted;
  try{
    const allowed=await climate.requestLocation({onlyPreviouslyGranted});
-   if(!allowed){climateMessage='Clima simulado · activar datos reales';return;}
+   if(attempt!==climateAttempt)return;
+   if(!allowed){
+     let blocked=false;
+     try{blocked=(await navigator.permissions?.query({name:'geolocation'}))?.state==='denied';}catch{}
+     if(attempt!==climateAttempt)return;
+     climateMessage=blocked?'Ubicación bloqueada · permite Ubicación en los ajustes del sitio junto a la dirección web':'Clima simulado · activar datos reales';
+     return;
+   }
    solarCoordinates=climate.coordinates;
    weatherOverride=false;
    await pollClimate(true);
  }catch(err){
-   climateMessage=err?.message==='Ubicación no autorizada'?'Ubicación no autorizada · clima simulado':'Datos no disponibles · clima simulado';
- }finally{climatePending=false;updateWeatherUI(new Date(simMs));}
+   if(attempt!==climateAttempt)return;
+   const denied=err?.message==='Ubicación no autorizada';
+   climateMessage=denied?'Ubicación bloqueada · permite Ubicación en los ajustes del sitio junto a la dirección web':
+     err?.message==='Geolocalización no disponible'?'El navegador no permite acceder a la ubicación · clima simulado':
+     'Datos no disponibles · clima simulado';
+ }finally{
+   if(attempt===climateAttempt){
+     climatePending=false;climateInitialRestore=false;
+     updateWeatherUI(new Date(simMs));
+   }
+ }
 }
 async function pollClimate(force=false){
  lastClimatePoll=Date.now();
@@ -510,11 +530,13 @@ function refreshPicker(){
 }
 function bindUI(){
  refreshPicker();
- $('enter-btn').addEventListener('click',()=>{
+ const enterExperience=(withLocation)=>{
    $('intro').classList.add('off');
    void audioToggle();
-   void connectClimate(false);
- });
+   if(withLocation)void connectClimate(false);
+ };
+ $('enter-btn').addEventListener('click',()=>enterExperience(true));
+ $('skip-location-btn').addEventListener('click',()=>enterExperience(false));
  $('audio-btn').addEventListener('click',audioToggle);
  $('tv-audio').addEventListener('click',audioToggle);
  $('photo-btn').addEventListener('click',png);
