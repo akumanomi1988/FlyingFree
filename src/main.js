@@ -292,7 +292,7 @@ function ambient(date,dt){
   moonHalo.position.copy(moonOrb.position);moonHalo.visible=moonOrb.visible;
   skyFX.update(camera,sun,weatherState);
   windField.update(elapsed,weatherState);
-  sound.update(weatherState,night);
+  sound.update(weatherState,sun,currentWeather.id);
   return sun;
 }
 function fly(date,dt,sun){
