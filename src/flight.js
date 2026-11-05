@@ -117,9 +117,10 @@ export function createBirdRig(THREE,profile) {
       [isOwl?.09:.065,isOwl?.105:.067,.056]);
     if(profile.id!=='swift'&&profile.id!=='swallow'){
       const leg=add(cylinder,bill,root,[side*.22,-.48,.32],[1,isHeron?1.85:.90,1],[.2,0,0]);
+      leg.userData.restScaleY=isHeron?1.85:.90;
       legs.push(leg);
-      for(let toe=-1;toe<=1;toe++)add(sph,bill,leg,[toe*.9,-.50,-.14],
-        [.57,.08,.44]); // parented so feet articulate with the leg
+      for(let toe=-1;toe<=1;toe++)add(sph,bill,leg,[toe*.11,-.50,-.13],
+        [.085,.05,.18]); // parented so feet articulate with the leg
     }
   }
 
@@ -201,7 +202,7 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   for(const leg of legs){
     const legTarget=legsOut?.18:-1.12;
     leg.rotation.x+=(legTarget-leg.rotation.x)*k;
-    leg.scale.y+=((legsOut?1:.18)-leg.scale.y)*k;
+    leg.scale.y+=((legsOut?leg.userData.restScaleY:leg.userData.restScaleY*.18)-leg.scale.y)*k;
     leg.position.y+=((legsOut?-.48:-.30)-leg.position.y)*k;
   }
   group.rotation.z=bank;
