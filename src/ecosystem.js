@@ -20,14 +20,16 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   }
   function deer(){
     const group=new THREE.Group();
-    create(group,sphere,brown,0,1.5,0,.52,.53,1.08);
+    group.userData.legs=[];
+    group.userData.body=create(group,sphere,brown,0,1.5,0,.52,.53,1.08);
     create(group,sphere,cream,0,1.6,-.77,.33,.55,.46);
-    create(group,sphere,brown,0,2.14,-.91,.30,.31,.38);
+    group.userData.head=create(group,sphere,brown,0,2.14,-.91,.30,.31,.38);
     create(group,sphere,dark,0,2.16,-1.24,.16,.14,.21);
     for(const side of [-1,1]){
       create(group,sphere,brown,side*.28,2.38,-.82,.22,.13,.28);
       for(const z of [-.63,.7]){
-        const leg=create(group,legGeo,brown,side*.3,.68,z,.75,1.22,.75);leg.userData.leg={side,z};
+        const leg=create(group,legGeo,brown,side*.3,.68,z,.75,1.22,.75);
+        leg.userData.leg={side,z};group.userData.legs.push(leg);
       }
       if(rng()>.32){
         const antler=create(group,antlerGeo,cream,side*.22,2.73,-1.0,.85,.69,.85);
@@ -39,13 +41,17 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   }
   function fox(){
     const g=new THREE.Group();
-    create(g,sphere,foxCoat,0,.65,0,.35,.35,.86);
-    create(g,sphere,foxCoat,0,.79,-.67,.34,.34,.40);
+    g.userData.legs=[];
+    g.userData.body=create(g,sphere,foxCoat,0,.65,0,.35,.35,.86);
+    g.userData.head=create(g,sphere,foxCoat,0,.79,-.67,.34,.34,.40);
     create(g,new THREE.ConeGeometry(.21,.46,6),white,0,.6,-1.06,.75,.65,1,[Math.PI/2,0,0]);
     for(const side of [-1,1]){
       const ear=create(g,new THREE.ConeGeometry(.16,.38,5),foxCoat,side*.25,1.15,-.82);
       ear.rotation.x=-.15;
-      for(const z of [-.52,.57])create(g,legGeo,dark,side*.25,.24,z,.54,.44,.54);
+      for(const z of [-.52,.57]){
+        const leg=create(g,legGeo,dark,side*.25,.24,z,.54,.44,.54);
+        leg.userData.leg={side,z};g.userData.legs.push(leg);
+      }
     }
     const tail=create(g,sphere,foxCoat,0,.65,.90,.26,.27,.82);
     tail.rotation.x=-.35;g.userData.tail=tail;g.scale.setScalar(4.8);
@@ -53,12 +59,17 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   }
   function rabbit(){
     const g=new THREE.Group();
-    create(g,sphere,cream,0,.36,0,.35,.34,.51);
+    g.userData.legs=[];g.userData.ears=[];
+    g.userData.body=create(g,sphere,cream,0,.36,0,.35,.34,.51);
     create(g,sphere,brown,0,.54,-.43,.28,.28,.30);
     for(const side of [-1,1]){
       const ear=create(g,sphere,cream,side*.14,1.02,-.43,.105,.45,.16);
-      ear.rotation.z=side*.18;
+      ear.rotation.z=side*.18;g.userData.ears.push(ear);
+      const paw=create(g,sphere,brown,side*.25,.18,-.28,.17,.14,.27);
+      g.userData.legs.push(paw);
     }
+    const hind=create(g,sphere,brown,0,.24,.40,.29,.26,.27);
+    g.userData.legs.push(hind);
     g.scale.setScalar(3.1);return g;
   }
   function addActor(type,count,range){
@@ -118,7 +129,10 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     const group=new THREE.Group();
     create(group,sphere,dolphinMat,0,0,0,.56,.42,1.85);
     create(group,new THREE.ConeGeometry(.34,.7,5),dolphinMat,0,.48,.32,1,1,1,[0,0,Math.PI]);
-    create(group,sphere,dolphinMat,0,0,-1.55,.25,.24,.71);
+    const tail=new THREE.Group();tail.position.z=1.2;group.add(tail);
+    create(tail,sphere,dolphinMat,0,0,.30,.2,.16,.65);
+    for(const side of [-1,1])create(tail,sphere,dolphinMat,side*.32,0,.64,.42,.055,.23);
+    group.userData.tail=tail;
     group.scale.setScalar(7);
     root.add(group);
     dolphins.push({group,phase:rng()*TAU,radius:1900+rng()*470,period:11+rng()*12,offset:i});
@@ -145,8 +159,21 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       g.position.set(px,terrainHeight(px,pz)+(s.type==='rabbit'&&(move||alert||enemy)?Math.abs(Math.sin(t*5+s.seed))*3.6:0),pz);
       g.userData.behaviour=enemy?'flee':prey?'hunt':alert?'alert':grazing?'foraging':'travelling';
       g.rotation.y=-theta+.1*Math.sin(t*.25+s.seed);
+      const running=Boolean(enemy||prey||alert||move);
+      const phaseStride=t*(s.type==='rabbit'?12:s.type==='fox'?7:4.4)+s.seed;
+      const intensity=running?(s.type==='rabbit'?.48:.33):.045;
+      for(let i=0;i<(g.userData.legs?.length||0);i++){
+        const leg=g.userData.legs[i];
+        const side=leg.userData.leg?.side||1,z=leg.userData.leg?.z||0;
+        leg.rotation.x=Math.sin(phaseStride+(side<0?Math.PI:0)+(z>0?Math.PI:0))*intensity;
+      }
+      if(g.userData.ears)g.userData.ears.forEach((ear,i)=>ear.rotation.z=(i===0?-1:1)*(.18+Math.sin(t*2+s.seed)*.07));
       if(g.userData.tail)g.userData.tail.rotation.x=-.35+Math.sin(t*3.1+s.seed)*.2;
-      g.rotation.x=grazing&&s.type==='deer'?Math.sin(t*.17+s.seed)*.08:0;
+      if(g.userData.body){
+        g.userData.body.scale.y=(s.type==='rabbit'?.34:s.type==='fox'?.35:.53)*(1+.014*Math.sin(t*1.25+s.seed));
+      }
+      if(g.userData.head)g.userData.head.rotation.x=grazing?.13+Math.sin(t*.58+s.seed)*.11:Math.sin(t*.68+s.seed)*.06;
+      g.rotation.x=s.type==='deer'&&grazing?Math.sin(t*.17+s.seed)*.025:0;
       g.visible=!observer||Math.hypot(observer.x-g.position.x,observer.z-g.position.z)<1050;
     }
     for(const b of butterflies){
@@ -161,12 +188,14 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const time=t*.12+b.phase,theta=time+b.offset;
       b.g.position.set(Math.sin(theta)*b.radius,b.alt+Math.sin(time*1.4)*22,Math.cos(theta)*b.radius*.78);
       b.g.rotation.set(Math.sin(time*1.8)*.08,theta+.7,Math.cos(time*.6)*.19);
+      b.g.scale.y=7.6+Math.sin(t*3.8+b.phase)*1.65;
     }
     for(const d of dolphins){
       const theta=t*.028+d.phase, pulse=(t+d.offset*3.1)%d.period;
       const breach=pulse<2.5?Math.pow(Math.sin(pulse/2.5*Math.PI),2)*35:0;
       d.group.position.set(Math.sin(theta)*d.radius,-11+breach,Math.cos(theta)*d.radius*.94);
-      d.group.rotation.set(pulse<2.5?Math.cos(pulse/2.5*Math.PI)*.8:0,theta,0);
+      d.group.rotation.set(pulse<2.5?Math.cos(pulse/2.5*Math.PI)*.8:0,theta,Math.sin(t*1.6+d.offset)*.09);
+      d.group.userData.tail.rotation.x=Math.sin(t*4.6+d.offset)*.24;
     }
   }
   function focus(t){

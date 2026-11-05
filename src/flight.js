@@ -15,7 +15,7 @@ export function createBirdRig(THREE, profile) {
     const m=new THREE.Mesh(geo,mat); if(position)m.position.set(...position);if(scale)m.scale.set(...scale);
     if(rotation)m.rotation.set(...rotation);parent.add(m);return m;
   };
-  const sph=new THREE.SphereGeometry(1,14,10);
+  const sph=new THREE.SphereGeometry(1,14,10),legs=[];
   const isLong=profile.id==='heron', isHumming=profile.id==='hummingbird', isOwl=profile.id==='owl';
   const neck=isLong?1.38:.54;
   add(sph,plumage,group,[0,0,.1],[.42,.37,isLong?1.28:1.12]);
@@ -33,7 +33,7 @@ export function createBirdRig(THREE, profile) {
     add(sph,eyeMat,group,[side*(isOwl?.25:.23),.27+neck*.24,faceZ-.12],[isOwl?.10:.061,isOwl?.1:.066,.047]);
     if(!isHumming&&profile.id!=='swift'&&profile.id!=='swallow'){
       const leg=add(new THREE.CylinderGeometry(.045,.062,.54,6),bill,group,[side*.23,-.51,.32],[1,1,1],[.2,0,0]);
-      leg.userData.leg=true;
+      leg.userData.leg=true;legs.push(leg);
     }
   }
   const ws=profile.wings;
@@ -71,27 +71,48 @@ export function createBirdRig(THREE, profile) {
   if(profile.id==='kingfisher')add(sph,new THREE.MeshStandardMaterial({color:0x0c8295}),group,[0,.15,.2],[.22,.20,.65]);
   const size=profile.visualScale??(isHumming?4:profile.id==='albatross'?13:10);
   group.scale.setScalar(size);
-  group.userData={profile,left,right,tail};
+  group.userData={profile,left,right,tail,legs,fold:0,flap:0,headTurn:0};
   return group;
 }
 
 export function animateBirdRig(group,elapsed,activity,dt=1/60){
-  const {profile,left,right,tail}=group.userData;
-  const flapRate=profile.flapRate??3.8;
-  const activityBias=activity.sleeping?0:activity.energy??.45;
-  const hover=profile.flight==='hover';
-  const glide=profile.flight==='soar'||profile.flight==='marine';
-  const beat=Math.sin(elapsed*flapRate+(profile.id.length*.7));
-  const beats=glide?Math.max(0,Math.sin(elapsed*.35))*.16: .17+activityBias*.16;
-  const wings=activity.sleeping?1.18:(hover?beat*.47:beat*beats);
-  left.pivot.rotation.z=-wings;
-  right.pivot.rotation.z=wings;
-  left.tip.rotation.z=-Math.sin(elapsed*flapRate-.6)*.08;
-  right.tip.rotation.z=Math.sin(elapsed*flapRate-.6)*.08;
-  left.pivot.rotation.x=-.045-Math.sin(elapsed*.8)*.025;
-  right.pivot.rotation.x=-.045-Math.sin(elapsed*.8)*.025;
-  tail.rotation.y=Math.sin(elapsed*.67)*.10;
-  tail.rotation.x=activity.sleeping?-.16:Math.sin(elapsed*1.04)*.045;
-  group.rotation.z=clamp(activity.bank??0,-.65,.65);
-  group.rotation.x=activity.sleeping?0:clamp(activity.pitch??0,-.33,.33);
+ const {profile,left,right,tail,legs}=group.userData;
+ const flight=profile.flight;
+ const grounded=Boolean(activity.grounded),foldWanted=activity.sleeping||grounded?1:0;
+ const k=1-Math.exp(-Math.max(0,Math.min(.12,dt))*9);
+ group.userData.fold+=(foldWanted-group.userData.fold)*k;
+ const fold=group.userData.fold;
+ const rate=profile.flapRate??3.8;
+ const energy=clamp(activity.energy??.5,0,1);
+ const power=flight==='hover'?.37:flight==='dash'?.28:flight==='nocturnal'?.19:.12;
+ // Gliders flap in short periods; hummingbirds maintain near-continuous wingbeats.
+ const soar=flight==='soar'||flight==='marine';
+ const flyCycle=Math.sin(elapsed*rate+profile.id.length*.73);
+ const pulse=soar?Math.pow(Math.max(0,Math.sin(elapsed*.55)),4):1;
+ const targetFlap=flyCycle*(power+energy*.10)*pulse;
+ group.userData.flap+=(targetFlap-group.userData.flap)*(.3+.5*k);
+ const wingbeat=group.userData.flap*(1-fold);
+ const bank=clamp(activity.bank??0,-.65,.65);
+ const leftFold=fold*.81,rightFold=fold*.81;
+ left.pivot.rotation.z=-(leftFold+wingbeat+bank*.085);
+ right.pivot.rotation.z=rightFold+wingbeat-bank*.085;
+ left.pivot.rotation.y=-fold*.61+Math.cos(elapsed*.53)*.02*(1-fold);
+ right.pivot.rotation.y=fold*.61-Math.cos(elapsed*.53)*.02*(1-fold);
+ left.pivot.rotation.x=-.025-Math.sin(elapsed*.81)*.05*(1-fold);
+ right.pivot.rotation.x=-.025+Math.sin(elapsed*.81)*.05*(1-fold);
+ const tipFlex=Math.sin(elapsed*rate-.52)*.11*(1-fold);
+ left.tip.rotation.z=-tipFlex;
+ right.tip.rotation.z=tipFlex;
+ // Tail feathers steer on turns and fan during final approach.
+ tail.rotation.y=Math.sin(elapsed*.55)*.045+bank*.21;
+ tail.rotation.x=fold?-.13:Math.sin(elapsed*.95)*.052;
+ tail.scale.x=1+(activity.state==='landing'?.23:.07)*Math.abs(bank);
+ const legsOut=grounded||activity.state==='landing'||activity.state==='approach';
+ for(let i=0;i<legs.length;i++){
+   const leg=legs[i];
+   const legTarget=legsOut?.18:-.36;
+   leg.rotation.x+=(legTarget-leg.rotation.x)*k;
+ }
+ group.rotation.z=bank;
+ group.rotation.x=grounded?0:clamp(activity.pitch??0,-.34,.34);
 }
