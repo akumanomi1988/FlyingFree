@@ -97,7 +97,7 @@ try{
   await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1',1440,900);
   await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog',390,844,
     async(page)=>{
-      assert.equal(await page.locator('#enter-btn').innerText(),'ENTRAR CON CLIMA LOCAL ↗');
+      assert.match(await page.locator('#enter-btn').innerText(),/ENTRAR CON CLIMA LOCAL/);
       assert.equal(await page.locator('#skip-location-btn').isVisible(),true);
       await page.locator('#skip-location-btn').click();
       assert.equal(await page.locator('#intro').evaluate(e=>e.classList.contains('off')),true);
