@@ -1,6 +1,7 @@
 import { clamp } from './core.js';
 import { birdRigScale } from './worldScale.js';
 import { batchStaticMeshes } from './meshBatch.js';
+import { birdPlumage } from './speciesAppearance.js';
 
 // Species-dependent wing planform; span remains calibrated by birdRigScale.
 // Detailed surfaces are reserved for the camera-followed protagonist.
@@ -67,15 +68,19 @@ export function createContourFeatherGeometry(THREE) {
 
 export function createBirdRig(THREE,profile) {
   const root=new THREE.Group();
-  const baseColor=new THREE.Color(profile.color);
+  const colors=birdPlumage(profile.id);
   const material=(color,roughness=.93)=>new THREE.MeshStandardMaterial({
     color,roughness,metalness:0,flatShading:false,side:THREE.DoubleSide
   });
-  const plumage=material(baseColor);
-  const dark=material(baseColor.clone().multiplyScalar(.69));
-  const light=material(baseColor.clone().lerp(new THREE.Color('#f4e4bc'),.32));
-  const wingMat=material(baseColor.clone().lerp(new THREE.Color('#d7d3bd'),.12));
-  const bill=material(['heron','kingfisher'].includes(profile.id)?0xdbab4e:0x53463a,.8);
+  const plumage=material(profile.color);
+  const dark=material(colors.tip);
+  const light=material(colors.chest);
+  const wingMat=material(colors.wing);
+  const crown=material(colors.crown);
+  const iris=material(colors.iris,.58);
+  const mask=colors.mask?material(colors.mask):null;
+  const throat=colors.throat?material(colors.throat):null;
+  const bill=material(colors.bill,.8);
   const eyes=material(0x171613,.3);
   const sph=new THREE.SphereGeometry(1,22,14);
   const feather=createContourFeatherGeometry(THREE);
@@ -100,7 +105,7 @@ export function createBirdRig(THREE,profile) {
   }
   const headY=isHeron?.71:.22;
   const headZ=isHeron?-1.20:-1.04;
-  add(sph,plumage,root,[0,headY,headZ],[isOwl?.39:.30,isOwl?.36:.28,.34]);
+  add(sph,crown,root,[0,headY,headZ],[isOwl?.39:.30,isOwl?.36:.28,.34]);
   if(isOwl){
     for(const side of [-1,1]){
       add(sph,light,root,[side*.18,headY+.04,headZ-.23],[.20,.23,.08]);
@@ -117,9 +122,17 @@ export function createBirdRig(THREE,profile) {
   const billLength=isHumming?.98:isHeron?.83:profile.id==='albatross'?.64:.34;
   add(new THREE.ConeGeometry(isHumming?.055:.12,billLength,10),bill,root,
     [0,headY-.025,headZ-.28-billLength*.38],[1,1,1],[-Math.PI/2,0,0]);
+  if(throat){
+    add(sph,throat,root,[0,headY-.17,headZ-.22],[.19,.17,.135]);
+  }
   for(const side of [-1,1]){
-    add(sph,eyes,root,[side*(isOwl?.205:.245),headY+.095,headZ-.19],
-      [isOwl?.09:.065,isOwl?.105:.067,.056]);
+    const ex=side*(isOwl?.205:.245),ey=headY+.095;
+    if(mask)add(sph,mask,root,[side*(isOwl?.275:.27),headY+.035,headZ-.13],
+      [.08,.14,.17]);
+    add(sph,iris,root,[ex,ey,headZ-.19],
+      [isOwl?.125:.085,isOwl?.13:.087,.053]);
+    add(sph,eyes,root,[ex,ey,headZ-.23],
+      [isOwl?.066:.052,isOwl?.073:.052,.048]);
     if(profile.id!=='swift'&&profile.id!=='swallow'){
       const leg=add(cylinder,bill,root,[side*.22,-.48,.32],[1,isHeron?1.85:.90,1],[.2,0,0]);
       leg.userData.restScaleY=isHeron?1.85:.90;
