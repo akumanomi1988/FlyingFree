@@ -33,14 +33,17 @@ export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
   for(const mesh of [branches,broad,needles]){
     mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);
   }
-  let lastTime=-Infinity,lastX=Infinity,lastY=Infinity,lastZ=Infinity,active=0,fadeDistance=TREE_DETAIL_RADIUS;
+  let lastTime=-Infinity,lastX=Infinity,lastY=Infinity,lastZ=Infinity,active=0,fadeDistance=TREE_DETAIL_RADIUS,refreshes=0;
 
   function update(position,t){
     const dx=position.x-lastX,dy=position.y-lastY,dz=position.z-lastZ;
-    // Fast flight moves the camera tens of metres per second: refresh before
-    // large 3D crown jumps become visible, but skip updates while stationary.
-    if(t-lastTime<.12&&(dx*dx+dy*dy+dz*dz)<16)return;
+    // Avoid rebuilding all instance matrices every 0.12 s while stationary.
+    // Refresh sooner when the cinematic camera moves at flight speed.
+    const movedSq=dx*dx+dy*dy+dz*dz;
+    if(movedSq<9&&t-lastTime<3)return;
+    if(t-lastTime<.10)return;
     lastX=position.x;lastY=position.y;lastZ=position.z;lastTime=t;
+    refreshes++;
     const visible=[];
     for(const record of records){
       const x=record.x-position.x,z=record.z-position.z,y=record.y+record.height*.6-position.y;
@@ -117,6 +120,7 @@ export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
     get drawCalls(){return 3;},
     get poolCapacity(){return maxTrees;},
     get fadeDistance(){return fadeDistance;},
+    get updateCount(){return refreshes;},
     dispose(){
       for(const mesh of [branches,broad,needles]){
         scene.remove(mesh);mesh.geometry.dispose();mesh.material.dispose();
