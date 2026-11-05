@@ -91,6 +91,9 @@ function init(){
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
+  // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
+  status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
+  status.performance={...frameTelemetry.snapshot(),drawCalls:0,triangles:0,points:0,lines:0};
   window.addEventListener('resize',onResize,{passive:true});
   bindUI();onResize();status.ready=true;status.scene={terrain:true,forest:true,bird:true,water:true,clouds:true,stars:true,fauna:true,sky:true,rain:true};
   if(opts.broadcast){$('intro').classList.add('off');document.body.classList.add('no-ui');}
