@@ -69,6 +69,30 @@ test('deer and foxes have articulated knee and hoof meshes without GPU allocatio
   }));
 });
 
+test('planted hooves retain their world coordinates during a walking stance',()=>{
+  const world=createEcosystem(THREE,new THREE.Scene(),1988,.8);
+  const deer=world.actors.find(a=>a.userData.state.type==='deer');
+  const state=deer.userData.state;
+  const base=((state.seed/state.cycle)%1+1)%1;
+  const t=((.8-base+1)%1)*state.cycle;
+  const observer=deer.position.clone().add(new THREE.Vector3(0,4,0));
+  world.update(t,1,0,null,0,observer);
+  const previous=deer.userData.limbs.map(chain=>({
+    planted:chain.planted,worldFoot:chain.worldFoot.clone()
+  }));
+  world.update(t+.016,1,0,null,0,observer);
+  let stable=0;
+  for(let i=0;i<previous.length;i++){
+    const contact=deer.userData.limbs[i];
+    if(previous[i].planted&&contact.planted){
+      assert.ok(previous[i].worldFoot.distanceTo(contact.worldFoot)<1e-6,
+        'hoof slides through the terrain during stance');
+      stable++;
+    }
+  }
+  assert.ok(stable>0,'walking gait must have supporting hooves');
+});
+
 test('non-default terrain seed does not snap fauna vertically on first update',()=>{
   const scene=new THREE.Scene(),seed=417;
   const eco=createEcosystem(THREE,scene,seed,.6);
