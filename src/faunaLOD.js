@@ -23,6 +23,20 @@ export function faunaPathOffset(t,state,radius){
   };
 }
 
+// Align animal bodies to the local terrain normal with a limited cinematic tilt.
+// Separate pitch and roll prevent steep slopes from unnaturally tipping the rig.
+export function terrainSlopeAngles(gradeX,gradeZ,heading){
+  const gx=Number.isFinite(gradeX)?gradeX:0;
+  const gz=Number.isFinite(gradeZ)?gradeZ:0;
+  const yaw=Number.isFinite(heading)?heading:0;
+  const pitch=Math.atan(-gx*Math.sin(yaw)-gz*Math.cos(yaw));
+  const roll=Math.atan(gx*Math.cos(yaw)-gz*Math.sin(yaw));
+  return {
+    pitch:Math.max(-.22,Math.min(.22,pitch)),
+    roll:Math.max(-.22,Math.min(.22,roll))
+  };
+}
+
 export function shouldAnimateFauna(distance,type) {
   return !Number.isFinite(distance)||distance<=FAUNA_MOTION_DISTANCE[type];
 }
