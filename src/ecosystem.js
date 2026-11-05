@@ -36,26 +36,29 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     group.userData.legs=[];
     group.userData.body=create(group,sphere,brown,0,1.5,0,.52,.53,1.08);
     create(group,sphere,cream,0,1.6,-.77,.33,.55,.46);
-    group.userData.head=create(group,sphere,brown,0,2.14,-.91,.30,.31,.38);
-    detail(group,sphere,cream,0,2.10,-1.19,.20,.16,.30);
-    detail(group,sphere,dark,0,2.16,-1.46,.105,.085,.09);
     detail(group,sphere,cream,0,1.61,.98,.30,.24,.15);
+    // A real head joint rotates its muzzle, ears, eyes and antlers together.
+    const head=new THREE.Group();
+    head.position.set(0,2.14,-.91);group.add(head);
+    group.userData.head=head;
+    create(head,sphere,brown,0,0,0,.30,.31,.38);
+    detail(head,sphere,cream,0,-.04,-.28,.20,.16,.30);
+    detail(head,sphere,dark,0,.02,-.55,.105,.085,.09);
     for(const side of [-1,1]){
-      const ear=create(group,sphere,brown,side*.36,2.42,-.79,.25,.11,.30);
+      const ear=create(head,sphere,brown,side*.36,.28,.12,.25,.11,.30);
       ear.rotation.z=side*.18;
-      detail(group,sphere,cream,side*.36,2.43,-.84,.17,.065,.19);
-      detail(group,eyeGeo,dark,side*.275,2.24,-1.08,.071,.072,.057);
+      detail(head,sphere,cream,side*.36,.29,.07,.17,.065,.19);
+      detail(head,eyeGeo,dark,side*.275,.10,-.17,.071,.072,.057);
       for(const z of [-.63,.7]){
         const leg=create(group,legGeo,brown,side*.3,.68,z,.75,1.22,.75);
         leg.userData.leg={side,z};group.userData.legs.push(leg);
       }
       if(rng()>.32){
-        // Branching antlers taper outward; reused geometry keeps per-deer cost bounded.
-        segment(group,cream,[side*.21,2.42,-.96],[side*.41,3.04,-1.04],1.15);
-        segment(group,cream,[side*.41,3.04,-1.04],[side*.57,3.30,-1.06],.80);
-        segment(group,cream,[side*.33,2.80,-1.01],[side*.58,2.91,-1.28],.66);
-        segment(group,cream,[side*.43,3.04,-1.05],[side*.71,3.16,-1.26],.53);
-        segment(group,cream,[side*.49,3.16,-1.05],[side*.67,3.37,-1.17],.40);
+        segment(head,cream,[side*.21,.28,-.05],[side*.41,.90,-.13],1.15);
+        segment(head,cream,[side*.41,.90,-.13],[side*.57,1.16,-.15],.80);
+        segment(head,cream,[side*.33,.66,-.10],[side*.58,.77,-.37],.66);
+        segment(head,cream,[side*.43,.90,-.14],[side*.71,1.02,-.35],.53);
+        segment(head,cream,[side*.49,1.02,-.14],[side*.67,1.23,-.26],.40);
       }
     }
     group.scale.setScalar(FAUNA_SCALE.deer);
@@ -65,16 +68,19 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     const g=new THREE.Group();
     g.userData.legs=[];
     g.userData.body=create(g,sphere,foxCoat,0,.65,0,.35,.35,.86);
-    g.userData.head=create(g,sphere,foxCoat,0,.79,-.67,.34,.34,.40);
     create(g,sphere,white,0,.52,-.83,.27,.16,.46);
-    create(g,new THREE.ConeGeometry(.21,.46,12),white,0,.64,-1.09,.78,.68,1,[-Math.PI/2,0,0]);
-    detail(g,eyeGeo,dark,0,.69,-1.33,.085,.085,.095);
+    // Facial details follow the same articulated head, not a fixed body.
+    const head=new THREE.Group();head.position.set(0,.79,-.67);g.add(head);
+    g.userData.head=head;
+    create(head,sphere,foxCoat,0,0,0,.34,.34,.40);
+    create(head,new THREE.ConeGeometry(.21,.46,12),white,0,-.15,-.42,.78,.68,1,[-Math.PI/2,0,0]);
+    detail(head,eyeGeo,dark,0,-.10,-.66,.085,.085,.095);
     for(const side of [-1,1]){
-      const ear=create(g,new THREE.ConeGeometry(.15,.39,9),foxCoat,side*.25,1.15,-.82);
+      const ear=create(head,new THREE.ConeGeometry(.15,.39,9),foxCoat,side*.25,.36,-.15);
       ear.rotation.x=-.15;
-      detail(g,new THREE.ConeGeometry(.085,.25,9),dark,side*.25,1.18,-.86);
-      detail(g,eyeGeo,dark,side*.28,.91,-.88,.074,.075,.065);
-      detail(g,sphere,white,side*.23,.51,-.91,.17,.15,.22);
+      detail(head,new THREE.ConeGeometry(.085,.25,9),dark,side*.25,.39,-.19);
+      detail(head,eyeGeo,dark,side*.28,.12,-.21,.074,.075,.065);
+      detail(head,sphere,white,side*.23,-.28,-.24,.17,.15,.22);
       for(const z of [-.52,.57]){
         const leg=create(g,legGeo,dark,side*.25,.24,z,.54,.44,.54);
         leg.userData.leg={side,z};g.userData.legs.push(leg);

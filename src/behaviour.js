@@ -3,15 +3,22 @@ import {resourcePoint,foodType,habitatAt} from './ecology.js';
 
 // Deterministic, species-aware utility AI. The bird has physiological drives and
 // explicit take-off, approach, landing, foraging, resting and sheltered states.
-export function createBirdBrain(profile,seed=1988){
+export function createBirdBrain(profile,seed=1988,initial=null){
  const rng=random(seed ^ profile.id.split('').reduce((n,c)=>n*31+c.charCodeAt(0),7));
  const flight=profile.flight,marine=flight==='marine',owl=flight==='nocturnal',swift=profile.id==='swift';
  const cruise={dash:80,soar:57,marine:62,hover:36,nocturnal:40,wade:30}[flight]||45;
  const maxTurn=flight==='dash'?1.55:flight==='soar'||marine?.68:1.18;
  const startA=rng()*TAU,startR=marine?1930:Math.max(140,profile.radius*.65);
- let x=Math.cos(startA)*startR,z=Math.sin(startA)*startR,
- y=marine?65:Math.max(terrainHeight(x,z)+95,profile.alt),heading=startA,velocity=cruise*.55;
- let state='patrol',until=0,tx=x,tz=z,ty=y,energy=.76,hunger=.79;
+ // Species changes retain continuous world-space motion rather than respawning.
+ // The new species still chooses fresh habitat-specific targets and flight dynamics.
+ const finite=(v,fallback)=>Number.isFinite(v)?v:fallback;
+ let x=finite(initial?.x,Math.cos(startA)*startR),
+ z=finite(initial?.z,Math.sin(startA)*startR),
+ y=finite(initial?.y,marine?65:Math.max(terrainHeight(x,z)+95,profile.alt)),
+ heading=finite(initial?.heading,startA),
+ velocity=clamp(finite(initial?.velocity,cruise*.55),0,110);
+ let state='patrol',until=0,tx=x,tz=z,ty=y,
+ energy=clamp(finite(initial?.energy,.76)),hunger=clamp(finite(initial?.hunger,.79));
  let food=null,activityChangedAt=0,landings=0,feedings=0,landingRest=false;
  function clearance(px,pz,kind){
   const ground=terrainHeight(px,pz);
@@ -116,6 +123,7 @@ export function createBirdBrain(profile,seed=1988){
    hunger,energy,food:food?.kind||null,landings,feedings};
  },
  get state(){return state;},
+ get snapshot(){return {x,y,z,heading,velocity,energy,hunger};},
  get diagnostics(){return {state,energy,hunger,landings,feedings};}
  };
 }
