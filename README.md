@@ -47,3 +47,6 @@ Every PR and feature-branch push runs this in GitHub Actions. The `main` workflo
 This is a stylized, procedural ecosystem, not photorealistic animal footage or an ecological simulator. Animal shape/behaviour is representative rather than anatomically and biomechanically exhaustive. It does **not** contain an OBS/RTMP supervisor, nor has 72-hour continuous-operation testing been completed. GitHub Pages hosts the WebGL app; live video emission is a separate Windows/OBS undertaking.
 
 No external image, video, or recorded music assets are required.
+
+## Living world 0.3
+Bird behaviour is a species-speed state machine (cruise, survey, forage, shelter, rest) responding to daylight, rain and energy. Near-field grass, flowers and shrubs use pooled GPU instances and are altitude-culled with hysteresis. Behaviour is approximate, not biologically exact.

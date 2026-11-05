@@ -4,12 +4,14 @@ import {Soundscape} from './audio.js';
 import {createBirdRig,animateBirdRig} from './flight.js';
 import {createEcosystem} from './ecosystem.js';
 import {createSky,createOcean,createPrecipitation} from './renderfx.js';
+import {createBirdBrain} from './behaviour.js';
+import {createGroundDetail} from './vegetation.js';
 
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
-const status={version:'0.2.0',ready:false,frames:0,fps:0,error:null,scene:null};
+const status={version:'0.3.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
-let ecosystem,skyFX,oceanFX,rainFX;
+let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail;
 let scaleFactor=1,lowFpsSeconds=0,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
 let simMs=opts.hour!=null?withMadridHour(new Date(),opts.hour).getTime():
   opts.phase?withMadridHour(new Date(),solarPhaseHour(new Date(),opts.phase)).getTime():Date.now();
@@ -49,6 +51,7 @@ function init(){
   cameraLook.set(startPos.x,startPos.y,startPos.z);
   camera.lookAt(cameraLook);
   ecosystem=createEcosystem(THREE,scene,1988,innerWidth<720?.65:1);
+  groundDetail=createGroundDetail(THREE,scene,innerWidth<720?.5:1);
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
@@ -176,7 +179,7 @@ function createStars(){
 }
 function createBird(){
   if(birdModel)scene.remove(birdModel);
-  birdModel=createBirdRig(THREE,currentBird);
+  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird);
   scene.add(birdModel);
   status.bird=currentBird.id;
 }
@@ -226,30 +229,13 @@ function ambient(date,dt){
   return sun;
 }
 function fly(date,dt,sun){
-  const day=smooth(-.14,.045,sun.altitude);
-  const needsRest=currentBird.flight==='nocturnal'?day:(currentBird.flight==='dash'&&currentBird.id==='swift'?.12*(1-day):1-day);
-  sleepFactor=lerp(sleepFactor,needsRest,1-Math.exp(-dt*.29));
-  const target=birdPosition(elapsed,currentBird);
-  const aquatic=currentBird.flight==='marine';
-  const roostX=aquatic?1840:currentBird.flight==='wade'?610:175;
-  const roostZ=aquatic?830:currentBird.flight==='wade'?540:105;
-  const roostY=aquatic?-1:terrainHeight(roostX,roostZ)+Math.max(5,currentBird.visualScale*.50);
-  const p=new THREE.Vector3(
-    lerp(target.x,roostX,sleepFactor),
-    lerp(target.y,roostY,sleepFactor),
-    lerp(target.z,roostZ,sleepFactor)
-  );
-  if(!aquatic)p.y=Math.max(p.y,terrainHeight(p.x,p.z)+8);
-  birdModel.position.copy(p);
-  const ahead=birdPosition(elapsed+.15,currentBird);
-  const vx=ahead.x-target.x,vz=ahead.z-target.z;
-  const yaw=Math.atan2(-vx,-vz);
-  birdModel.rotation.y=lerp(yaw,0,sleepFactor);
-  const bank=Math.sin(elapsed*.13)*.11*(1-sleepFactor);
-  const pitch=Math.sin(elapsed*.25)*.06*(1-sleepFactor);
-  animateBirdRig(birdModel,elapsed,{energy:.33+flapBoost,sleeping:sleepFactor>.83,bank,pitch},dt);
-  flapBoost=Math.max(0,flapBoost-dt*.68);
-  return p;
+ const day=smooth(-.14,.045,sun.altitude);
+ const action=birdBrain.update(elapsed,dt,day,weatherState.rain);
+ birdModel.position.set(action.x,action.y,action.z);
+ birdModel.rotation.y=action.heading;
+ animateBirdRig(birdModel,elapsed,{energy:action.mode==='forage'?.9:.4,sleeping:action.resting,bank:action.bank,pitch:action.pitch},dt);
+ status.behaviour=action.mode;status.flightSpeed=Math.round(action.velocity);
+ return birdModel.position;
 }
 function directCamera(bird,dt){
   const shot=Math.floor(elapsed/31)%7;
@@ -321,7 +307,7 @@ function animate(now){
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
-    status.renderScale=scaleFactor;
+    status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;
     if(status.fps<23)lowFpsSeconds++;else lowFpsSeconds=Math.max(0,lowFpsSeconds-2);
     if(lowFpsSeconds>=8&&scaleFactor>.72){
       scaleFactor=Math.max(.72,scaleFactor*.85);
