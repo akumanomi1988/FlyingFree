@@ -17,7 +17,7 @@ export function createBirdBrain(profile,seed=1988){
   const ground=terrainHeight(px,pz);
   if(marine)return kind==='land'?-5:kind==='hunt'?12:38;
   if(swift)return Math.max(ground+70,95);
-  if(kind==='land')return ground+Math.max(7,profile.visualScale*.50);
+  if(kind==='land')return ground+Math.max(.18,profile.wingspan*.32);
   if(kind==='hunt')return ground+(profile.id==='hummingbird'?11:profile.id==='kingfisher'?10:profile.id==='heron'?8:14);
   return ground+(flight==='soar'?112:flight==='dash'?90:58);
  }
