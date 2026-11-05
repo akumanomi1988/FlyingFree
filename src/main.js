@@ -263,6 +263,7 @@ function createStars(){
   stars=new THREE.Points(g,starMat);scene.add(stars);
 }
 function createBird(){
+  const previousState=birdBrain?.snapshot;
   const previousPosition=birdModel?.position.clone();
   if(birdModel){
     scene.remove(birdModel);
@@ -276,7 +277,7 @@ function createBird(){
     for(const geo of geometries)geo.dispose();
     for(const mat of materials)mat.dispose();
   }
-  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird);
+  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,1988,previousState);
   if(previousPosition)birdModel.position.copy(previousPosition);
   scene.add(birdModel);
   status.bird=currentBird.id;
