@@ -6,6 +6,7 @@ import {createBirdRig,createWingSurfaceGeometry,wingPlanform,animateBirdRig} fro
 import {createEcosystem} from '../src/ecosystem.js';
 import {createTreeDetail,treeDetailWeight,TREE_DETAIL_POOL} from '../src/treeDetail.js';
 import {birdPlumage,BIRD_PLUMAGE} from '../src/speciesAppearance.js';
+import {batchStaticMeshes} from '../src/meshBatch.js';
 
 test('all supported species have visibly distinct anatomy palettes',()=>{
   assert.equal(Object.keys(BIRD_PLUMAGE).length,BIRDS.length);
@@ -89,4 +90,38 @@ test('fauna retains behaviour and receives smooth anatomical meshes',()=>{
   eco.update(8,.8,.2,null,.1,new THREE.Vector3(10000,300,10000));
   assert.ok(deer.userData.details.every(mesh=>!mesh.visible));
   assert.ok(eco.actors.every(g=>typeof g.userData.behaviour==='string'));
+});
+
+test('rigid mesh batching reduces draw calls without changing visible bounds',()=>{
+  const parent=new THREE.Group(),material=new THREE.MeshStandardMaterial({color:0xffffff});
+  const geometry=new THREE.BoxGeometry(1,1,1);
+  for(const x of [-2,0,2]){
+    const mesh=new THREE.Mesh(geometry,material);
+    mesh.position.set(x,.5,x*.3);mesh.rotation.y=x*.09;
+    parent.add(mesh);
+  }
+  const before=new THREE.Box3().setFromObject(parent);
+  const summary=batchStaticMeshes(THREE,parent);
+  const after=new THREE.Box3().setFromObject(parent);
+  assert.deepEqual(summary,{before:3,after:1,drawCallsSaved:2});
+  assert.equal(parent.children.length,1);
+  for(const axis of ['x','y','z']){
+    assert.ok(Math.abs(before.min[axis]-after.min[axis])<1e-5);
+    assert.ok(Math.abs(before.max[axis]-after.max[axis])<1e-5);
+  }
+  parent.children[0].geometry.dispose();geometry.dispose();material.dispose();
+});
+
+test('dense tree patches fade before the fixed instance-pool boundary',()=>{
+  const scene=new THREE.Scene();
+  const records=Array.from({length:80},(_,i)=>({
+    x:25+i*1.25,y:0,z:0,height:22,kind:i%2?'pine':'oak',angle:i*.17
+  }));
+  const layer=createTreeDetail(THREE,scene,records,1);
+  layer.update({x:0,y:10,z:0},0);
+  assert.ok(layer.fadeDistance<145);
+  assert.ok(layer.fadeDistance>0);
+  assert.ok(layer.active<=TREE_DETAIL_POOL);
+  assert.ok(scene.children.every(mesh=>mesh.count<=TREE_DETAIL_POOL*7));
+  layer.dispose();
 });
