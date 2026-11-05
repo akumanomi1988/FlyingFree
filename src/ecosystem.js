@@ -1,5 +1,6 @@
 import { random,terrainHeight,TAU,clamp } from './core.js';
 import {FAUNA_SCALE} from './worldScale.js';
+import {createFaunaLODFactory,faunaPathAngle,shouldAnimateFauna,terrainSlopeAngles} from './faunaLOD.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
 export function createEcosystem(THREE,scene,seed=1988,quality=1){
@@ -24,6 +25,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     return line;
   };
   const actors=[];
+  const faunaLOD=createFaunaLODFactory(THREE,{brown,cream,dark,foxCoat,white});
   function habitatPos(maxRadius,minElevation=22,maxElevation=250){
     for(let i=0;i<100;i++){
       const x=(rng()-.5)*maxRadius*2,z=(rng()-.5)*maxRadius*2;
@@ -34,6 +36,8 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   function deer(){
     const group=new THREE.Group();
     group.userData.legs=[];
+    const antlered=rng()>.42;
+    group.userData.antlered=antlered;
     group.userData.body=create(group,sphere,brown,0,1.5,0,.52,.53,1.08);
     create(group,sphere,cream,0,1.6,-.77,.33,.55,.46);
     detail(group,sphere,cream,0,1.61,.98,.30,.24,.15);
@@ -53,7 +57,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
         const leg=create(group,legGeo,brown,side*.3,.68,z,.75,1.22,.75);
         leg.userData.leg={side,z};group.userData.legs.push(leg);
       }
-      if(rng()>.32){
+      if(antlered){
         segment(head,cream,[side*.21,.28,-.05],[side*.41,.90,-.13],1.15);
         segment(head,cream,[side*.41,.90,-.13],[side*.57,1.16,-.15],.80);
         segment(head,cream,[side*.33,.66,-.10],[side*.58,.77,-.37],.66);
@@ -116,16 +120,26 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const g=type==='deer'?deer():type==='fox'?fox():rabbit();
       const [x,y,z]=habitatPos(range,type==='rabbit'?13:28,type==='fox'?235:180);
       g.position.set(x,y,z);g.rotation.y=rng()*TAU;
-      g.userData.state={type,originX:x,originZ:z,seed:rng()*100,phase:rng()*TAU,speed:type==='fox'?.8:type==='rabbit'?.6:.24,cycle:13+rng()*19};
+      const state={type,originX:x,originZ:z,seed:rng()*100,phase:rng()*TAU,speed:type==='fox'?.8:type==='rabbit'?.6:.24,cycle:13+rng()*19};
+      const theta0=faunaPathAngle(0,state);
+      state.anchorSin=Math.sin(theta0);
+      state.anchorCos=Math.cos(theta0*.83);
+      state.reactionX=0;state.reactionZ=0;state.lastTime=null;
+      state.lastSlopeAt=-Infinity;state.tiltPitch=0;state.tiltRoll=0;
+      g.userData.state=state;
+      faunaLOD.attach(g,type,Boolean(g.userData.antlered));
       g.userData.details=[];
       g.traverse(mesh=>{if(mesh.userData.detailOnly)g.userData.details.push(mesh);});
       g.userData.detailVisible=true;
+      g.userData.motionDetailed=true;
       root.add(g);actors.push(g);
     }
   }
   addActor('deer',Math.round(8*quality),950);
   addActor('fox',Math.round(4*quality),1050);
   addActor('rabbit',Math.round(12*quality),900);
+  const foxes=actors.filter(g=>g.userData.state.type==='fox');
+  const rabbits=actors.filter(g=>g.userData.state.type==='rabbit');
   const flowers=[];
   const flowerGeo=new THREE.IcosahedronGeometry(1,0);
   const count=Math.round(750*quality);
@@ -212,48 +226,73 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     dolphins.push({group,phase:rng()*TAU,radius:1900+rng()*470,period:11+rng()*12,offset:i});
   }
   function update(t,daylight=1,wind=0,hero=null,precipitation=0,observer=null){
-    const foxes=actors.filter(g=>g.userData.state.type==='fox');
-    const rabbits=actors.filter(g=>g.userData.state.type==='rabbit');
     for(const g of actors){
       const s=g.userData.state;
       const cycle=(t+s.seed)/s.cycle,phase=cycle%1;
       const grazing=phase<.63,move=phase>=.63;
       const radius=s.type==='deer'?53:s.type==='fox'?98:28;
-      const theta=(Math.floor(cycle)*.88+s.phase)+(move?(phase-.63)/.37*.62:0);
-      const x=s.originX+Math.sin(theta)*radius;
-      const z=s.originZ+Math.cos(theta*.83)*radius;
-      const y=terrainHeight(x,z,seed);
+      const theta=faunaPathAngle(t,s);
+      // Allocation-free trajectory evaluation; exactly anchored to spawn at t=0.
+      const x=s.originX+(Math.sin(theta)-s.anchorSin)*radius;
+      const z=s.originZ+(Math.cos(theta*.83)-s.anchorCos)*radius;
       const alert=hero&&Math.hypot(hero.x-x,hero.z-z)<(s.type==='deer'?135:s.type==='rabbit'?75:95);
       const enemy=s.type==='rabbit'?foxes.find(f=>Math.hypot(f.position.x-x,f.position.z-z)<90):null;
       const prey=s.type==='fox'?rabbits.find(r=>Math.hypot(r.position.x-x,r.position.z-z)<115):null;
       const sidestep=alert?Math.sin(t*2+s.seed)*7:0;
       const runX=enemy?(x-enemy.position.x)/Math.max(1,Math.hypot(x-enemy.position.x,z-enemy.position.z))*18:prey?(prey.position.x-x)*.11:0;
       const runZ=enemy?(z-enemy.position.z)/Math.max(1,Math.hypot(x-enemy.position.x,z-enemy.position.z))*18:prey?(prey.position.z-z)*.11:0;
-      const px=x+sidestep+runX,pz=z+runZ;
-      g.position.set(px,terrainHeight(px,pz)+(s.type==='rabbit'&&(move||alert||enemy)?Math.abs(Math.sin(t*5+s.seed))*.16:0),pz);
+      // Predator/prey reactions interpolate over time rather than teleporting.
+      const dt=s.lastTime===null?0:clamp(t-s.lastTime,0,.15);
+      s.lastTime=t;
+      const response=1-Math.exp(-dt*4.2);
+      s.reactionX+=(sidestep+runX-s.reactionX)*response;
+      s.reactionZ+=(runZ-s.reactionZ)*response;
+      const px=x+s.reactionX,pz=z+s.reactionZ;
+      const vx=px-g.position.x,vz=pz-g.position.z;
+      const hop=s.type==='rabbit'&&(move||alert||enemy)
+        ?Math.abs(Math.sin(t*5+s.seed))*.16*clamp(t*2,0,1):0;
+      g.position.set(px,terrainHeight(px,pz)+hop,pz);
       g.userData.behaviour=enemy?'flee':prey?'hunt':alert?'alert':grazing?'foraging':'travelling';
-      g.rotation.y=-theta+.1*Math.sin(t*.25+s.seed);
+      if(vx*vx+vz*vz>.000025){
+        const facing=Math.atan2(-vx,-vz);
+        const angleDelta=Math.atan2(Math.sin(facing-g.rotation.y),Math.cos(facing-g.rotation.y));
+        g.rotation.y+=angleDelta*(1-Math.exp(-dt*4));
+      }
+      const ox=observer?observer.x-px:0,oy=observer?observer.y-g.position.y:0,oz=observer?observer.z-pz:0;
+      const detailDistance=observer?Math.hypot(ox,oy,oz):0;
+      g.userData.motionDetailed=shouldAnimateFauna(detailDistance,s.type);
       const running=Boolean(enemy||prey||alert||move);
       const phaseStride=t*(s.type==='rabbit'?12:s.type==='fox'?7:4.4)+s.seed;
       const intensity=running?(s.type==='rabbit'?.48:.33):.045;
-      for(let i=0;i<(g.userData.legs?.length||0);i++){
-        const leg=g.userData.legs[i];
-        const side=leg.userData.leg?.side||1,z=leg.userData.leg?.z||0;
-        leg.rotation.x=Math.sin(phaseStride+(side<0?Math.PI:0)+(z>0?Math.PI:0))*intensity;
+      if(g.userData.motionDetailed){
+        // Sample actual terrain slopes no more than once per 0.4 seconds.
+        // Reduced-frequency normal estimation avoids four height queries per frame.
+        if(t-s.lastSlopeAt>=.40){
+          const step=s.type==='deer'?1.4:.65;
+          const gradX=(terrainHeight(px+step,pz,seed)-terrainHeight(px-step,pz,seed))/(2*step);
+          const gradZ=(terrainHeight(px,pz+step,seed)-terrainHeight(px,pz-step,seed))/(2*step);
+          const tilt=terrainSlopeAngles(gradX,gradZ,g.rotation.y);
+          s.tiltPitch=tilt.pitch;s.tiltRoll=tilt.roll;
+          s.lastSlopeAt=t;
+        }
+        for(let i=0;i<(g.userData.legs?.length||0);i++){
+          const leg=g.userData.legs[i];
+          const side=leg.userData.leg?.side||1,z=leg.userData.leg?.z||0;
+          leg.rotation.x=Math.sin(phaseStride+(side<0?Math.PI:0)+(z>0?Math.PI:0))*intensity;
+        }
+        if(g.userData.ears)g.userData.ears.forEach((ear,i)=>ear.rotation.z=(i===0?-1:1)*(.18+Math.sin(t*2+s.seed)*.07));
+        if(g.userData.tail)g.userData.tail.rotation.x=-.35+Math.sin(t*3.1+s.seed)*.2;
+        if(g.userData.body){
+          g.userData.body.scale.y=(s.type==='rabbit'?.34:s.type==='fox'?.35:.53)*(1+.014*Math.sin(t*1.25+s.seed));
+        }
+        if(g.userData.head)g.userData.head.rotation.x=grazing?.13+Math.sin(t*.58+s.seed)*.11:Math.sin(t*.68+s.seed)*.06;
+        const sway=s.type==='deer'&&grazing?Math.sin(t*.17+s.seed)*.025:0;
+        const ease=1-Math.exp(-dt*5.2);
+        g.rotation.x+=(s.tiltPitch+sway-g.rotation.x)*ease;
+        g.rotation.z+=(s.tiltRoll-g.rotation.z)*ease;
       }
-      if(g.userData.ears)g.userData.ears.forEach((ear,i)=>ear.rotation.z=(i===0?-1:1)*(.18+Math.sin(t*2+s.seed)*.07));
-      if(g.userData.tail)g.userData.tail.rotation.x=-.35+Math.sin(t*3.1+s.seed)*.2;
-      if(g.userData.body){
-        g.userData.body.scale.y=(s.type==='rabbit'?.34:s.type==='fox'?.35:.53)*(1+.014*Math.sin(t*1.25+s.seed));
-      }
-      if(g.userData.head)g.userData.head.rotation.x=grazing?.13+Math.sin(t*.58+s.seed)*.11:Math.sin(t*.68+s.seed)*.06;
-      g.rotation.x=s.type==='deer'&&grazing?Math.sin(t*.17+s.seed)*.025:0;
       g.visible=!observer||Math.hypot(observer.x-g.position.x,observer.z-g.position.z)<1050;
       // Tiny facial decorations cost draw calls but have no silhouette value at distance.
-      const dx=observer?observer.x-g.position.x:0;
-      const dy=observer?observer.y-g.position.y:0;
-      const dz=observer?observer.z-g.position.z:0;
-      const detailDistance=observer?Math.hypot(dx,dy,dz):0;
       const showDetails=!observer||detailDistance<(g.userData.detailVisible?205:160);
       if(showDetails!==g.userData.detailVisible){
         for(const mesh of g.userData.details)mesh.visible=showDetails;
@@ -292,5 +331,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     return {point:butterflies[0]?.g.position.clone()||new THREE.Vector3(0,150,0),kind:'flowers'};
   }
   return {root,actors,birds,dolphins,butterflies,flowers,update,focus,
+    get lodStats(){return {prototypes:faunaLOD.prototypes,farDrawCalls:faunaLOD.farDrawCalls,
+      nearAnimated:actors.filter(g=>g.userData.motionDetailed).length,totalActors:actors.length};},
     stats:{deer:actors.filter(a=>a.userData.state.type==='deer').length,fox:actors.filter(a=>a.userData.state.type==='fox').length,rabbits:actors.filter(a=>a.userData.state.type==='rabbit').length,gulls:birds.length,dolphins:dolphins.length,butterflies:butterflies.length}};
 }
