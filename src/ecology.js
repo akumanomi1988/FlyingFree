@@ -47,8 +47,8 @@ export function insectActivity(day,rain,temperature=18){
 export function foliageDensity(habitat,kind){
  if(habitat.type==='ocean'||habitat.type==='rock')return 0;
  if(kind==='grass')return habitat.type==='meadow'?1:habitat.type==='forest'?.65:habitat.type==='shore'?.25:.18;
- if(kind==='flower')return habitat.type==='meadow'?.8:habitat.type==='forest'?.3:habitat.type==='shore'?.25:0;
- if(kind==='shrub')return habitat.type==='forest'?.9:habitat.type==='highland'?.55:habitat.type==='meadow'?.35:.15;
+ if(kind==='flowers')return habitat.type==='meadow'?.8:habitat.type==='forest'?.3:habitat.type==='shore'?.25:0;
+ if(kind==='shrubs')return habitat.type==='forest'?.9:habitat.type==='highland'?.55:habitat.type==='meadow'?.35:.15;
  return 0;
 }
 export function stableCellSeed(x,z,kind=0){return (Math.imul(Math.floor(x),104729)^Math.imul(Math.floor(z),130363)^Math.imul(kind+3,991))>>>0;}
