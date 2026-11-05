@@ -67,3 +67,12 @@
 - Telemetría: `status.birdDrawCallsSaved` permite conocer el ahorro de draw calls por ave; no equivale a una medición directa de tiempo de GPU.
 - Pruebas: `tests/birdContinuity.test.js`, `tests/organicModels.test.js` y `tests/browser.mjs` validan continuidad, número de llamadas ahorradas, cotas geométricas, paletas por especie y WebGL.
 - Gate: exigir Node tests, build Vite y Playwright/WebGL del commit HEAD antes de integrar a `main`; comprobar después GitHub Pages y comparar P95 de hardware real.
+
+## Estado de integración — 2026-11-05 (PR #11)
+
+- **Fusionado en `main`:** PR #11 con commit squash `a122e3ef9b996f07b29aad242d7955c449a7e213`.
+- **CI validada:** workflow "Visual and browser QA" #134, https://github.com/akumanomi1988/FlyingFree/actions/runs/42106023784, ejecutado sobre HEAD `1c05a7dd874dc13bec06837c30c29226b6599010`. Resultado: 47 pruebas Node, 0 fallos; build Vite y Playwright/WebGL correctos.
+- **Impacto medido:** entre 58 y 72 draw calls de plumaje eliminadas en los siete escenarios de QA. Esto es ahorro de draw calls, NO una mejora en FPS demostrado en hardware real.
+- **Detalles:** cambio de especie sin teletransporte, plumas agrupadas por materiales, doce paletas distintivas, cabeza articulada de ciervos/zorros, LOD arbóreo con fade por densidad y actualización reducida en cámara estacionaria.
+- **Producción:** falta verificar que el workflow de GitHub Pages para `a122e3e` se haya desplegado correctamente y que la versión pública corresponda a ese SHA. No afirmar producción actualizada hasta confirmar.
+- **Próxima prioridad:** benchmark comparativo P95/P99 en GPU de sobremesa/TV, capturas cercanas de las doce especies, y migración gradual de la fauna secundaria a LOD real con jerarquía articulada en móviles.
