@@ -123,7 +123,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     root.add(group);
     dolphins.push({group,phase:rng()*TAU,radius:1900+rng()*470,period:11+rng()*12,offset:i});
   }
-  function update(t,daylight=1,wind=0){
+  function update(t,daylight=1,wind=0,hero=null,precipitation=0){
     for(const g of actors){
       const s=g.userData.state;
       const cycle=(t+s.seed)/s.cycle,phase=cycle%1;
@@ -133,7 +133,10 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const x=s.originX+Math.sin(theta)*radius;
       const z=s.originZ+Math.cos(theta*.83)*radius;
       const y=terrainHeight(x,z,seed);
-      g.position.set(x,y+(s.type==='rabbit'&&move?Math.abs(Math.sin(t*4+s.seed))*3.6:0),z);
+      const alert=hero&&Math.hypot(hero.x-x,hero.z-z)<(s.type==='deer'?135:s.type==='rabbit'?75:95);
+      const sidestep=alert?Math.sin(t*2+s.seed)*7:0;
+      g.position.set(x+sidestep,y+(s.type==='rabbit'&&(move||alert)?Math.abs(Math.sin(t*5+s.seed))*3.6:0),z);
+      g.userData.behaviour=alert?'alert':grazing?'foraging':'travelling';
       g.rotation.y=-theta+.1*Math.sin(t*.25+s.seed);
       if(g.userData.tail)g.userData.tail.rotation.x=-.35+Math.sin(t*3.1+s.seed)*.2;
       g.rotation.x=grazing&&s.type==='deer'?Math.sin(t*.17+s.seed)*.08:0;
@@ -145,7 +148,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       b.g.rotation.y=time*.6;
       b.left.rotation.z=Math.sin(time*12)*.9;
       b.right.rotation.z=-Math.sin(time*12)*.9;
-      b.g.visible=daylight>.18;
+      b.g.visible=daylight>.18&&precipitation<.45;
     }
     for(const b of birds){
       const time=t*.12+b.phase,theta=time+b.offset;

@@ -18,9 +18,9 @@ export function terrainHeight(x,z,seed=1988){
 export const BIRDS=[
  {id:'kestrel',name:'Cernícalo',color:0xc6a075,wings:1.04,alt:205,radius:380,speed:1,flight:'hover',flapRate:5.4,visualScale:9,habitat:'Laderas y praderas',detail:'Vigila el terreno y se mantiene suspendido ante posibles presas.'},
  {id:'hummingbird',name:'Colibrí',color:0x3cb9a0,wings:.42,alt:64,radius:138,speed:2.0,flight:'hover',flapRate:18,visualScale:5.2,habitat:'Flores del bosque',detail:'Cernido rápido, maniobras cortas y búsqueda de néctar.'},
- {id:'vulture',name:'Buitre leonado',color:0x92705a,wings:1.75,alt:345,radius:620,speed:.67,flight:'soar',flapRate:1.2,visualScale:12.5,habitat:'Térmicas de montaña',detail:'Aprovecha corrientes ascendentes para planear sin esfuerzo.'},
+ {id:'vulture',name:'Buitre leonado',color:0x92705a,wings:1.75,alt:345,radius:620,speed:.67,flight:'soar',flapRate:1.2,visualScale:11.3,habitat:'Térmicas de montaña',detail:'Aprovecha corrientes ascendentes para planear sin esfuerzo.'},
  {id:'swift',name:'Vencejo',color:0x4f6879,wings:1.13,alt:260,radius:540,speed:2.25,flight:'dash',flapRate:8.8,visualScale:8,habitat:'Cielo abierto',detail:'Giros veloces y amplias rutas por el aire.'},
- {id:'albatross',name:'Albatros',color:0xd4d7ce,wings:2.15,alt:45,radius:1900,speed:.73,flight:'marine',flapRate:.7,visualScale:13,habitat:'Alta mar',detail:'Planeo dinámico sobre el oleaje con aleteo mínimo.'},
+ {id:'albatross',name:'Albatros',color:0xd4d7ce,wings:2.15,alt:45,radius:1900,speed:.73,flight:'marine',flapRate:.7,visualScale:11.5,habitat:'Alta mar',detail:'Planeo dinámico sobre el oleaje con aleteo mínimo.'},
  {id:'osprey',name:'Águila pescadora',color:0x907860,wings:1.55,alt:190,radius:1050,speed:1.16,flight:'soar',flapRate:2.6,visualScale:11,habitat:'Costa y marismas',detail:'Patrulla el agua y realiza aproximaciones rápidas.'},
  {id:'owl',name:'Búho real',color:0x9b8167,wings:1.36,alt:165,radius:440,speed:.78,flight:'nocturnal',flapRate:3.2,visualScale:11,habitat:'Bosques nocturnos',detail:'Actividad nocturna, vuelos bajos y pausas en el bosque.'},
  {id:'eagle',name:'Águila real',color:0x76583f,wings:1.83,alt:405,radius:780,speed:.92,flight:'soar',flapRate:2.0,visualScale:12,habitat:'Cumbres rocosas',detail:'Planeo circular sobre la montaña y vuelos de exploración.'},
@@ -83,14 +83,20 @@ export function birdPosition(t,bird){
   const theta=t*.035*bird.speed;
   const r=bird.radius;
   const sweep=flight==='dash'?.21:flight==='hover'?.08:.13;
-  const x=Math.sin(theta)*r+Math.sin(theta*.29)*r*sweep;
-  const z=Math.cos(theta*.83)*r*.78;
+  let x=Math.sin(theta)*r+Math.sin(theta*.29)*r*sweep;
+  let z=Math.cos(theta*.83)*r*.78;
+  if(flight==='marine'){
+    const angle=theta*.86+.7;
+    x=Math.cos(angle)*r;
+    z=Math.sin(angle)*r;
+  }
   const ground=terrainHeight(x,z);
   const thermals=flight==='soar'?Math.sin(theta*3.1)*37:0;
   const skim=flight==='marine'?Math.sin(theta*2.8)*16:0;
   const ripple=flight==='dash'?Math.sin(t*.65)*23:Math.sin(t*.21)*12;
-  const altitude=Math.max(ground+29,bird.alt+thermals+skim+ripple);
-  return {x,y:altitude,z,heading:Math.atan2(Math.cos(theta)*r,-Math.sin(theta*.83)*r*.83)};
+  const clearance=flight==='soar'?132:flight==='dash'?105:flight==='hover'?76:flight==='marine'?48:80;
+  const altitude=Math.max(ground+clearance,bird.alt+thermals+skim+ripple);
+  return {x,y:altitude,z,heading:flight==='marine'?theta*.86+.7+Math.PI/2:Math.atan2(Math.cos(theta)*r,-Math.sin(theta*.83)*r*.83)};
 }
 export function solarEventHour(date,kind,latitude=37,longitude=-5){
   const dawn=kind==='dawn';

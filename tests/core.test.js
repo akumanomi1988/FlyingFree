@@ -20,3 +20,11 @@ test('solar event shortcuts follow seasonal solar times',()=>{
   const position=sunPosition(sunset);
   assert.ok(position.altitude>-.1&&position.altitude<.20);
 });
+
+test('albatross stays over open sea on its circular patrol',()=>{
+ const albatross=BIRDS.find(b=>b.id==='albatross');
+ for(let t=0;t<180;t+=5){
+   const p=birdPosition(t,albatross);
+   assert.ok(Math.hypot(p.x,p.z)>1800,'El albatros ha entrado en la isla');
+ }
+});

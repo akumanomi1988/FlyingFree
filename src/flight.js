@@ -4,8 +4,8 @@ import { clamp, TAU } from './core.js';
 export function createBirdRig(THREE, profile) {
   const group=new THREE.Group();
   const featherColor=new THREE.Color(profile.color);
-  const shadowColor=featherColor.clone().multiplyScalar(.67);
-  const highlight=featherColor.clone().lerp(new THREE.Color('#e5dec3'),.19);
+  const shadowColor=featherColor.clone().multiplyScalar(.84);
+  const highlight=featherColor.clone().lerp(new THREE.Color('#e5dec3'),.10);
   const plumage=new THREE.MeshStandardMaterial({color:featherColor,roughness:.94,metalness:0,flatShading:false,side:THREE.DoubleSide});
   const secondary=new THREE.MeshStandardMaterial({color:shadowColor,roughness:1,side:THREE.DoubleSide});
   const pale=new THREE.MeshStandardMaterial({color:highlight,roughness:.94,side:THREE.DoubleSide});
@@ -51,8 +51,8 @@ export function createBirdRig(THREE, profile) {
     const surface=new THREE.Mesh(g,plumage);base.add(surface);
     for(let j=0;j<8;j++){
       const ratio=.42+j*.20;
-      const feath=add(sph,j%3?secondary:pale,base,[ratio*ws,-.05,.26+j*.018],
-        [.12*ws,.045,.56-j*.028],[0,-.04,Math.sin(j*.55)*.06]);
+      const feath=add(sph,j%3?secondary:pale,base,[ratio*ws,-.06,.22+j*.015],
+        [.12*ws,.04,.42-j*.019],[0,-.04,Math.sin(j*.55)*.06]);
       feath.rotation.y=.1+j*.018;
     }
     const tip=new THREE.Group();tip.position.set(1.34*ws,.06,-.07);base.add(tip);

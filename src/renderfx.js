@@ -30,6 +30,8 @@ export function createSky(THREE,scene) {
         float towardSun=max(dot(normalize(vRay),normalize(sunDirection)),0.0);
         float atmospheric=pow(towardSun,12.0)*pow(1.0-abs(y),1.6);
         c=mix(c,vec3(1.0,.49,.23),atmospheric*golden*.86);
+        float sunsetBand=exp(-pow((y-.06)*6.2,2.0));
+        c=mix(c,vec3(.90,.45,.28),sunsetBand*golden*.53*(1.0-cloud*.45));
         c+=vec3(.93,.66,.39)*pow(towardSun,280.0)*day*.28;
         c=mix(c,vec3(.15,.21,.26),cloud*.32);
         gl_FragColor=vec4(c,1.0);

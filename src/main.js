@@ -44,7 +44,8 @@ function init(){
   createLandscape();createForest();createClouds();createStars();createBird();
   const startPos=birdPosition(0,currentBird);
   birdModel.position.set(startPos.x,startPos.y,startPos.z);
-  camera.position.set(startPos.x+68,startPos.y+49,startPos.z+145);
+  const heading=new THREE.Vector3(-Math.sin(startPos.heading),0,-Math.cos(startPos.heading));
+  camera.position.copy(birdModel.position).addScaledVector(heading,-185).add(new THREE.Vector3(38,26,14));
   cameraLook.set(startPos.x,startPos.y,startPos.z);
   camera.lookAt(cameraLook);
   ecosystem=createEcosystem(THREE,scene,1988,innerWidth<720?.65:1);
@@ -205,7 +206,8 @@ function ambient(date,dt){
   renderer.toneMappingExposure=1.14+day*.28;
   sunLight.intensity=Math.max(0,.68+day*(2.30-cloud*1.35)+lightning);
   hemi.intensity=.87+day*(1.45-cloud*.50)+lightning*.2;
-  sunLight.color.setRGB(.69+day*.31,.77+day*.16+sun.golden*.04,.89+day*.03-sun.golden*.11);
+  const warm=sun.golden*day;
+  sunLight.color.setRGB(.69+day*.31,.77+day*.16-warm*.18,.89+day*.03-warm*.33);
   const sunVec=new THREE.Vector3(Math.sin(sun.azimuth)*Math.cos(alt),Math.sin(alt),-Math.cos(sun.azimuth)*Math.cos(alt));
   sunLight.position.copy(sunVec).multiplyScalar(2000);
   sunOrb.position.copy(camera.position).addScaledVector(sunVec,6800);
@@ -254,8 +256,8 @@ function directCamera(bird,dt){
   const yaw=birdModel.rotation.y,forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
   let target=bird.clone(),desired;
   switch(shot){
-    case 0:desired=bird.clone().addScaledVector(forward,-125).add(new THREE.Vector3(55,49,0));break;
-    case 1:desired=bird.clone().add(new THREE.Vector3(Math.cos(elapsed*.048)*210,95,Math.sin(elapsed*.048)*210));break;
+    case 0:desired=bird.clone().addScaledVector(forward,-180).add(new THREE.Vector3(42,24,14));break;
+    case 1:desired=bird.clone().add(new THREE.Vector3(Math.cos(elapsed*.048)*225,52,Math.sin(elapsed*.048)*225));break;
     case 2:desired=new THREE.Vector3(950,650,1320);target.lerp(new THREE.Vector3(0,210,0),.38);break;
     case 3:desired=bird.clone().add(new THREE.Vector3(-205,-Math.min(35,bird.y-30),135));break;
     case 4:desired=bird.clone().addScaledVector(forward,165).add(new THREE.Vector3(35,42,0));break;
