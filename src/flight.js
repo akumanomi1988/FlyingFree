@@ -1,5 +1,6 @@
 import { clamp } from './core.js';
 import { birdRigScale } from './worldScale.js';
+import { batchStaticMeshes } from './meshBatch.js';
 
 // Species-dependent wing planform; span remains calibrated by birdRigScale.
 // Detailed surfaces are reserved for the camera-followed protagonist.
@@ -44,12 +45,15 @@ export function createWingSurfaceGeometry(THREE,wings,plan) {
 
 // Feather points down +Z; convex central ridge and tapered leading/trailing edges.
 export function createContourFeatherGeometry(THREE) {
-  const points=[],indices=[];
+  const points=[],uvs=[],indices=[];
   const lengthSegments=9;
   for(let j=0;j<=lengthSegments;j++){
     const t=j/lengthSegments;
     const width=Math.pow(Math.max(0,Math.sin(t*Math.PI)),.66)*.5;
-    for(const u of [-1,0,1])points.push(width*u,.045*(1-u*u)*Math.sin(t*Math.PI),t);
+    for(const u of [-1,0,1]){
+      points.push(width*u,.045*(1-u*u)*Math.sin(t*Math.PI),t);
+      uvs.push((u+1)*.5,t);
+    }
     if(j<lengthSegments){
       const k=j*3;
       indices.push(k,k+3,k+1,k+1,k+3,k+4,k+1,k+4,k+2,k+2,k+4,k+5);
@@ -57,6 +61,7 @@ export function createContourFeatherGeometry(THREE) {
   }
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
   g.setIndex(indices);g.computeVertexNormals();return g;
 }
 
@@ -156,7 +161,9 @@ export function createBirdRig(THREE,profile) {
       add(feather,dark,tip,[.46*profile.wings+t*.18*profile.wings,-.02,.14+t*.08],
         [.12*profile.wings,.04,.21],[0,.35+t*.20,0]);
     }
-    return {pivot,tip};
+    const baseBatch=batchStaticMeshes(THREE,base);
+    const tipBatch=batchStaticMeshes(THREE,tip);
+    return {pivot,tip,drawCallsSaved:baseBatch.drawCallsSaved+tipBatch.drawCallsSaved};
   }
   const left=wing(-1),right=wing(1);
   const tail=new THREE.Group();tail.position.set(0,-.07,.92);root.add(tail);
@@ -168,7 +175,8 @@ export function createBirdRig(THREE,profile) {
   if(profile.id==='kingfisher')add(sph,material(0x0d8fa6),root,[0,.20,.24],[.29,.22,.63]);
   if(profile.id==='swallow')add(sph,material(0x9a493c),root,[0,-.15,-.59],[.24,.12,.30]);
   root.scale.setScalar(birdRigScale(profile));
-  root.userData={profile,left,right,tail,legs,fold:0,flap:0,headTurn:0,geometryVersion:2};
+  root.userData={profile,left,right,tail,legs,fold:0,flap:0,headTurn:0,geometryVersion:3,
+    plumageDrawCallsSaved:left.drawCallsSaved+right.drawCallsSaved};
   return root;
 }
 
