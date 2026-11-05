@@ -61,9 +61,9 @@ No external image, video, or recorded music assets are required.
 ## Hora real y tiempo meteorológico
 - En la experiencia normal el reloj es el del dispositivo del espectador, y el ciclo solar sigue la fecha y hora reales.
 - Al conceder permiso de geolocalización, el amanecer, el sol y el ocaso utilizan la latitud y longitud del dispositivo y el clima se obtiene de Open-Meteo. La ubicación no se muestra ni se guarda, y las coordenadas compartidas con la API se redondean a 0,1 grados.
-- Al abrirse otra vez, si el permiso sigue concedido, se reactivan los datos automáticamente.
+- En las visitas normales, la pantalla inicial ofrece «Entrar con clima local» y «Continuar sin ubicación». La opción sin ubicación no solicita ni reutiliza la geolocalización, aunque el permiso del navegador ya esté concedido. En modos TV y emisión se reutiliza silenciosamente un permiso previamente concedido; si no existe, el modo TV incluye un botón para activarlo.
 - Si no hay permiso, acceso geográfico o red, el clima ambiental sigue funcionando, **claramente señalado como simulado**, y el sol es una aproximación según la zona horaria.
-- El botón **☁** activa el clima local. **R** vuelve al tiempo real tras usar atajos de demostración.
+- El botón **☁** activa el clima local. Si el permiso está bloqueado, se muestra cómo modificar los ajustes del sitio. **R** vuelve al tiempo real tras usar atajos de demostración.
 - Los parámetros `?h=23`, `?phase=sunset` y `?weather=storm` son demostraciones y no representan la observación meteorológica actual.
 - Los datos pertenecen al dispositivo que está ejecutando la web. En una emisión de vídeo, todos los espectadores verían el clima de la máquina que genera esa emisión, no el clima individual de cada espectador.
 
