@@ -97,7 +97,10 @@ try{
   await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1',1440,900);
   await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog',390,844,
     async(page)=>{
-      await page.locator('#enter-btn').click();
+      assert.equal(await page.locator('#enter-btn').innerText(),'ENTRAR CON CLIMA LOCAL ↗');
+      assert.equal(await page.locator('#skip-location-btn').isVisible(),true);
+      await page.locator('#skip-location-btn').click();
+      assert.equal(await page.locator('#intro').evaluate(e=>e.classList.contains('off')),true);
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false,'El selector no abre');
       await page.locator('[data-bird="owl"]').click();
@@ -143,6 +146,22 @@ try{
       assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),false);
       await page.keyboard.press('t');
       assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),true);
+    });
+  await render('07-location-opt-in','?bird=eagle',1280,800,
+    async(page)=>{
+      await page.context().grantPermissions(['geolocation']);
+      await page.context().setGeolocation({latitude:40.42837,longitude:-3.71252});
+      let requests=0;
+      await page.route('https://api.open-meteo.com/v1/forecast*',async(route)=>{
+        requests++;
+        await route.fulfill({status:200,contentType:'application/json',
+          body:JSON.stringify({current:{temperature_2m:16.4,weather_code:2,cloud_cover:48,wind_speed_10m:14}})});
+      });
+      await page.locator('#enter-btn').click();
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.live===true,{timeout:20000});
+      assert.equal(await page.locator('#temperature').innerText(),'16 °C');
+      assert.ok(requests>=1,'Al entrar no se solicitó la ubicación ni el clima real');
+      assert.equal(await page.locator('#intro').evaluate(e=>e.classList.contains('off')),true);
     });
   assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
   report.result='pass';
