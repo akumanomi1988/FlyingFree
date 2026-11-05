@@ -76,3 +76,13 @@
 - **Detalles:** cambio de especie sin teletransporte, plumas agrupadas por materiales, doce paletas distintivas, cabeza articulada de ciervos/zorros, LOD arbóreo con fade por densidad y actualización reducida en cámara estacionaria.
 - **Producción:** falta verificar que el workflow de GitHub Pages para `a122e3e` se haya desplegado correctamente y que la versión pública corresponda a ese SHA. No afirmar producción actualizada hasta confirmar.
 - **Próxima prioridad:** benchmark comparativo P95/P99 en GPU de sobremesa/TV, capturas cercanas de las doce especies, y migración gradual de la fauna secundaria a LOD real con jerarquía articulada en móviles.
+
+## Iteración: fauna terrestre y movimiento continuo (PR #12, 2026-11-05)
+
+- **Main:** PR #12 fusionada mediante squash commit `6e1708f3c41e03e4b08f2326ed3826b4784adde3`.
+- **Código:** `src/faunaLOD.js` introduce siluetas simplificadas cacheadas por especie/astas, instanciables mediante clones de geometría/material compartidos. `THREE.LOD` alterna entre malla cercana articulada y versión lejana agrupada por material. Máximo 3 draw calls por modelo lejano según pruebas de estructura. En fauna lejana se mantiene trayectoria y estado ecológico, omitiendo actualización de patas y otras articulaciones no visibles.
+- **Movimiento:** `src/ecosystem.js` elimina discontinuidades de ángulo en los ciclos de descanso/desplazamiento, ancla la trayectoria en la posición inicial de cada animal, suaviza evasión/persecución, corrige la simetría de astas y añade inclinación de cuerpo en pendientes reales con muestreo limitado a cada 0,4 segundos.
+- **Telemetría:** `window.__FLYINGFREE_STATUS__.faunaLOD` expone prototipos reutilizados, llamadas de dibujo por cada silueta lejana y número de esqueletos cercanos animados.
+- **Validación:** `tests/faunaLOD.test.js`, regresión de `tests/motion.test.js` y `tests/browser.mjs`. CI **success** sobre HEAD de la PR `6e0f2fc45eddb197b1e85cee2265b79a7fb57b1b`: 53 tests Node, 0 fallos, Vite build y 7 escenarios Playwright/WebGL. https://github.com/akumanomi1988/FlyingFree/actions/runs/42108237388.
+- **Restricción:** las pruebas certifican continuidad, estructura y ejecución WebGL, no calidad fotorrealista ni FPS/P95 en GPU física. No afirmar producción actualizada hasta verificar ejecución de `.github/workflows/pages.yml` y el artefacto desplegado.
+- **Próximo ROI:** medir P95/P99 real y estabilidad en sesión larga; depurar escala/encuadre de animales en acercamientos; corregir articulaciones de rodillas/tobillos y contacto de patas con terreno; evaluar partición espacial/culling para las 2450 instancias de arbolado antes de aumentar la densidad.
