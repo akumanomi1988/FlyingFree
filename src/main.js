@@ -9,6 +9,7 @@ import {createGroundDetail} from './vegetation.js';
 import {createWindField} from './worldMotion.js';
 import {createTreeDetail} from './treeDetail.js';
 import {createFrameTelemetry} from './frameTelemetry.js';
+import {createAdaptiveResolution} from './adaptiveResolution.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
@@ -22,7 +23,7 @@ let renderer,scene,camera,sunLight,hemi,water,terrain,forest,birdModel,clouds=[]
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
-let scaleFactor=1,lowFpsSeconds=0,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
+let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
 const climate=createLiveClimate();
 let solarCoordinates=approximateSolarCoordinates();
 let timeOverride=opts.hour!=null||Boolean(opts.phase);
@@ -48,6 +49,7 @@ function init(){
   renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});
   scaleFactor=Math.min(window.devicePixelRatio||1,innerWidth<700?1.05:1.4,
     Math.sqrt(3700000/Math.max(1,innerWidth*innerHeight)));
+  adaptiveResolution=createAdaptiveResolution({maxScale:scaleFactor});
   renderer.setPixelRatio(scaleFactor);
   renderer.setSize(innerWidth,innerHeight);
   renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -95,6 +97,7 @@ function init(){
   // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
   status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
   status.performance={...frameTelemetry.snapshot(),drawCalls:0,triangles:0,points:0,lines:0};
+  status.adaptiveQuality=adaptiveResolution.snapshot();
   window.addEventListener('resize',onResize,{passive:true});
   bindUI();onResize();status.ready=true;status.scene={terrain:true,forest:true,bird:true,water:true,clouds:true,stars:true,fauna:true,sky:true,rain:true};
   if(opts.broadcast){$('intro').classList.add('off');document.body.classList.add('no-ui');}
@@ -436,7 +439,8 @@ function animate(now){
   renderer.render(scene,camera);
   status.frames++;renderFrames++;fpsTimer+=dt;
   if(fpsTimer>=1){
-    status.fps=Math.round(renderFrames/fpsTimer);
+    const measuredSeconds=fpsTimer;
+    status.fps=Math.round(renderFrames/measuredSeconds);
     $('fps').textContent=status.fps+' FPS';renderFrames=0;fpsTimer=0;
     const hour=localHour(date);
     $('clock').textContent=localTimeLabel(date);
@@ -458,11 +462,15 @@ function animate(now){
     status.sunAccurate=Boolean(solarCoordinates.accurate);
     status.timeMode=timeOverride?'simulated':'live';
     updateWeatherUI(date);
-    if(status.fps<23)lowFpsSeconds++;else lowFpsSeconds=Math.max(0,lowFpsSeconds-2);
-    if(lowFpsSeconds>=8&&scaleFactor>.48){
-      scaleFactor=Math.max(.48,scaleFactor*.87);
-      renderer.setPixelRatio(scaleFactor);onResize();lowFpsSeconds=0;
+    const quality=adaptiveResolution.observe({
+      fps:status.fps,p95Ms:status.performance.p95,seconds:measuredSeconds,hidden:document.hidden
+    });
+    if(quality.changed){
+      scaleFactor=quality.scale;
+      renderer.setPixelRatio(scaleFactor);onResize();
     }
+    status.adaptiveQuality=quality;
+    status.renderScale=scaleFactor;
   }
 }
 function onResize(){if(!renderer)return;renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}
@@ -622,6 +630,7 @@ function bindUI(){
  document.addEventListener('visibilitychange',()=>{
    lastFrame=performance.now();
    frameTelemetry.reset();
+   adaptiveResolution?.pause();
    if(!document.hidden&&!timeOverride)simMs=Date.now();
    if(!document.hidden&&tvActive)void requestWakeLock();
  });
