@@ -1,3 +1,4 @@
+import { random } from './core.js';
 // All audio is synthesized in realtime using Web Audio; no recorded clips or external assets.
 export class Soundscape {
  constructor(){this.ctx=null;this.master=null;this.noise=null;this.wind=null;this.rain=null;this.pads=[];this.enabled=false;}
@@ -19,8 +20,8 @@ export class Soundscape {
      this.pads.push({osc,gain,trem});
    }
    const buffer=ctx.createBuffer(1,ctx.sampleRate*4,ctx.sampleRate);
-   const samples=buffer.getChannelData(0);let v=0;
-   for(let i=0;i<samples.length;i++){v=(Math.random()*2-1)*.09+v*.91;samples[i]=v;}
+   const samples=buffer.getChannelData(0);const rng=random(6821);let v=0;
+   for(let i=0;i<samples.length;i++){v=(rng()*2-1)*.09+v*.91;samples[i]=v;}
    const noise=ctx.createBufferSource();noise.buffer=buffer;noise.loop=true;this.noise=noise;
    const low=ctx.createBiquadFilter();low.type='lowpass';low.frequency.value=540;
    const wind=ctx.createGain();wind.gain.value=.025;

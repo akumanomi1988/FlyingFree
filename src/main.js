@@ -56,7 +56,7 @@ function createLandscape(){
     else if(y<225)col=new THREE.Color('#52715a');
     else if(y<350)col=new THREE.Color('#79837b');
     else col=new THREE.Color(month>=10||month<=2?'#dbe3db':'#8e9693');
-    col.multiplyScalar(.86+detail*.2+Math.random()*.055);
+    col.multiplyScalar(.86+detail*.2+(fbm(x*.07,z*.07)+1)*.025);
     cols.push(col.r,col.g,col.b);
   }
   p.needsUpdate=true;g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));g.computeVertexNormals();
@@ -126,7 +126,7 @@ function createStars(){
     const r=7900;pts.push(Math.sin(u)*Math.cos(v)*r,Math.sin(v)*r+370,Math.cos(u)*Math.cos(v)*r);
   }
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
-  starMat=new THREE.PointsMaterial({color:0xebf0f1,size:11,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false,fog:false});
+  starMat=new THREE.PointsMaterial({color:0xebf0f1,size:1.4,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false,fog:false});
   stars=new THREE.Points(g,starMat);scene.add(stars);
 }
 function createBird(){
