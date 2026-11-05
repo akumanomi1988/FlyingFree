@@ -80,7 +80,9 @@ export function createBirdBrain(profile,seed=1988){
   else if(state==='return'&&Math.hypot(tx-x,tz-z)<15){
    landingRest=true;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
   }
-  else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15&&Math.abs(y-ty)<4){transition('rest',t);until=t+28+rng()*13;}
+  else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15&&Math.abs(y-ty)<4){
+   landingRest=true;transition('landing',t);
+  }
   else if(state==='rest'&&t>=until){
    const mustSleep=owl?day>.68:day<.1;
    if(!mustSleep&&rain<.65){transition('takeoff',t);selectPatrol();until=t+4;}
@@ -100,7 +102,7 @@ export function createBirdBrain(profile,seed=1988){
   velocity+=clamp(wanted-velocity,-acceleration*dt,acceleration*dt);
   const step=Math.min(dist,Math.max(0,velocity)*dt);
   x-=Math.sin(heading)*step;z-=Math.cos(heading)*step;
-  const floor=clearance(x,z,onGround||state==='landing'||state==='rest'?'land':'hunt');
+  const floor=clearance(x,z,onGround||state==='landing'||state==='rest'||state==='shelter'?'land':'hunt');
   let goal=Math.max(floor,ty);
   if(state==='patrol'||state==='takeoff'||state==='seek_food'){
    goal=Math.max(goal,clearance(x,z,'cruise'));
