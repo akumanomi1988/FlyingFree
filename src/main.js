@@ -91,6 +91,7 @@ function init(){
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
+  status.faunaLOD=ecosystem.lodStats;
   // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
   status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
   status.performance={...frameTelemetry.snapshot(),drawCalls:0,triangles:0,points:0,lines:0};
@@ -450,6 +451,7 @@ function animate(now){
     status.weatherBlend={...weatherState};
     status.performance={...frameTelemetry.snapshot(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,points:renderer.info.render.points,lines:renderer.info.render.lines};
     status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
+    status.faunaLOD=ecosystem.lodStats;
     status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;status.insectCount=groundDetail.insectCount;
     status.motion={wind:+windField.strength.toFixed(2),windMaterials:windField.materials,
       clouds:clouds.length,articulatedAnimals:ecosystem.actors.length,motes:atmospherics.activeCount};
