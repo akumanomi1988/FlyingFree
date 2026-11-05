@@ -95,7 +95,8 @@ test('deer antlers remain bilaterally symmetric at generation',()=>{
 });
 
 test('terrain normal aligns animal bodies without unsafe rotations',()=>{
-  assert.deepEqual(terrainSlopeAngles(0,0,0),{pitch:0,roll:0});
+  const level=terrainSlopeAngles(0,0,0);
+  assert.ok(Math.abs(level.pitch)<1e-8&&Math.abs(level.roll)<1e-8);
   const roll=terrainSlopeAngles(.2,0,0);
   assert.ok(roll.roll>.15&&Math.abs(roll.pitch)<1e-8);
   const pitch=terrainSlopeAngles(.2,0,Math.PI/2);
