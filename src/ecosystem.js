@@ -150,10 +150,32 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   vgeom.setAttribute('position',new THREE.Float32BufferAttribute([-.6,0,0,0,.14,.18,0,.14,.18,.6,0,0,0,.14,.18,0,.05,-.25],3));
   vgeom.computeVertexNormals();
   const gullMat=new THREE.MeshStandardMaterial({color:0xe4e5d9,side:THREE.DoubleSide,roughness:.87});
+  const gullDark=mat(0x667681),gullBill=mat(0xd8ad5b);
+  // Secondary birds have a 3D silhouette nearby, but revert to two triangles
+  // after the camera moves away. Each LOD is selected by the renderer.
   for(let i=0;i<Math.round(22*quality);i++){
-    const g=new THREE.Mesh(vgeom,gullMat);
+    const high=new THREE.Group();
+    create(high,sphere,gullMat,0,0,0,.17,.14,.45);
+    create(high,sphere,gullMat,0,.14,-.38,.14,.14,.16);
+    create(high,new THREE.ConeGeometry(.065,.24,8),gullBill,0,.12,-.59,1,1,1,[-Math.PI/2,0,0]);
+    const wings=[];
+    for(const side of [-1,1]){
+      const pivot=new THREE.Group();pivot.position.set(side*.11,.055,-.13);high.add(pivot);
+      const wing=create(pivot,sphere,gullMat,side*.30,.02,.10,.45,.05,.19);
+      wing.rotation.y=-side*.21;
+      for(let f=0;f<3;f++){
+        const feather=create(pivot,sphere,f===2?gullDark:gullMat,
+          side*(.38+f*.10),-.02,.22+f*.045,.17,.025,.24-f*.04);
+        feather.rotation.y=side*(.14+f*.12);
+      }
+      create(high,new THREE.SphereGeometry(1,8,6),gullDark,side*.13,.19,-.45,.025,.028,.02);
+      wings.push(pivot);
+    }
+    for(let k=-1;k<=1;k++)create(high,sphere,gullMat,k*.07,-.03,.43,.055,.025,.27);
+    const distant=new THREE.Mesh(vgeom,gullMat);
+    const g=new THREE.LOD();g.addLevel(high,0);g.addLevel(distant,155);
     g.scale.setScalar(FAUNA_SCALE.gull);root.add(g);
-    birds.push({g,phase:rng()*TAU,offset:rng()*TAU,alt:170+rng()*180,radius:850+rng()*700});
+    birds.push({g,wings,phase:rng()*TAU,offset:rng()*TAU,alt:170+rng()*180,radius:850+rng()*700});
   }
   const dolphins=[];
   const dolphinMat=mat(0x7192a2);
@@ -230,7 +252,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const time=t*.12+b.phase,theta=time+b.offset;
       b.g.position.set(Math.sin(theta)*b.radius,b.alt+Math.sin(time*1.4)*22,Math.cos(theta)*b.radius*.78);
       b.g.rotation.set(Math.sin(time*1.8)*.08,theta+.7,Math.cos(time*.6)*.19);
-      b.g.scale.y=FAUNA_SCALE.gull*(1+Math.sin(t*3.8+b.phase)*.06);
+      const flap=Math.sin(t*3.8+b.phase)*.15;
+      b.wings[0].rotation.z=-flap;
+      b.wings[1].rotation.z=flap;
     }
     for(const d of dolphins){
       const theta=t*.028+d.phase, pulse=(t+d.offset*3.1)%d.period;
