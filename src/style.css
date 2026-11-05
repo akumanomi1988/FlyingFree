@@ -36,3 +36,33 @@
 .picker-detail strong{font-size:13px;font-weight:600}
 .picker-detail p{font-size:12px;color:#b9d2c8;margin:0;line-height:1.65}
 @media(max-width:700px){.bird-picker{top:66px;right:12px;left:12px;bottom:60px;width:auto;padding:17px}.species-grid{gap:6px}.species-option{padding:11px 9px;min-height:64px}.picker-intro{margin:8px 0 12px}.picker-header h2{font-size:15px}}
+
+/* Information UI: location is never rendered, only clock and weather values. */
+.weather-source{font-size:9px;line-height:1.6;letter-spacing:.095em;color:#c8d7cc;opacity:.85;margin-top:12px}
+.tv-overlay{position:absolute;z-index:5;left:6%;bottom:7%;max-width:min(420px,85vw);padding:20px 24px 22px;background:linear-gradient(105deg,rgba(6,20,28,.35),rgba(5,24,29,.03));border-left:1px solid rgba(234,244,227,.36);border-radius:0 8px 8px 0;pointer-events:none;text-shadow:0 2px 12px rgba(0,0,0,.70);
+transition:transform 12s ease-out,opacity .6s;transform:translate(var(--tv-shift-x,0px),var(--tv-shift-y,0px))}
+.tv-date{text-transform:capitalize;font-size:13px;color:#e2e8df;letter-spacing:.09em}
+.tv-clock{font-size:clamp(62px,7.3vw,120px);letter-spacing:-.055em;font-weight:300;line-height:1.2;font-variant-numeric:tabular-nums;margin:0 0 4px}
+.tv-condition{display:flex;align-items:baseline;gap:20px;flex-wrap:wrap}
+.tv-condition strong{font-size:31px;letter-spacing:-.03em;font-weight:500}
+.tv-condition span{font-size:13px;letter-spacing:.14em;font-weight:600}
+.tv-metrics{display:flex;gap:20px;margin-top:10px;font-size:12px;color:#d2e2d8}
+.tv-source{font-size:10px;letter-spacing:.11em;margin-top:18px;opacity:.83}
+.tv-consent{background:#0c263ab9;border:1px solid #c6e7dc5c;color:#f3fff3;padding:10px 14px;font:inherit;font-size:10px;letter-spacing:.14em;cursor:pointer;margin-top:16px;pointer-events:auto}
+.tv-consent:hover{background:#285e68b9}
+.tv-attribution{display:inline-block;margin-top:10px;color:#c8d8cd;text-decoration:underline;font-size:10px;pointer-events:auto}
+.tv-actions{position:absolute;right:4%;top:5%;z-index:10;display:flex;gap:9px;opacity:0;transition:opacity .5s;pointer-events:none}
+.tv-actions button{cursor:pointer;border:1px solid #e9f8e966;background:#102b32ad;color:white;border-radius:30px;width:42px;height:42px;font-size:23px}
+.tv-mode .brand,.tv-mode .hud,.tv-mode .right-tools,.tv-mode .bottom{opacity:0;pointer-events:none}
+.tv-mode #tv-overlay,.tv-mode #tv-actions{display:flex!important}
+.tv-mode #tv-overlay{display:block!important}
+.tv-mode .intro{opacity:0;visibility:hidden;pointer-events:none}
+.tv-mode #tv-actions.active,.tv-mode #tv-actions:focus-within{opacity:1;pointer-events:auto}
+@media(max-width:700px){
+  .hud .stat:nth-last-child(-n+2){display:none}
+  .tv-overlay{left:4%;bottom:5%;padding:14px 14px 18px;max-width:92vw}
+  .tv-clock{font-size:clamp(57px,18vw,84px)}
+  .tv-condition strong{font-size:22px}
+  .tv-condition span{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){.tv-overlay{transition:none}.bird-picker{animation:none}}

@@ -21,11 +21,16 @@
     <div class="line"></div>
     <div class="stat"><span>AVE</span><strong id="bird-name">—</strong></div>
     <div class="stat"><span>CLIMA</span><strong id="weather-name">—</strong></div>
+    <div class="stat"><span>TEMPERATURA</span><strong id="temperature">-- °C</strong></div>
+    <div class="stat"><span>VIENTO</span><strong id="wind">-- km/h</strong></div>
+    <div class="weather-source" id="weather-source" aria-live="polite">Clima generado · Activa el clima local</div>
     <div class="stat"><span>ESTACIÓN</span><strong id="season-name">—</strong></div>
     <div class="stat"><span>FAUNA</span><strong>ISLA VIVA</strong></div>
     <div class="stat"><span>TIEMPO</span><strong id="speed-name">×1</strong></div>
   </section>
   <div class="right-tools" id="tools">
+    <button class="circle" id="tv-btn" aria-label="Activar modo salvapantallas de TV" title="Modo TV (T)">▣</button>
+    <button class="circle" id="weather-btn" aria-label="Activar meteorología local" title="Permitir clima local (sin mostrar ubicación)">☁</button>
     <button class="circle" id="bird-btn" aria-label="Seleccionar ave" title="Aves (B)">♢</button>
     <button class="circle" id="audio-btn" aria-label="Activar o silenciar sonido" title="Audio (M)">♪</button>
     <button class="circle" id="photo-btn" aria-label="Guardar captura" title="Guardar PNG (P)">▣</button>
@@ -37,7 +42,20 @@
     <div id="bird-options" class="species-grid"></div>
     <div class="picker-detail"><span id="species-total">12 ESPECIES</span><strong id="bird-habitat"></strong><p id="bird-description"></p></div>
   </aside>
-  <footer class="bottom" id="bottom"><span id="phase">OBSERVA. RESPIRA. VUELA.</span><span>37° N · OCÉANO PROCEDURAL · <span id="fps">-- FPS</span></span></footer>
+  <footer class="bottom" id="bottom"><span id="phase">OBSERVA. RESPIRA. VUELA.</span><span>MUNDO PROCEDURAL · <span id="fps">-- FPS</span></span></footer>
+  <section id="tv-overlay" class="tv-overlay hidden" aria-label="Hora y condiciones meteorológicas">
+    <div class="tv-date" id="tv-date"></div>
+    <div class="tv-clock" id="tv-clock">--:--</div>
+    <div class="tv-condition"><strong id="tv-temp">-- °C</strong><span id="tv-weather">CLIMA SIMULADO</span></div>
+    <div class="tv-metrics"><span id="tv-wind"></span><span id="tv-humidity"></span></div>
+    <div class="tv-source" id="tv-source">Aún sin datos meteorológicos reales</div>
+    <button class="tv-consent" id="tv-consent" type="button">ACTIVAR CLIMA REAL</button>
+    <a class="tv-attribution hidden" id="tv-attribution" href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Datos: Open-Meteo</a>
+  </section>
+  <div id="tv-actions" class="tv-actions hidden">
+    <button id="tv-audio" title="Activar sonido" aria-label="Activar sonido">♪</button>
+    <button id="tv-exit" title="Salir de salvapantallas" aria-label="Salir del modo TV">×</button>
+  </div>
   <div class="intro" id="intro">
     <div class="intro-card">
       <div class="eyebrow centered">UN LUGAR QUE NO SE REPITE</div>
@@ -45,7 +63,7 @@
       <h1>VUELO</h1>
       <p>Una isla viva. Doce especies de aves. Fauna en libertad.<br>La luz de cada instante.<br>Sin imágenes, vídeos ni música grabada.</p>
       <button id="enter-btn" class="enter">ENTRAR EN EL PAISAJE <span>↗</span></button>
-      <p class="micro">Activa el sonido con un gesto. Auriculares recomendados.</p>
+      <p class="micro">Al entrar puedes autorizar el clima de tu dispositivo.<br>Tu ubicación nunca aparecerá en pantalla.</p>
     </div>
   </div>
   <aside id="help" class="help hidden" role="dialog" aria-label="Controles">
@@ -56,6 +74,8 @@
     <p><kbd>B</kbd> Selector de aves <kbd>Esc</kbd> Cerrar</p>
     <p><kbd>Espacio</kbd> Aletear <kbd>M</kbd> Audio <kbd>H</kbd> Interfaz</p>
     <p><kbd>P</kbd> Captura PNG <kbd>F</kbd> Pantalla completa</p>
+    <p><kbd>T</kbd> Salvapantallas TV <kbd>R</kbd> Volver a tiempo real</p>
+    <p>El clima local requiere permiso del navegador. No se publica tu ubicación.</p>
     <p>URL: <code>?h=6.4&amp;bird=albatross&amp;weather=storm</code></p>
   </aside>
   <div id="error" class="error hidden" role="alert"></div>

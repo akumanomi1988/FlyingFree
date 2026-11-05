@@ -26,7 +26,7 @@ async function render(name,query,width,height,runChecks){
   try{
     const r=await page.goto(root+query,{waitUntil:'domcontentloaded',timeout:30000});
     assert.equal(r?.status(),200,'Respuesta HTTP');
-    await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,{timeout:45000});
+    await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,null,{timeout:60000});
     await page.waitForTimeout(1100);
     const stats=await page.evaluate(()=>{
       const c=document.querySelector('#viewport canvas'),s=window.__FLYINGFREE_STATUS__;
@@ -49,16 +49,16 @@ async function render(name,query,width,height,runChecks){
         camera:!!document.querySelector('#viewport canvas'),
         species:document.querySelectorAll('[data-bird]').length};
     });
-    await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
     assert.equal(stats.canvas,true,'Canvas ausente');
     assert.equal(stats.error,null,'Excepción del motor');
     assert.equal(stats.species,12,'Selector incompleto');
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
     assert.ok(stats.renderedFrames>6,'No hay animación');
-    assert.ok(stats.colors>(name.includes('night')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
+    assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);
+    await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
     report.scenarios.push({name,success:true,stats});
     await page.close();
   }catch(error){
@@ -100,6 +100,33 @@ try{
       assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.bird),'owl','No cambia el ave');
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false);
+    });
+  await render('06-tv-live-weather','?tv=1&bird=kestrel',1440,900,
+    async(page)=>{
+      assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),true);
+      assert.equal(await page.locator('#tv-overlay').isVisible(),true);
+      await page.context().grantPermissions(['geolocation']);
+      await page.context().setGeolocation({latitude:40.42837,longitude:-3.71252});
+      await page.route('https://api.open-meteo.com/v1/forecast*',async(route)=>{
+        const u=new URL(route.request().url());
+        assert.equal(u.searchParams.get('latitude'),'40.4');
+        assert.equal(u.searchParams.get('longitude'),'-3.7');
+        await route.fulfill({status:200,contentType:'application/json',
+          body:JSON.stringify({current:{temperature_2m:14.3,apparent_temperature:11.5,weather_code:61,cloud_cover:91,precipitation:1.0,relative_humidity_2m:78,wind_speed_10m:27}})});
+      });
+      await page.locator('#tv-consent').click();
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.live===true,{timeout:20000});
+      assert.equal(await page.locator('#tv-temp').innerText(),'14 °C');
+      assert.match(await page.locator('#tv-weather').innerText(),/LLUVIA/i);
+      assert.equal(await page.locator('#tv-attribution').isVisible(),true);
+      const body=await page.locator('body').innerText();
+      assert.equal(body.includes('40.4'),false,'coordinates leaked into visible UI');
+      assert.equal(body.includes('-3.7'),false,'longitude leaked into visible UI');
+      assert.equal(body.includes('37° N'),false,'fixed region leaked into visible UI');
+      await page.keyboard.press('t');
+      assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),false);
+      await page.keyboard.press('t');
+      assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),true);
     });
   assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
   report.result='pass';

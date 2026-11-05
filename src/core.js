@@ -39,7 +39,7 @@ export const WEATHER=[
  {id:'storm',name:'Tormenta',cloud:1,rain:1,fog:.56}
 ];
 export function chooseBird(date){
- const weekday=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Madrid',weekday:'short'}).format(date);
+ const weekday=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()];
  const ids={Sun:'kestrel',Mon:'vulture',Tue:'hummingbird',Wed:'swift',Thu:'eagle',Fri:'albatross',Sat:'osprey'};
  return BIRDS.find(b=>b.id===ids[weekday])||BIRDS[0];
 }
@@ -47,22 +47,7 @@ export function chooseWeather(date){
  const day=Math.floor(date.getTime()/86400000);const rand=random(day^0x48ae1);
  return WEATHER[Math.floor(rand()*WEATHER.length)];
 }
-export function madridHour(date){
- const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date);
- const v=(type)=>Number(parts.find(p=>p.type===type)?.value||0);
- return v('hour')+v('minute')/60+v('second')/3600;
-}
-export function withMadridHour(date,target){
- let result=new Date(date);
- for(let i=0;i<3;i++){
-   let delta=target-madridHour(result);
-   if(delta>12)delta-=24;if(delta< -12)delta+=24;
-   result=new Date(result.getTime()+delta*3600000);
- }
- return result;
-}
-export function season(date){const month=Number(new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Madrid',month:'numeric'}).format(date));return month<3||month===12?'Invierno':month<6?'Primavera':month<9?'Verano':'Otoño'}
-export function sunPosition(date,latitude=37,longitude=-5){
+export function sunPosition(date,latitude=40,longitude=0){
   // Approximation based on NOAA apparent sun formula. Azimuth radians from north, clockwise.
   const n=date.getTime()/86400000+2440587.5-2451545;
   const L=((280.46+.9856474*n)%360+360)%360, g=(357.528+.9856003*n)*Math.PI/180;
@@ -78,58 +63,9 @@ export function sunPosition(date,latitude=37,longitude=-5){
   const azimuth=(Math.atan2(Math.sin(hourAngle),Math.cos(hourAngle)*Math.sin(phi)-Math.tan(dec)*Math.cos(phi))+Math.PI)%TAU;
   return {altitude,azimuth,daylight:smooth(-.15,.18,altitude),golden:1-smooth(.08,.42,Math.abs(altitude)),night:altitude<-.105};
 }
-export function birdPosition(t,bird){
-  const flight=bird.flight||'soar';
-  const theta=t*.035*bird.speed;
-  const r=bird.radius;
-  const sweep=flight==='dash'?.21:flight==='hover'?.08:.13;
-  let x=Math.sin(theta)*r+Math.sin(theta*.29)*r*sweep;
-  let z=Math.cos(theta*.83)*r*.78;
-  if(flight==='marine'){
-    const angle=theta*.86+.7;
-    x=Math.cos(angle)*r;
-    z=Math.sin(angle)*r;
-  }
-  const ground=terrainHeight(x,z);
-  const thermals=flight==='soar'?Math.sin(theta*3.1)*37:0;
-  const skim=flight==='marine'?Math.sin(theta*2.8)*16:0;
-  const ripple=flight==='dash'?Math.sin(t*.65)*23:Math.sin(t*.21)*12;
-  const clearance=flight==='soar'?132:flight==='dash'?105:flight==='hover'?76:flight==='marine'?48:80;
-  const altitude=Math.max(ground+clearance,bird.alt+thermals+skim+ripple);
-  return {x,y:altitude,z,heading:flight==='marine'?Math.PI-(theta*.86+.7):Math.atan2(Math.cos(theta)*r,-Math.sin(theta*.83)*r*.83)};
-}
-export function solarEventHour(date,kind,latitude=37,longitude=-5){
-  const dawn=kind==='dawn';
-  const from=dawn?3:14,to=dawn?12:23;
-  const target=-.0145;
-  let previousHour=from,previousAltitude=sunPosition(withMadridHour(date,from),latitude,longitude).altitude;
-  for(let h=from+.125;h<=to;h+=.125){
-    const current=sunPosition(withMadridHour(date,h),latitude,longitude).altitude;
-    const crosses=dawn?(previousAltitude<=target&&current>target):(previousAltitude>=target&&current<target);
-    if(crosses){
-      const f=(target-previousAltitude)/(current-previousAltitude);
-      return previousHour+(h-previousHour)*clamp(f);
-    }
-    previousHour=h;previousAltitude=current;
-  }
-  return dawn?7:18;
-}
-export function solarPhaseHour(date,phase){
-  if(phase==='dawn')return solarEventHour(date,'dawn')+.16;
-  if(phase==='sunset')return solarEventHour(date,'sunset')-.26;
-  if(phase==='noon'){
-    let best=12,alt=-Infinity;
-    for(let h=10;h<=17;h+=.25){
-      const a=sunPosition(withMadridHour(date,h)).altitude;
-      if(a>alt){best=h;alt=a;}
-    }
-    return best;
-  }
-  return 23;
-}
 export function readOptions(search){
  const p=new URLSearchParams(search);
  const h=Number(p.get('h'));const bird=BIRDS.find(b=>b.id===p.get('bird'));const weather=WEATHER.find(w=>w.id===p.get('weather'));
  const phase=['dawn','noon','sunset','night'].includes(p.get('phase'))?p.get('phase'):null;
- return {phase,hour:p.has('h')&&Number.isFinite(h)&&h>=0&&h<24?h:null,bird,weather,broadcast:p.get('broadcast')==='1',selftest:p.get('selftest')==='1'};
+ return {phase,tv:p.get('tv')==='1'||p.get('screensaver')==='1',hour:p.has('h')&&Number.isFinite(h)&&h>=0&&h<24?h:null,bird,weather,broadcast:p.get('broadcast')==='1',selftest:p.get('selftest')==='1'};
 }

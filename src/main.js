@@ -1,24 +1,33 @@
 import * as THREE from 'three';
-import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,BIRDS,WEATHER,chooseBird,chooseWeather,madridHour,withMadridHour,season,sunPosition,birdPosition,solarPhaseHour,readOptions} from './core.js';
+import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,BIRDS,WEATHER,chooseBird,chooseWeather,sunPosition,readOptions} from './core.js';
 import {Soundscape} from './audio.js';
 import {createBirdRig,animateBirdRig} from './flight.js';
 import {createEcosystem} from './ecosystem.js';
 import {createSky,createOcean,createPrecipitation} from './renderfx.js';
 import {createBirdBrain} from './behaviour.js';
 import {createGroundDetail} from './vegetation.js';
+import {habitatAt} from './ecology.js';
+import {createLiveClimate,approximateSolarCoordinates} from './localClimate.js';
+import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,localDateLabel} from './localTime.js';
 
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
-const status={version:'0.3.0',ready:false,frames:0,fps:0,error:null,scene:null};
+const status={version:'0.4.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail;
 let scaleFactor=1,lowFpsSeconds=0,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
-let simMs=opts.hour!=null?withMadridHour(new Date(),opts.hour).getTime():
-  opts.phase?withMadridHour(new Date(),solarPhaseHour(new Date(),opts.phase)).getTime():Date.now();
+const climate=createLiveClimate();
+let solarCoordinates=approximateSolarCoordinates();
+let timeOverride=opts.hour!=null||Boolean(opts.phase);
+let weatherOverride=Boolean(opts.weather);
+let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
+ opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
+let climatePending=false,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
+
 let currentBird=opts.bird||chooseBird(new Date(simMs));
 let currentWeather=opts.weather||chooseWeather(new Date(simMs));
 let speed=1,flapBoost=0,lastFrame=performance.now(),elapsed=0,cameraLook=new THREE.Vector3(0,150,0),sleepFactor=0;
-let weatherState={cloud:currentWeather.cloud,rain:currentWeather.rain,fog:currentWeather.fog},renderFrames=0,fpsTimer=0;
+let weatherState={cloud:currentWeather.cloud,rain:currentWeather.rain,fog:currentWeather.fog},renderFrames=0,fpsTimer=0,lastClimatePoll=0;
 const sound=new Soundscape();
 const canvasParent=$('viewport');
 const temp=new THREE.Object3D();
@@ -44,7 +53,8 @@ function init(){
   sunOrb=new THREE.Mesh(sunGeo,new THREE.MeshBasicMaterial({color:0xffe5b7,fog:false}));scene.add(sunOrb);
   moonOrb=new THREE.Mesh(new THREE.SphereGeometry(42,16,12),new THREE.MeshBasicMaterial({color:0xc1d2df,fog:false}));scene.add(moonOrb);
   createLandscape();createForest();createClouds();createStars();createBird();
-  const startPos=birdPosition(0,currentBird);
+  const startSun=sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude);
+  const startPos=birdBrain.update(0,0,startSun.daylight,0);
   birdModel.position.set(startPos.x,startPos.y,startPos.z);
   const heading=new THREE.Vector3(-Math.sin(startPos.heading),0,-Math.cos(startPos.heading));
   camera.position.copy(birdModel.position).addScaledVector(heading,-185).add(new THREE.Vector3(38,26,14));
@@ -58,6 +68,8 @@ function init(){
   window.addEventListener('resize',onResize,{passive:true});
   bindUI();onResize();status.ready=true;status.scene={terrain:true,forest:true,bird:true,water:true,clouds:true,stars:true,fauna:true,sky:true,rain:true};
   if(opts.broadcast){$('intro').classList.add('off');document.body.classList.add('no-ui');}
+  if(opts.tv)setTVMode(true);
+  void connectClimate(true);
   if(opts.selftest)window.setTimeout(selfTest,2500);
   requestAnimationFrame(animate);
 }
@@ -98,23 +110,42 @@ function createForest(){
   const upper=new THREE.InstancedMesh(new THREE.ConeGeometry(6,20,7),foliage('#729f70'),n);
   const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(1.05,1.55,16,6),foliage('#635c4b'),n);
   const broad=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(11,1),foliage('#7eac72'),n);
+  const cypress=new THREE.InstancedMesh(new THREE.ConeGeometry(4.9,43,7),foliage('#3b7954'),n);
+  const olive=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(8.5,1),foliage('#9aaa78'),n);
+  const birch=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(9,1),foliage('#90b08c'),n);
   const greens=['#447755','#5a9161','#699f68','#4f8060','#87ac72'].map(c=>new THREE.Color(c));
-  const currentMonth=new Date(simMs).getUTCMonth();
+  const currentMonth=new Date(simMs).getMonth();
   const broadGreens=(currentMonth>=8&&currentMonth<=10?
     ['#dfac50','#c78047','#b86d49','#d3b365']:
     currentMonth<=1?['#8b9c78','#a3ad86','#87976c']:
     currentMonth<=4?['#a6c875','#8ab86f','#b7d17d']:
     ['#90b771','#74a36a','#a4bf7c','#719563']).map(c=>new THREE.Color(c));
-  let pines=0,deciduous=0,trees=0;
+  let pines=0,deciduous=0,cypresses=0,olives=0,birches=0,trees=0;
   for(let attempt=0;attempt<n*8&&trees<n;attempt++){
     const x=(rng()-.5)*3450,z=(rng()-.5)*3060,y=terrainHeight(x,z);
     if(y<14||y>340||rng()<smooth(190,335,y)*.56)continue;
+    const habitat=habitatAt(x,z);
+    if(habitat.type==='rock'||habitat.slope>.85)continue;
     const s=.55+rng()*1.25,a=rng()*TAU;
-    const oak=y<218&&rng()<.38;
+    const kind=habitat.type==='shore'?'olive':
+      y<125&&habitat.humidity<.50&&rng()<.35?'olive':
+      habitat.type==='forest'&&rng()<.16?'birch':
+      habitat.type==='forest'&&rng()<.22?'oak':
+      y<195&&rng()<.13?'cypress':'pine';
+    const oak=kind==='oak';
     temp.rotation.set(0,a,0);
     temp.position.set(x,y+7*s,z);temp.scale.set(s,s,s);temp.updateMatrix();
     trunk.setMatrixAt(trees,temp.matrix);
-    if(oak){
+    if(kind==='cypress'){
+      temp.position.set(x,y+25*s,z);temp.scale.set(s*.73,s*.95,s*.73);temp.updateMatrix();
+      cypress.setMatrixAt(cypresses++,temp.matrix);
+    }else if(kind==='olive'){
+      temp.position.set(x,y+20*s,z);temp.scale.set(s*1.05,s*.66,s*1.05);temp.updateMatrix();
+      olive.setMatrixAt(olives++,temp.matrix);
+    }else if(kind==='birch'){
+      temp.position.set(x,y+26*s,z);temp.scale.set(s*.82,s*.96,s*.88);temp.updateMatrix();
+      birch.setMatrixAt(birches++,temp.matrix);
+    }else if(oak){
       temp.position.set(x,y+25*s,z);
       temp.scale.set(s*(.92+rng()*.4),s*(.65+rng()*.2),s);
       temp.updateMatrix();broad.setMatrixAt(deciduous,temp.matrix);
@@ -129,14 +160,14 @@ function createForest(){
     }
     trees++;
   }
-  trunk.count=trees;lower.count=upper.count=pines;broad.count=deciduous;
-  for(const inst of [trunk,lower,upper,broad]){
+  trunk.count=trees;lower.count=upper.count=pines;broad.count=deciduous;cypress.count=cypresses;olive.count=olives;birch.count=birches;
+  for(const inst of [trunk,lower,upper,broad,cypress,olive,birch]){
     inst.instanceMatrix.needsUpdate=true;
     if(inst.instanceColor)inst.instanceColor.needsUpdate=true;
     inst.frustumCulled=false;
     scene.add(inst);
   }
-  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous};
+  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches};
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
   let j=0;
@@ -197,7 +228,7 @@ function selectBird(id){
   $('bird-picker').classList.add('hidden');
 }
 function ambient(date,dt){
-  const sun=sunPosition(date),day=sun.daylight,alt=sun.altitude;
+  const sun=sunPosition(date,solarCoordinates.latitude,solarCoordinates.longitude),day=sun.daylight,alt=sun.altitude;
   const k=1-Math.exp(-dt/16);
   for(const prop of ['cloud','rain','fog'])weatherState[prop]=lerp(weatherState[prop],currentWeather[prop],k);
   const cloud=weatherState.cloud,wet=weatherState.rain,night=sun.night;
@@ -233,8 +264,10 @@ function fly(date,dt,sun){
  const action=birdBrain.update(elapsed,dt,day,weatherState.rain);
  birdModel.position.set(action.x,action.y,action.z);
  birdModel.rotation.y=action.heading;
- animateBirdRig(birdModel,elapsed,{energy:action.mode==='forage'?.9:.4,sleeping:action.resting,bank:action.bank,pitch:action.pitch},dt);
- status.behaviour=action.mode;status.flightSpeed=Math.round(action.velocity);
+ animateBirdRig(birdModel,elapsed,{energy:action.flapping?.89:.40,sleeping:action.wingsFolded,bank:action.bank,pitch:action.pitch},dt);
+ status.behaviour=action.state;status.flightSpeed=Math.round(action.speed);
+ status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
+ status.landings=action.landings;status.feedings=action.feedings;
  return birdModel.position;
 }
 function directCamera(bird,dt){
@@ -274,14 +307,16 @@ function animate(now){
   const deltaRaw=Math.max(0,(now-lastFrame)/1000),dt=Math.min(deltaRaw,.10);
   lastFrame=now;
   if(!Number.isFinite(dt))return;
-  elapsed+=dt;simMs+=deltaRaw*1000*speed;
+  elapsed+=dt;
+  if(timeOverride)simMs+=deltaRaw*1000*speed;
+  else simMs=Date.now();
   const date=new Date(simMs);
   // A week-scale cycle for the default bird; manual selections always persist.
   if(!manuallySelected&&status.frames%120===0){
     const dailyBird=chooseBird(date);
     if(dailyBird!==currentBird){currentBird=dailyBird;createBird();refreshPicker();}
   }
-  if(elapsed>300&&elapsed-lastWeatherAutoAt>300){
+  if(!climate.weather&&elapsed>300&&elapsed-lastWeatherAutoAt>300){
     const rng=random(Math.floor(simMs/86400000) ^ Math.floor(elapsed/300)*117);
     currentWeather=WEATHER[Math.floor(rng()*WEATHER.length)];
     lastWeatherAutoAt=elapsed;
@@ -296,18 +331,21 @@ function animate(now){
   if(fpsTimer>=1){
     status.fps=Math.round(renderFrames/fpsTimer);
     $('fps').textContent=status.fps+' FPS';renderFrames=0;fpsTimer=0;
-    const hour=madridHour(date),hh=Math.floor(hour),mm=Math.floor(hour%1*60);
-    $('clock').textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    const hour=localHour(date);
+    $('clock').textContent=localTimeLabel(date);
     $('bird-name').textContent=currentBird.name;
     $('weather-name').textContent=currentWeather.name;
-    $('season-name').textContent=season(date);
+    $('season-name').textContent=seasonLocal(date);
     $('speed-name').textContent='×'+speed;
     $('scene-caption').textContent=sun.night?'Un cielo lleno de caminos':hour<9?'La primera luz sobre el agua':hour>=18?'La calma del atardecer':'Cada instante es irrepetible';
     $('phase').textContent=sun.night?'EL MUNDO BAJA EL RITMO':currentBird.name.toUpperCase()+' EN LIBERTAD';
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
-    status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;
+    status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;status.insectCount=groundDetail.insectCount;
+    status.sunAccurate=Boolean(solarCoordinates.accurate);
+    status.timeMode=timeOverride?'simulated':'live';
+    updateWeatherUI(date);
     if(status.fps<23)lowFpsSeconds++;else lowFpsSeconds=Math.max(0,lowFpsSeconds-2);
     if(lowFpsSeconds>=8&&scaleFactor>.72){
       scaleFactor=Math.max(.72,scaleFactor*.85);
@@ -319,11 +357,83 @@ function onResize(){if(!renderer)return;renderer.setSize(innerWidth,innerHeight)
 async function audioToggle(){try{await sound.toggle();$('audio-btn').classList.toggle('active',sound.enabled)}catch(err){showError(err)}}
 function png(){try{renderer.render(scene,camera);const a=document.createElement('a');a.download='vuelo-'+new Date(simMs).toISOString().replaceAll(':','-')+'.png';a.href=renderer.domElement.toDataURL('image/png');a.click()}catch(err){showError(err)}}
 function setHour(h){
-  simMs=withMadridHour(new Date(simMs),h).getTime();
-  const now=madridHour(new Date(simMs));
-  $('clock').textContent=String(Math.floor(now)).padStart(2,'0')+':'+String(Math.floor((now%1)*60)).padStart(2,'0');
+  timeOverride=true;
+  simMs=withLocalHour(new Date(simMs),h).getTime();
+  $('clock').textContent=localTimeLabel(new Date(simMs));
 }
-function changeWeather(){const i=WEATHER.indexOf(currentWeather);currentWeather=WEATHER[(i+1)%WEATHER.length];$('weather-name').textContent=currentWeather.name}
+function changeWeather(){
+  const i=WEATHER.findIndex(w=>w.id===currentWeather.id);
+  currentWeather=WEATHER[(i+1+WEATHER.length)%WEATHER.length];
+  weatherOverride=true;
+  $('weather-name').textContent=currentWeather.name;
+}
+async function requestWakeLock(){
+  if(!tvActive||!navigator.wakeLock?.request||wakeLock)return;
+  try{wakeLock=await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener?.('release',()=>{wakeLock=null;});
+  }catch{/* Device does not support wake lock or requires further user gesture. */}
+}
+function setTVMode(enabled){
+  tvActive=Boolean(enabled);
+  document.body.classList.toggle('tv-mode',tvActive);
+  $('tv-overlay').classList.toggle('hidden',!tvActive);
+  $('tv-actions').classList.toggle('hidden',!tvActive);
+  if(tvActive){$('intro').classList.add('off');revealTVControls();void requestWakeLock();}
+  else if(wakeLock){void wakeLock.release().catch(()=>{});wakeLock=null;}
+}
+function revealTVControls(){
+  if(!tvActive)return;
+  $('tv-actions').classList.add('active');
+  if(controlsTimeout)clearTimeout(controlsTimeout);
+  controlsTimeout=setTimeout(()=>$('tv-actions').classList.remove('active'),5500);
+}
+async function connectClimate(onlyPreviouslyGranted=false){
+ if(climatePending)return;climatePending=true;
+ try{
+   const allowed=await climate.requestLocation({onlyPreviouslyGranted});
+   if(!allowed){climateMessage='Clima simulado · activar datos reales';return;}
+   solarCoordinates=climate.coordinates;
+   weatherOverride=false;
+   await pollClimate(true);
+ }catch(err){
+   climateMessage=err?.message==='Ubicación no autorizada'?'Ubicación no autorizada · clima simulado':'Datos no disponibles · clima simulado';
+ }finally{climatePending=false;updateWeatherUI(new Date(simMs));}
+}
+async function pollClimate(force=false){
+ try{
+  const observed=await climate.refresh(force);
+  if(observed&&!weatherOverride){
+   currentWeather=observed.descriptor;
+   climateMessage='Datos meteorológicos actuales';
+  }
+ }catch{
+  climateMessage=climate.weather?'Última medición disponible':'Servicio no disponible · clima simulado';
+ }
+}
+function updateWeatherUI(date){
+ const observed=!weatherOverride?climate.weather:null;
+ const real=Boolean(observed);
+ const source=real?'DATOS ACTUALES · OPEN-METEO':timeOverride?'AMBIENTE SIMULADO · MODO DEMO':climateMessage;
+ const temperature=real?observed.temperature+' °C':'-- °C';
+ const wind=real&&observed.windKmh!=null?observed.windKmh+' km/h':'-- km/h';
+ $('weather-source').textContent=source;
+ $('temperature').textContent=temperature;
+ $('wind').textContent=wind;
+ $('tv-date').textContent=localDateLabel(date);
+ $('tv-clock').textContent=localTimeLabel(date);
+ $('tv-temp').textContent=temperature;
+ $('tv-weather').textContent=currentWeather.name.toUpperCase();
+ $('tv-wind').textContent='VIENTO '+wind;
+ $('tv-humidity').textContent=real&&observed.humidity!=null?'HUMEDAD '+observed.humidity+' %':'';
+ $('tv-source').textContent=source;
+ $('tv-attribution').classList.toggle('hidden',!real);
+ $('tv-consent').classList.toggle('hidden',real);
+ status.climate={live:real,stale:climate.stale,source:real?'open-meteo':'simulated',temperature:real?observed.temperature:null};
+ const movement=Math.floor(Date.now()/480000)%4;
+ const shifts=[[0,0],[22,-14],[-18,-8],[16,12]];
+ $('tv-overlay').style.setProperty('--tv-shift-x',shifts[movement][0]+'px');
+ $('tv-overlay').style.setProperty('--tv-shift-y',shifts[movement][1]+'px');
+}
 function refreshPicker(){
   const picker=$('bird-options');
   if(!picker)return;
@@ -344,33 +454,56 @@ function refreshPicker(){
   $('species-total').textContent=BIRDS.length+' ESPECIES';
 }
 function bindUI(){
-  refreshPicker();
-  $('enter-btn').addEventListener('click',async()=>{$('intro').classList.add('off');await audioToggle()});
-  $('audio-btn').addEventListener('click',audioToggle);
-  $('photo-btn').addEventListener('click',png);
-  $('help-btn').addEventListener('click',()=>$('help').classList.toggle('hidden'));
-  $('close-help').addEventListener('click',()=>$('help').classList.add('hidden'));
-  const picker=$('bird-picker');
-  $('bird-btn').addEventListener('click',()=>picker.classList.toggle('hidden'));
-  $('close-birds').addEventListener('click',()=>picker.classList.add('hidden'));
-  window.addEventListener('keydown',(event)=>{
-    if(event.ctrlKey||event.altKey||event.metaKey)return;
-    const key=event.key.toLowerCase();
-    if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','escape'].includes(key))event.preventDefault();
-    switch(key){
-      case '1':setHour(solarPhaseHour(new Date(simMs),'dawn'));break;
-      case '2':setHour(solarPhaseHour(new Date(simMs),'noon'));break;
-      case '3':setHour(solarPhaseHour(new Date(simMs),'sunset'));break;
-      case '4':setHour(23);break;
-      case '5':changeWeather();break;case '6':speed=1;break;case '7':speed=60;break;case '8':speed=600;break;
-      case ' ':flapBoost=1;break;
-      case 'h':document.body.classList.toggle('no-ui');break;
-      case 'f':if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();break;
-      case 'p':png();break;case 'm':audioToggle();break;
-      case 'b':picker.classList.toggle('hidden');break;
-      case 'escape':picker.classList.add('hidden');$('help').classList.add('hidden');break;
-    }
-  });
+ refreshPicker();
+ $('enter-btn').addEventListener('click',()=>{
+   $('intro').classList.add('off');
+   void audioToggle();
+   void connectClimate(false);
+ });
+ $('audio-btn').addEventListener('click',audioToggle);
+ $('tv-audio').addEventListener('click',audioToggle);
+ $('photo-btn').addEventListener('click',png);
+ $('tv-btn').addEventListener('click',()=>setTVMode(!tvActive));
+ $('tv-exit').addEventListener('click',()=>setTVMode(false));
+ $('weather-btn').addEventListener('click',()=>void connectClimate(false));
+ $('tv-consent').addEventListener('click',()=>void connectClimate(false));
+ $('help-btn').addEventListener('click',()=>$('help').classList.toggle('hidden'));
+ $('close-help').addEventListener('click',()=>$('help').classList.add('hidden'));
+ const picker=$('bird-picker');
+ $('bird-btn').addEventListener('click',()=>picker.classList.toggle('hidden'));
+ $('close-birds').addEventListener('click',()=>picker.classList.add('hidden'));
+ window.addEventListener('pointermove',revealTVControls,{passive:true});
+ window.addEventListener('focus',revealTVControls);
+ document.addEventListener('visibilitychange',()=>{
+   lastFrame=performance.now();
+   if(!document.hidden&&!timeOverride)simMs=Date.now();
+   if(!document.hidden&&tvActive)void requestWakeLock();
+ });
+ window.addEventListener('keydown',(event)=>{
+  if(event.ctrlKey||event.altKey||event.metaKey)return;
+  const key=event.key.toLowerCase();
+  if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','t','r','escape'].includes(key))event.preventDefault();
+  revealTVControls();
+  switch(key){
+   case '1':setHour(astronomicalPhase(new Date(simMs),'dawn',solarCoordinates.latitude,solarCoordinates.longitude));break;
+   case '2':setHour(astronomicalPhase(new Date(simMs),'noon',solarCoordinates.latitude,solarCoordinates.longitude));break;
+   case '3':setHour(astronomicalPhase(new Date(simMs),'sunset',solarCoordinates.latitude,solarCoordinates.longitude));break;
+   case '4':setHour(23);break;
+   case '5':changeWeather();break;
+   case '6':timeOverride=true;speed=1;break;
+   case '7':timeOverride=true;speed=60;break;
+   case '8':timeOverride=true;speed=600;break;
+   case 'r':timeOverride=false;weatherOverride=false;speed=1;simMs=Date.now();if(climate.weather)currentWeather=climate.weather.descriptor;break;
+   case ' ':flapBoost=1;break;
+   case 'h':document.body.classList.toggle('no-ui');break;
+   case 't':setTVMode(!tvActive);break;
+   case 'f':if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();break;
+   case 'p':png();break;
+   case 'm':void audioToggle();break;
+   case 'b':picker.classList.toggle('hidden');break;
+   case 'escape':picker.classList.add('hidden');$('help').classList.add('hidden');break;
+  }
+ });
 }
 function selfTest(){
  const tests=[
@@ -381,8 +514,8 @@ function selfTest(){
   ['Vegetación instanciada',forest?.count>1000],
   ['Océano GPU',!!oceanFX?.mesh?.material.isShaderMaterial],
   ['Cielo procedural GPU',!!skyFX?.mesh?.material.isShaderMaterial],
-  ['Sol físico aproximado',Number.isFinite(sunPosition(new Date(simMs)).altitude)],
-  ['Reloj Europe/Madrid',madridHour(new Date(simMs))>=0],
+  ['Sol astronómico',Number.isFinite(sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude).altitude)],
+  ['Reloj del dispositivo',localHour(new Date(simMs))>=0],
   ['Aves disponibles',BIRDS.length>=12],
   ['Selección de aves',document.querySelectorAll('[data-bird]').length===BIRDS.length],
   ['Ave con alas articuladas',!!birdModel?.userData?.left?.pivot],
@@ -396,7 +529,10 @@ function selfTest(){
   ['Audio procedural',!!(window.AudioContext||window.webkitAudioContext)],
   ['Fotogramas suficientes',status.frames>6],
   ['Sin errores graves',status.error===null],
-  ['Perfil de calidad',scaleFactor>=.7]
+  ['Perfil de calidad',scaleFactor>=.7],
+  ['Capa de vegetación cercana',!!groundDetail],
+  ['Meteorología con origen visible',!!$('weather-source')?.textContent],
+  ['Modo TV disponible',!!$('tv-overlay')]
  ];
  const failures=tests.filter(t=>!t[1]).length,el=$('selftest');
  el.classList.remove('hidden');
