@@ -1,0 +1,114 @@
+import {chromium} from 'playwright';
+import {spawn} from 'node:child_process';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+
+const root='http://127.0.0.1:4173/FlyingFree/';
+const directory='artifacts/visual';
+await fs.mkdir(directory,{recursive:true});
+const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4173','--strictPort'],{stdio:['ignore','pipe','pipe']});
+let serverLog='';
+for(const stream of [server.stdout,server.stderr])stream.on('data',d=>serverLog+=String(d));
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function waitServer(){
+  for(let i=0;i<70;i++){
+    try{const r=await fetch(root);if(r.ok)return;}catch{}
+    await sleep(250);
+  }
+  throw Error('Vite preview no responde: '+serverLog);
+}
+const report={date:new Date().toISOString(),result:'pending',scenarios:[],errors:[]};
+let browser;
+async function render(name,query,width,height,runChecks){
+  const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,acceptDownloads:true});
+  page.on('pageerror',e=>report.errors.push(name+' pageerror: '+e.message));
+  page.on('console',m=>{if(m.type()==='error')report.errors.push(name+' console: '+m.text());});
+  try{
+    const r=await page.goto(root+query,{waitUntil:'domcontentloaded',timeout:30000});
+    assert.equal(r?.status(),200,'Respuesta HTTP');
+    await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,{timeout:45000});
+    await page.waitForTimeout(1100);
+    const stats=await page.evaluate(()=>{
+      const c=document.querySelector('#viewport canvas'),s=window.__FLYINGFREE_STATUS__;
+      if(!c)return {canvas:false,error:s.error};
+      const sample=document.createElement('canvas');sample.width=64;sample.height=36;
+      const cx=sample.getContext('2d',{willReadFrequently:true});
+      cx.drawImage(c,0,0,64,36);
+      const data=cx.getImageData(0,0,64,36).data;
+      const distinct=new Set();let luminance=0,variability=0,nonBlack=0;
+      for(let i=0;i<data.length;i+=4){
+        const r=data[i],g=data[i+1],b=data[i+2];
+        distinct.add([r>>4,g>>4,b>>4].join(':'));
+        const l=(r+g+b)/3;luminance+=l;variability+=Math.abs(r-b);
+        if(r+g+b>60)nonBlack++;
+      }
+      return {canvas:true,renderedFrames:s.frames,fps:s.fps,error:s.error,colors:distinct.size,
+        brightness:Math.round(luminance/(data.length/4)),colorVar:Math.round(variability/(data.length/4)),
+        nonBlack:Math.round(nonBlack/(data.length/4)*100),
+        scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,
+        camera:!!document.querySelector('#viewport canvas'),
+        species:document.querySelectorAll('[data-bird]').length};
+    });
+    await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
+    assert.equal(stats.canvas,true,'Canvas ausente');
+    assert.equal(stats.error,null,'Excepción del motor');
+    assert.equal(stats.species,12,'Selector incompleto');
+    assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
+    assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
+    assert.ok(stats.renderedFrames>6,'No hay animación');
+    assert.ok(stats.colors>(name.includes('night')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
+    assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
+    if(runChecks)await runChecks(page,stats);
+    report.scenarios.push({name,success:true,stats});
+    await page.close();
+  }catch(error){
+    report.scenarios.push({name,success:false,error:String(error)});
+    try{await page.screenshot({path:directory+'/'+name+'-ERROR.png'})}catch{}
+    await page.close();
+    throw error;
+  }
+}
+try{
+  await waitServer();
+  browser=await chromium.launch({headless:true,args:[
+    '--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader','--ignore-gpu-blocklist',
+    '--autoplay-policy=no-user-gesture-required'
+  ]});
+  await render('01-day-kestrel','?h=12.5&bird=kestrel&weather=clear&broadcast=1&selftest=1',1440,900,
+    async(page)=>{
+      await page.waitForFunction(()=>!!window.__FLYINGFREE_STATUS__.selftest,{timeout:10000});
+      const diagnostics=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.selftest);
+      assert.equal(diagnostics.success,true,'Diagnósticos de WebGL / fauna');
+      await page.keyboard.press('4');
+      await page.waitForTimeout(1200);
+      assert.ok((await page.locator('#clock').textContent()).startsWith('23:'),'La tecla de noche no actualiza el reloj');
+      await page.keyboard.press('5');
+      await page.waitForTimeout(1200);
+      assert.equal(await page.locator('#weather-name').innerText(),'Soleado','Cambio de clima');
+    });
+  await render('02-sunset-vulture','?phase=sunset&bird=vulture&weather=cloudy&broadcast=1',1440,900);
+  await render('03-night-owl','?h=23&bird=owl&weather=clear&broadcast=1',1440,900);
+  await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1',1440,900);
+  await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog',390,844,
+    async(page)=>{
+      await page.locator('#enter-btn').click();
+      await page.locator('#bird-btn').click();
+      assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false,'El selector no abre');
+      await page.locator('[data-bird="owl"]').click();
+      await page.waitForTimeout(150);
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.bird),'owl','No cambia el ave');
+      await page.locator('#bird-btn').click();
+      assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false);
+    });
+  assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
+  report.result='pass';
+}catch(e){report.failure=e.stack||String(e);report.result='fail';console.error(e);}
+finally{
+  report.completedAt=new Date().toISOString();
+  await fs.writeFile(directory+'/report.json',JSON.stringify(report,null,2));
+  if(browser)await browser.close();
+  server.kill('SIGTERM');
+  console.log(JSON.stringify(report,null,2));
+}
+if(report.result!=='pass')process.exitCode=1;

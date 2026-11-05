@@ -17,3 +17,22 @@
 .selftest{position:absolute;z-index:10;bottom:70px;right:30px;width:260px;max-height:60vh;overflow:auto;padding:14px 19px;background:#0a1922e8;border:1px solid #aac5bc88;font-size:11px;line-height:1.8}.selftest strong{letter-spacing:.1em}.selftest .ok{color:#9af0bd}.selftest .bad{color:#ffb1a9}
 .no-ui .hud,.no-ui .bottom,.no-ui .right-tools,.no-ui .brand{opacity:0;pointer-events:none}
 @media(max-width:700px){.brand{top:22px;left:20px}.brand small{display:none}.hud{left:20px;top:auto;bottom:85px;transform:none;width:190px}.clock{font-size:45px}.line{margin:10px 0}.stat{margin:8px 0}.stat:nth-last-child(-n+2){display:none}.right-tools{right:18px;top:20px}.circle{width:33px;height:33px}.bottom{left:20px;right:20px;bottom:17px}.bottom span:last-child{display:none}.intro h1{font-size:65px}.intro p{font-size:12px}.intro-card{margin-top:-10vh}}
+
+/* Wildlife selector. All visual elements are HTML/CSS; there are no image assets. */
+.bird-picker{position:absolute;right:29px;top:88px;bottom:74px;width:min(465px,calc(100vw - 40px));z-index:7;padding:24px;background:linear-gradient(142deg,rgba(10,30,37,.97),rgba(15,39,44,.94));border:1px solid rgba(222,242,232,.24);box-shadow:0 15px 65px #00131b88;backdrop-filter:blur(22px);display:flex;flex-direction:column;overflow:hidden;animation:pickerEnter .38s ease both}
+@keyframes pickerEnter{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.picker-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.picker-header h2{font-size:19px;letter-spacing:.1em;font-weight:400;margin:8px 0 0}
+.dismiss{border:0;background:transparent;color:#d7e9dc;font-size:27px;cursor:pointer;padding:0 5px}
+.picker-intro{font-size:12px;line-height:1.8;color:#b8cbc5;margin:14px 0 19px}
+.species-grid{overflow-y:auto;min-height:0;flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:8px;padding-right:5px}
+.species-option{text-align:left;border:1px solid #b8cbbd32;background:#e5f8ea09;cursor:pointer;color:#e9f2eb;padding:13px 11px;min-height:72px;font-family:inherit;display:flex;flex-direction:column;justify-content:space-between;gap:8px;transition:background .2s,border .2s,transform .2s}
+.species-option:hover{background:#e5f8ea18;border-color:#b8cbbd7b;transform:translateY(-1px)}
+.species-option.selected{background:#b3d9c326;border-color:#d5f5d6a8}
+.species-title{font-size:12px;font-weight:700}
+.species-habitat{font-size:10px;color:#b4c7ba}
+.picker-detail{padding-top:14px;margin-top:14px;border-top:1px solid #d9e5dc35;display:grid;gap:7px}
+.picker-detail>span{font-size:9px;letter-spacing:.2em;color:#abc7b4}
+.picker-detail strong{font-size:13px;font-weight:600}
+.picker-detail p{font-size:12px;color:#b9d2c8;margin:0;line-height:1.65}
+@media(max-width:700px){.bird-picker{top:66px;right:12px;left:12px;bottom:60px;width:auto;padding:17px}.species-grid{gap:6px}.species-option{padding:11px 9px;min-height:64px}.picker-intro{margin:8px 0 12px}.picker-header h2{font-size:15px}}

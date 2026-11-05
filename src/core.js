@@ -11,16 +11,23 @@ export function terrainHeight(x,z,seed=1988){
   const radius=Math.hypot(x/1650,z/1500);
   const outline=1+fbm(x*.0019+7,z*.0019-9,seed)*.15;
   const shore=1-smooth(.67,1.045,radius/outline);
-  const ridge=Math.pow(clamp(1-radius/1.09),1.8)*290;
-  const hills=65+fbm(x*.0017+4,z*.0017+15,seed)*90+Math.abs(fbm(x*.004,z*.004,seed))*58;
+  const ridge=Math.pow(clamp(1-radius/1.09),1.8)*214;
+  const hills=67+fbm(x*.0017+4,z*.0017+15,seed)*71+Math.abs(fbm(x*.004,z*.004,seed))*42;
   return -32+Math.max(0,shore)*(ridge+hills);
 }
 export const BIRDS=[
- {id:'kestrel',name:'Cernícalo',color:0xc6a075,wings:1.0,alt:205,radius:380,speed:1},
- {id:'hummingbird',name:'Colibrí',color:0x3cb9a0,wings:.38,alt:58,radius:138,speed:2.2},
- {id:'vulture',name:'Buitre',color:0x92705a,wings:1.6,alt:345,radius:620,speed:.65},
- {id:'swift',name:'Vencejo',color:0x4f6879,wings:1.18,alt:260,radius:540,speed:2.1},
- {id:'albatross',name:'Albatros',color:0xd4d7ce,wings:1.95,alt:42,radius:1550,speed:.7}
+ {id:'kestrel',name:'Cernícalo',color:0xc6a075,wings:1.04,alt:205,radius:380,speed:1,flight:'hover',flapRate:5.4,visualScale:9,habitat:'Laderas y praderas',detail:'Vigila el terreno y se mantiene suspendido ante posibles presas.'},
+ {id:'hummingbird',name:'Colibrí',color:0x3cb9a0,wings:.42,alt:64,radius:138,speed:2.0,flight:'hover',flapRate:18,visualScale:5.2,habitat:'Flores del bosque',detail:'Cernido rápido, maniobras cortas y búsqueda de néctar.'},
+ {id:'vulture',name:'Buitre leonado',color:0x92705a,wings:1.75,alt:345,radius:620,speed:.67,flight:'soar',flapRate:1.2,visualScale:11.3,habitat:'Térmicas de montaña',detail:'Aprovecha corrientes ascendentes para planear sin esfuerzo.'},
+ {id:'swift',name:'Vencejo',color:0x4f6879,wings:1.13,alt:260,radius:540,speed:2.25,flight:'dash',flapRate:8.8,visualScale:8,habitat:'Cielo abierto',detail:'Giros veloces y amplias rutas por el aire.'},
+ {id:'albatross',name:'Albatros',color:0xd4d7ce,wings:2.15,alt:45,radius:1900,speed:.73,flight:'marine',flapRate:.7,visualScale:11.5,habitat:'Alta mar',detail:'Planeo dinámico sobre el oleaje con aleteo mínimo.'},
+ {id:'osprey',name:'Águila pescadora',color:0x907860,wings:1.55,alt:190,radius:1050,speed:1.16,flight:'soar',flapRate:2.6,visualScale:11,habitat:'Costa y marismas',detail:'Patrulla el agua y realiza aproximaciones rápidas.'},
+ {id:'owl',name:'Búho real',color:0x9b8167,wings:1.36,alt:165,radius:440,speed:.78,flight:'nocturnal',flapRate:3.2,visualScale:11,habitat:'Bosques nocturnos',detail:'Actividad nocturna, vuelos bajos y pausas en el bosque.'},
+ {id:'eagle',name:'Águila real',color:0x76583f,wings:1.83,alt:405,radius:780,speed:.92,flight:'soar',flapRate:2.0,visualScale:12,habitat:'Cumbres rocosas',detail:'Planeo circular sobre la montaña y vuelos de exploración.'},
+ {id:'kingfisher',name:'Martín pescador',color:0x267b99,wings:.70,alt:47,radius:480,speed:1.60,flight:'dash',flapRate:9.5,visualScale:6.2,habitat:'Riberas y lagunas',detail:'Vuela rápido a baja altura cerca de la superficie.'},
+ {id:'heron',name:'Garza real',color:0x8999a3,wings:1.70,alt:78,radius:780,speed:.55,flight:'wade',flapRate:1.95,visualScale:12,habitat:'Marisma',detail:'Movimiento pausado y vuelo de aleteo profundo.'},
+ {id:'gull',name:'Gaviota',color:0xe1e0d2,wings:1.44,alt:112,radius:1600,speed:1.14,flight:'marine',flapRate:2.4,visualScale:10,habitat:'Acantilados y mar',detail:'Aprovecha el viento costero y sigue el oleaje.'},
+ {id:'swallow',name:'Golondrina',color:0x2c5163,wings:.86,alt:125,radius:350,speed:1.98,flight:'dash',flapRate:8.4,visualScale:7.5,habitat:'Praderas',detail:'Cambios de rumbo muy rápidos mientras busca insectos.'}
 ];
 export const WEATHER=[
  {id:'clear',name:'Despejado',cloud:.10,rain:0,fog:0},
@@ -33,7 +40,7 @@ export const WEATHER=[
 ];
 export function chooseBird(date){
  const weekday=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Madrid',weekday:'short'}).format(date);
- const ids={Sun:'kestrel',Mon:'vulture',Tue:'hummingbird',Wed:'swift',Thu:'kestrel',Fri:'albatross',Sat:'kestrel'};
+ const ids={Sun:'kestrel',Mon:'vulture',Tue:'hummingbird',Wed:'swift',Thu:'eagle',Fri:'albatross',Sat:'osprey'};
  return BIRDS.find(b=>b.id===ids[weekday])||BIRDS[0];
 }
 export function chooseWeather(date){
@@ -72,15 +79,57 @@ export function sunPosition(date,latitude=37,longitude=-5){
   return {altitude,azimuth,daylight:smooth(-.15,.18,altitude),golden:1-smooth(.08,.42,Math.abs(altitude)),night:altitude<-.105};
 }
 export function birdPosition(t,bird){
-  const theta=t*.035*bird.speed,rad=bird.radius;
-  const x=Math.sin(theta)*rad+Math.sin(theta*.29)*rad*.14;
-  const z=Math.cos(theta*.83)*rad*.78;
+  const flight=bird.flight||'soar';
+  const theta=t*.035*bird.speed;
+  const r=bird.radius;
+  const sweep=flight==='dash'?.21:flight==='hover'?.08:.13;
+  let x=Math.sin(theta)*r+Math.sin(theta*.29)*r*sweep;
+  let z=Math.cos(theta*.83)*r*.78;
+  if(flight==='marine'){
+    const angle=theta*.86+.7;
+    x=Math.cos(angle)*r;
+    z=Math.sin(angle)*r;
+  }
   const ground=terrainHeight(x,z);
-  const altitude=Math.max(ground+28,bird.alt+Math.sin(t*.21)*16);
-  return {x,y:altitude,z,heading:Math.atan2(Math.cos(theta)*rad,-Math.sin(theta*.83)*rad*.83)};
+  const thermals=flight==='soar'?Math.sin(theta*3.1)*37:0;
+  const skim=flight==='marine'?Math.sin(theta*2.8)*16:0;
+  const ripple=flight==='dash'?Math.sin(t*.65)*23:Math.sin(t*.21)*12;
+  const clearance=flight==='soar'?132:flight==='dash'?105:flight==='hover'?76:flight==='marine'?48:80;
+  const altitude=Math.max(ground+clearance,bird.alt+thermals+skim+ripple);
+  return {x,y:altitude,z,heading:flight==='marine'?Math.PI-(theta*.86+.7):Math.atan2(Math.cos(theta)*r,-Math.sin(theta*.83)*r*.83)};
+}
+export function solarEventHour(date,kind,latitude=37,longitude=-5){
+  const dawn=kind==='dawn';
+  const from=dawn?3:14,to=dawn?12:23;
+  const target=-.0145;
+  let previousHour=from,previousAltitude=sunPosition(withMadridHour(date,from),latitude,longitude).altitude;
+  for(let h=from+.125;h<=to;h+=.125){
+    const current=sunPosition(withMadridHour(date,h),latitude,longitude).altitude;
+    const crosses=dawn?(previousAltitude<=target&&current>target):(previousAltitude>=target&&current<target);
+    if(crosses){
+      const f=(target-previousAltitude)/(current-previousAltitude);
+      return previousHour+(h-previousHour)*clamp(f);
+    }
+    previousHour=h;previousAltitude=current;
+  }
+  return dawn?7:18;
+}
+export function solarPhaseHour(date,phase){
+  if(phase==='dawn')return solarEventHour(date,'dawn')+.16;
+  if(phase==='sunset')return solarEventHour(date,'sunset')-.26;
+  if(phase==='noon'){
+    let best=12,alt=-Infinity;
+    for(let h=10;h<=17;h+=.25){
+      const a=sunPosition(withMadridHour(date,h)).altitude;
+      if(a>alt){best=h;alt=a;}
+    }
+    return best;
+  }
+  return 23;
 }
 export function readOptions(search){
  const p=new URLSearchParams(search);
  const h=Number(p.get('h'));const bird=BIRDS.find(b=>b.id===p.get('bird'));const weather=WEATHER.find(w=>w.id===p.get('weather'));
- return {hour:p.has('h')&&Number.isFinite(h)&&h>=0&&h<24?h:null,bird,weather,broadcast:p.get('broadcast')==='1',selftest:p.get('selftest')==='1'};
+ const phase=['dawn','noon','sunset','night'].includes(p.get('phase'))?p.get('phase'):null;
+ return {phase,hour:p.has('h')&&Number.isFinite(h)&&h>=0&&h<24?h:null,bird,weather,broadcast:p.get('broadcast')==='1',selftest:p.get('selftest')==='1'};
 }

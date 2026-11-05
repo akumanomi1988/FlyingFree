@@ -1,43 +1,49 @@
 # FlyingFree · VUELO
 
-Mundo audiovisual procedural en el navegador: isla generativa, ave animada, luz astronómica, meteorología y sonido sintetizado en tiempo real.
+Experience a procedural coastal island, twelve selectable bird species, wildlife, physical sun cycle, dynamic weather, and original algorithmic ambient music.
 
-**Estado:** prototipo F0/F1, no sistema de emisión 24/7.
-
-## Desarrollo
-
-```sh
+## Run locally
+```bash
 npm install
 npm run dev
-npm run test
+npm test
 npm run build
 ```
 
-La versión publicada en GitHub Pages compila Three.js dentro del paquete; el visitante no necesita un CDN ni instalar nada.
+**Public website:** https://akumanomi1988.github.io/FlyingFree/
 
-## Controles
+## Features in v0.2
+- Twelve selectable bird species, each with an individual flight profile and articulated 3D silhouette.
+- Deer, foxes, rabbits, butterflies, gulls, and dolphins with habitat-aware motion and simple activity/rest cycles.
+- Procedural 3D island with trees, rocks, meadows, ocean shader, cloud layers, stars and sun.
+- Solar position based on UTC, latitude 37° N, longitude -5° and presentation in Europe/Madrid.
+- Seven types of weather, smooth transitions, particle rain, camera direction and synthetic soundtrack.
+- Five bird camera shots, wildlife documentary framing and panoramic sequences.
+- Adaptive render resolution for slow GPUs; limited geometry on narrow screens.
+- Browser-based checks: `?selftest=1`, GitHub Actions screenshots and console/error monitoring.
 
-- **1–4:** amanecer, mediodía, atardecer, noche.
-- **5:** siguiente clima.
-- **6–8:** velocidad ×1, ×60, ×600.
-- **Espacio:** aleteo.
-- **H:** ocultar/mostrar interfaz.
-- **P:** captura PNG.
-- **F:** pantalla completa.
-- **M:** alternar sonido.
+## Controls
+| Key | Action |
+|---|---|
+| B | Open/close bird selector |
+| 1, 2, 3, 4 | Actual astronomical dawn, solar noon, sunset, night |
+| 5 | Change weather |
+| 6, 7, 8 | Time speed ×1, ×60, ×600 |
+| Space | Wing beat |
+| M | Start or mute audio |
+| H | Hide/show interface |
+| P | Capture PNG |
+| F | Fullscreen |
+| Esc | Close panels |
 
-Parámetros opcionales: `?h=6.4`, `?bird=albatross`, `?weather=storm`, `?broadcast=1`, `?selftest=1`.
+URLs: `?phase=dawn`, `?phase=sunset`, `?h=6.4`, `?bird=owl`, `?weather=storm`, `?broadcast=1`, `?selftest=1`.
 
-## Alcance honesto
+## Testing
+`npm test` exercises the deterministic math, solar clock and bird paths.
+`npm run test:browser` runs Playwright against the built website, checking WebGL scenes, fauna, species selection, keyboard controls and major day/weather scenarios. Evidence is written to `artifacts/visual`. Install Chromium once using `npx playwright install chromium`.
+Every PR and feature-branch push runs this in GitHub Actions. The `main` workflow deploys GitHub Pages.
 
-Incluye una primera experiencia navegable con océano, elevación y vegetación procedurales, ciclo solar aproximado, cinco perfiles de vuelo y mezcla de sonido por Web Audio. No incluye todavía migración estacional avanzada, LOD completo, aves biológicamente precisas, supervisor Node, OBS ni transmisión automática a YouTube. La web requiere un navegador compatible con WebGL2 y Web Audio.
+## Engineering limitations
+This is a stylized, procedural ecosystem, not photorealistic animal footage or an ecological simulator. Animal shape/behaviour is representative rather than anatomically and biomechanically exhaustive. It does **not** contain an OBS/RTMP supervisor, nor has 72-hour continuous-operation testing been completed. GitHub Pages hosts the WebGL app; live video emission is a separate Windows/OBS undertaking.
 
-## Despliegue
-
-Se incluye el workflow `.github/workflows/pages.yml` para GitHub Pages. En **Settings → Pages → Build and deployment → Source** selecciona **GitHub Actions** (configuración inicial manual que exige permisos administrativos).
-
-URL prevista: https://akumanomi1988.github.io/FlyingFree/
-
-## Derechos
-
-Código original publicado bajo MIT. No se utilizan imágenes, vídeos ni música grabada de terceros.
+No external image, video, or recorded music assets are required.

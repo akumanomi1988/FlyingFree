@@ -1,0 +1,34 @@
+name: Visual and browser QA
+on:
+  push:
+    branches: ['improve/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Core tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Test interactions, WebGL and visual output
+        run: npm run test:browser
+      - name: Store screenshots and QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flyingfree-visual-evidence
+          path: artifacts/visual/
+          if-no-files-found: warn
