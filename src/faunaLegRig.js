@@ -54,7 +54,7 @@ export function createQuadrupedLegRig(THREE,{create,legGeo,sphere,terrainHeight,
         // Foot moves rear-to-front during swing, and is raised clear of grass.
         footWorld.set(chain.hipX,0,chain.hipZ+stride*(.5-gait.progress));
         actor.localToWorld(footWorld);
-        footWorld.y=terrainHeight(footWorld.x,footWorld.z,seed)+.026*scale+
+        footWorld.y=terrainHeight(footWorld.x,footWorld.z,seed)+chain.hoof.scale.y*scale+
           gait.lift*(type==='deer'?.16:.14)*scale;
         chain.planted=false;
       } else {
@@ -62,7 +62,7 @@ export function createQuadrupedLegRig(THREE,{create,legGeo,sphere,terrainHeight,
         if(shouldReplantFoot(chain.planted,separation,stride*scale*.85)) {
           footWorld.set(chain.hipX,0,chain.hipZ-stride*.18);
           actor.localToWorld(footWorld);
-          footWorld.y=terrainHeight(footWorld.x,footWorld.z,seed)+.026*scale;
+          footWorld.y=terrainHeight(footWorld.x,footWorld.z,seed)+chain.hoof.scale.y*scale;
           chain.worldFoot.copy(footWorld);
           chain.planted=true;
         }
