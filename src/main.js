@@ -9,7 +9,7 @@ import {createGroundDetail} from './vegetation.js';
 import {createWindField} from './worldMotion.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
-import {createLiveClimate,approximateSolarCoordinates} from './localClimate.js';
+import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from './localClimate.js';
 import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,localDateLabel} from './localTime.js';
 
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
@@ -355,6 +355,12 @@ function animate(now){
   if(timeOverride)simMs+=deltaRaw*1000*speed;
   else simMs=Date.now();
   const date=new Date(simMs);
+  // Use wall-clock time so hidden tabs and long-running TV sessions still refresh.
+  // The climate adapter coalesces requests and caches successful observations.
+  if(climate.enabled&&!climatePending&&
+     Date.now()-lastClimatePoll>=(climate.weather?WEATHER_REFRESH_MS:60_000)){
+    void pollClimate();
+  }
   // A week-scale cycle for the default bird; manual selections always persist.
   if(!manuallySelected&&status.frames%120===0){
     const dailyBird=chooseBird(date);
@@ -448,6 +454,7 @@ async function connectClimate(onlyPreviouslyGranted=false){
  }finally{climatePending=false;updateWeatherUI(new Date(simMs));}
 }
 async function pollClimate(force=false){
+ lastClimatePoll=Date.now();
  try{
   const observed=await climate.refresh(force);
   if(observed&&!weatherOverride){
