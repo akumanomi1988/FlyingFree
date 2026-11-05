@@ -96,7 +96,7 @@ export function birdPosition(t,bird){
   const ripple=flight==='dash'?Math.sin(t*.65)*23:Math.sin(t*.21)*12;
   const clearance=flight==='soar'?132:flight==='dash'?105:flight==='hover'?76:flight==='marine'?48:80;
   const altitude=Math.max(ground+clearance,bird.alt+thermals+skim+ripple);
-  return {x,y:altitude,z,heading:flight==='marine'?theta*.86+.7+Math.PI/2:Math.atan2(Math.cos(theta)*r,-Math.sin(theta*.83)*r*.83)};
+  return {x,y:altitude,z,heading:flight==='marine'?Math.PI-(theta*.86+.7):Math.atan2(Math.cos(theta)*r,-Math.sin(theta*.83)*r*.83)};
 }
 export function solarEventHour(date,kind,latitude=37,longitude=-5){
   const dawn=kind==='dawn';
