@@ -281,6 +281,7 @@ function createBird(){
   if(previousPosition)birdModel.position.copy(previousPosition);
   scene.add(birdModel);
   status.bird=currentBird.id;
+  status.birdDrawCallsSaved=birdModel.userData.plumageDrawCallsSaved;
 }
 function selectBird(id){
   const bird=BIRDS.find(b=>b.id===id);
