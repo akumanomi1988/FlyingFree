@@ -216,7 +216,7 @@ function createForest(){
     scene.add(inst);
   }
   forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches};
-  treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1);
+  treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1,windField);
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
   let j=0;
