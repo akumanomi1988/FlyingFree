@@ -63,6 +63,7 @@
 - Optimización de modelo: `meshBatch.js` fusiona geometrías rígidas compatibles por material para reducir draw calls del plumaje. Alas principales y puntas siguen con grupos y animación independiente; datos UV de plumas compatibles con el merge.
 - Color anatómico: `speciesAppearance.js` define paletas de cabeza, pecho, primarias, alas y marcas faciales para las doce especies. No usa recursos con restricciones de licencia.
 - Arbolado: `treeDetail.js` recalcula LOD a intervalos cortos bajo movimiento y reduce el radio de fade cuando el pool de 48 árboles está saturado. Evita detalles cercanos emergiendo abruptamente al alcanzar el límite de pool.
+- Fauna: cabeza de ciervos y zorros convertida en articulación jerárquica; ojos, hocico, orejas y astas acompañan su rotación. Evita artefactos al agacharse o mirar alrededor y mantiene los LOD faciales.
 - Telemetría: `status.birdDrawCallsSaved` permite conocer el ahorro de draw calls por ave; no equivale a una medición directa de tiempo de GPU.
 - Pruebas: `tests/birdContinuity.test.js`, `tests/organicModels.test.js` y `tests/browser.mjs` validan continuidad, número de llamadas ahorradas, cotas geométricas, paletas por especie y WebGL.
 - Gate: exigir Node tests, build Vite y Playwright/WebGL del commit HEAD antes de integrar a `main`; comprobar después GitHub Pages y comparar P95 de hardware real.
