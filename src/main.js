@@ -357,7 +357,7 @@ function directCamera(bird,dt){
     desired=bird.clone().addScaledVector(side,d*.65).addScaledVector(forward,-d*.75).add(new THREE.Vector3(0,d*.35,0));
     target=bird.clone().add(new THREE.Vector3(0,span*.12,0));
   }
-  const clearance=low?.35:tracking?Math.max(.65,span*.4):8;
+  const clearance=low?.35:shot===5?.45:tracking?Math.max(.65,span*.4):8;
   desired.y=Math.max(desired.y,terrainHeight(desired.x,desired.z)+clearance);
   const ease=1-Math.exp(-dt*2.2);
   camera.position.lerp(desired,ease);
