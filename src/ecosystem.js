@@ -1,6 +1,7 @@
 import { random,terrainHeight,TAU,clamp } from './core.js';
 import {FAUNA_SCALE} from './worldScale.js';
 import {createFaunaLODFactory,faunaPathAngle,shouldAnimateFauna,terrainSlopeAngles} from './faunaLOD.js';
+import {createQuadrupedLegRig} from './faunaLegRig.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
 export function createEcosystem(THREE,scene,seed=1988,quality=1){
@@ -26,6 +27,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   };
   const actors=[];
   const faunaLOD=createFaunaLODFactory(THREE,{brown,cream,dark,foxCoat,white});
+  const legRig=createQuadrupedLegRig(THREE,{create,legGeo,sphere,terrainHeight,seed});
   function habitatPos(maxRadius,minElevation=22,maxElevation=250){
     for(let i=0;i<100;i++){
       const x=(rng()-.5)*maxRadius*2,z=(rng()-.5)*maxRadius*2;
@@ -35,7 +37,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   }
   function deer(){
     const group=new THREE.Group();
-    group.userData.legs=[];
+    group.userData.legs=[];group.userData.limbs=[];
     const antlered=rng()>.42;
     group.userData.antlered=antlered;
     group.userData.body=create(group,sphere,brown,0,1.5,0,.52,.53,1.08);
@@ -53,10 +55,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       ear.rotation.z=side*.18;
       detail(head,sphere,cream,side*.36,.29,.07,.17,.065,.19);
       detail(head,eyeGeo,dark,side*.275,.10,-.17,.071,.072,.057);
-      for(const z of [-.63,.7]){
-        const leg=create(group,legGeo,brown,side*.3,.68,z,.75,1.22,.75);
-        leg.userData.leg={side,z};group.userData.legs.push(leg);
-      }
+      for(const z of [-.63,.7])legRig.addLeg(group,side,z,'deer',brown,dark);
       if(antlered){
         segment(head,cream,[side*.21,.28,-.05],[side*.41,.90,-.13],1.15);
         segment(head,cream,[side*.41,.90,-.13],[side*.57,1.16,-.15],.80);
@@ -70,7 +69,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   }
   function fox(){
     const g=new THREE.Group();
-    g.userData.legs=[];
+    g.userData.legs=[];g.userData.limbs=[];
     g.userData.body=create(g,sphere,foxCoat,0,.65,0,.35,.35,.86);
     create(g,sphere,white,0,.52,-.83,.27,.16,.46);
     // Facial details follow the same articulated head, not a fixed body.
@@ -85,10 +84,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       detail(head,new THREE.ConeGeometry(.085,.25,9),dark,side*.25,.39,-.19);
       detail(head,eyeGeo,dark,side*.28,.12,-.21,.074,.075,.065);
       detail(head,sphere,white,side*.23,-.28,-.24,.17,.15,.22);
-      for(const z of [-.52,.57]){
-        const leg=create(g,legGeo,dark,side*.25,.24,z,.54,.44,.54);
-        leg.userData.leg={side,z};g.userData.legs.push(leg);
-      }
+      for(const z of [-.52,.57])legRig.addLeg(g,side,z,'fox',dark,dark);
     }
     const tail=create(g,sphere,foxCoat,0,.67,.95,.25,.25,.78);
     tail.rotation.x=-.35;
@@ -251,7 +247,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const vx=px-g.position.x,vz=pz-g.position.z;
       const hop=s.type==='rabbit'&&(move||alert||enemy)
         ?Math.abs(Math.sin(t*5+s.seed))*.16*clamp(t*2,0,1):0;
-      g.position.set(px,terrainHeight(px,pz)+hop,pz);
+      g.position.set(px,terrainHeight(px,pz,seed)+hop,pz);
       g.userData.behaviour=enemy?'flee':prey?'hunt':alert?'alert':grazing?'foraging':'travelling';
       if(vx*vx+vz*vz>.000025){
         const facing=Math.atan2(-vx,-vz);
@@ -275,10 +271,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
           s.tiltPitch=tilt.pitch;s.tiltRoll=tilt.roll;
           s.lastSlopeAt=t;
         }
-        for(let i=0;i<(g.userData.legs?.length||0);i++){
-          const leg=g.userData.legs[i];
-          const side=leg.userData.leg?.side||1,z=leg.userData.leg?.z||0;
-          leg.rotation.x=Math.sin(phaseStride+(side<0?Math.PI:0)+(z>0?Math.PI:0))*intensity;
+        if(!g.userData.limbs){
+          // Rabbits retain their compact bounding silhouette and hopping paws.
+          for(const leg of g.userData.legs)leg.rotation.x=Math.sin(phaseStride)*intensity;
         }
         if(g.userData.ears)g.userData.ears.forEach((ear,i)=>ear.rotation.z=(i===0?-1:1)*(.18+Math.sin(t*2+s.seed)*.07));
         if(g.userData.tail)g.userData.tail.rotation.x=-.35+Math.sin(t*3.1+s.seed)*.2;
@@ -290,6 +285,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
         const ease=1-Math.exp(-dt*5.2);
         g.rotation.x+=(s.tiltPitch+sway-g.rotation.x)*ease;
         g.rotation.z+=(s.tiltRoll-g.rotation.z)*ease;
+        if(g.userData.limbs)legRig.pose(g,t,running);
       }
       g.visible=!observer||Math.hypot(observer.x-g.position.x,observer.z-g.position.z)<1050;
       // Tiny facial decorations cost draw calls but have no silhouette value at distance.
