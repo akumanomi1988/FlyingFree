@@ -91,3 +91,18 @@ No hay modelo de lenguaje por animal, renderizado fotorrealista, OBS, RTMP ni pr
 - Presupuesto de píxeles inicial limitado a ~3,7 MP para televisores 4K, degradación progresiva de escala bajo FPS insuficientes.
 - Las geometrías y los materiales se crean una sola vez. El detalle aéreo se oculta por altura; se añaden pruebas del viento, del movimiento animal, del LOD y de los renders.
 - Se mantiene un lenguaje visual **low-poly artístico**. No se presenta como fotorealismo, y todavía queda por medir la estabilidad en televisores físicos durante 24–72 h.
+
+
+## Banda sonora adaptativa al clima
+
+La música se sintetiza íntegramente en el navegador con Web Audio API, sin descargas de pistas ni licencias de grabaciones. Se refuerzan las armonías y aparece una melodía generativa de notas tipo campana/arpas. Dos bancos de osciladores cruzan sus volúmenes al cambiar de clima para evitar saltos bruscos de armonía.
+
+- Cielo despejado: armonía mayor y brillo alto; nubosidad: armonía suspendida.
+- Lluvia y llovizna: carácter íntimo, brillo reducido y fraseo más espaciado.
+- Tormenta: armonía menor profunda; niebla: texturas suaves; nieve: timbre cristalino.
+- El sol, el crepúsculo y la noche modulan el filtro, la densidad melódica y la presencia sonora progresivamente.
+- Las notas se programan con antelación en el reloj de Web Audio y el planificador se resincroniza si el navegador limita los fotogramas.
+- **M** o **♪** activan/silencian audio. El navegador exige un gesto de usuario para arrancar la música.
+- Los osciladores de fondo se reutilizan; las notas temporales se desconectan al terminar. El motor puede liberarse con el método dispose().
+
+Pruebas: tests/audio.test.js comprueba perfiles meteorológicos, transiciones, gestión de silencio, planificador y reutilización de osciladores.
