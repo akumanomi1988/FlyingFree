@@ -99,8 +99,18 @@ try{
     async(page)=>{
       assert.match(await page.locator('#enter-btn').innerText(),/ENTRAR CON CLIMA LOCAL/);
       assert.equal(await page.locator('#skip-location-btn').isVisible(),true);
+      // Explicitly granting the browser permission must not override opt-out.
+      await page.context().grantPermissions(['geolocation']);
+      await page.context().setGeolocation({latitude:40.42837,longitude:-3.71252});
+      let unwantedWeatherCalls=0;
+      await page.route('https://api.open-meteo.com/v1/forecast*',async(route)=>{
+        unwantedWeatherCalls++;await route.abort();
+      });
       await page.locator('#skip-location-btn').click();
       assert.equal(await page.locator('#intro').evaluate(e=>e.classList.contains('off')),true);
+      await page.waitForTimeout(450);
+      assert.equal(unwantedWeatherCalls,0,'Continuar sin ubicación hizo una consulta meteorológica');
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__?.climate?.live),false);
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false,'El selector no abre');
       await page.locator('[data-bird="owl"]').click();
