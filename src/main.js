@@ -257,44 +257,80 @@ async function audioToggle(){try{await sound.toggle();$('audio-btn').classList.t
 function png(){try{renderer.render(scene,camera);const a=document.createElement('a');a.download='vuelo-'+new Date(simMs).toISOString().replaceAll(':','-')+'.png';a.href=renderer.domElement.toDataURL('image/png');a.click()}catch(err){showError(err)}}
 function setHour(h){simMs=withMadridHour(new Date(simMs),h).getTime()}
 function changeWeather(){const i=WEATHER.indexOf(currentWeather);currentWeather=WEATHER[(i+1)%WEATHER.length]}
+function refreshPicker(){
+  const picker=$('bird-options');
+  if(!picker)return;
+  picker.replaceChildren();
+  for(const bird of BIRDS){
+    const button=document.createElement('button');
+    button.className='species-option'+(bird.id===currentBird.id?' selected':'');
+    button.type='button';button.dataset.bird=bird.id;
+    button.setAttribute('aria-pressed',String(bird.id===currentBird.id));
+    const name=document.createElement('span');name.className='species-title';name.textContent=bird.name;
+    const tag=document.createElement('span');tag.className='species-habitat';tag.textContent=bird.habitat;
+    button.append(name,tag);
+    button.addEventListener('click',()=>selectBird(bird.id));
+    picker.append(button);
+  }
+  $('bird-habitat').textContent=currentBird.habitat;
+  $('bird-description').textContent=currentBird.detail;
+  $('species-total').textContent=BIRDS.length+' ESPECIES';
+}
 function bindUI(){
- $('enter-btn').addEventListener('click',async()=>{$('intro').classList.add('off');await audioToggle()});
- $('audio-btn').addEventListener('click',audioToggle);
- $('photo-btn').addEventListener('click',png);
- $('help-btn').addEventListener('click',()=>$('help').classList.toggle('hidden'));
- $('close-help').addEventListener('click',()=>$('help').classList.add('hidden'));
- window.addEventListener('keydown',(event)=>{
-   if([' ','1','2','3','4','5','6','7','8','h','H','f','F','p','P','m','M'].includes(event.key))event.preventDefault();
-   switch(event.key.toLowerCase()){
-     case '1':setHour(6.4);break;case '2':setHour(12.5);break;case '3':setHour(18.5);break;case '4':setHour(23);break;
-     case '5':changeWeather();break;case '6':speed=1;break;case '7':speed=60;break;case '8':speed=600;break;
-     case ' ':flapBoost=1;break;
-     case 'h':document.body.classList.toggle('no-ui');break;
-     case 'f':if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();break;
-     case 'p':png();break;case 'm':audioToggle();break;
-   }
- });
+  refreshPicker();
+  $('enter-btn').addEventListener('click',async()=>{$('intro').classList.add('off');await audioToggle()});
+  $('audio-btn').addEventListener('click',audioToggle);
+  $('photo-btn').addEventListener('click',png);
+  $('help-btn').addEventListener('click',()=>$('help').classList.toggle('hidden'));
+  $('close-help').addEventListener('click',()=>$('help').classList.add('hidden'));
+  const picker=$('bird-picker');
+  $('bird-btn').addEventListener('click',()=>picker.classList.toggle('hidden'));
+  $('close-birds').addEventListener('click',()=>picker.classList.add('hidden'));
+  window.addEventListener('keydown',(event)=>{
+    if(event.ctrlKey||event.altKey||event.metaKey)return;
+    const key=event.key.toLowerCase();
+    if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','escape'].includes(key))event.preventDefault();
+    switch(key){
+      case '1':setHour(6.4);break;case '2':setHour(12.5);break;case '3':setHour(18.5);break;case '4':setHour(23);break;
+      case '5':changeWeather();break;case '6':speed=1;break;case '7':speed=60;break;case '8':speed=600;break;
+      case ' ':flapBoost=1;break;
+      case 'h':document.body.classList.toggle('no-ui');break;
+      case 'f':if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();break;
+      case 'p':png();break;case 'm':audioToggle();break;
+      case 'b':picker.classList.toggle('hidden');break;
+      case 'escape':picker.classList.add('hidden');$('help').classList.add('hidden');break;
+    }
+  });
 }
 function selfTest(){
  const tests=[
-  ['WebGL2 / renderer',!!renderer?.capabilities.isWebGL2],
-  ['Escena',scene?.children.length>12],
-  ['Terreno procedural',terrain?.geometry.attributes.position.count>10000],
-  ['Isla con relieve',terrainHeight(0,0)>0&&terrainHeight(3000,3000)<0],
-  ['Vegetación instanciada',forest?.count>500],
-  ['Océano',!!water],
-  ['Ciclo solar',Number.isFinite(sunPosition(new Date(simMs)).altitude)],
-  ['Calendario de Madrid',madridHour(new Date(simMs))>=0],
-  ['Cinco especies',BIRDS.length===5],
-  ['Siete climas',WEATHER.length===7],
-  ['Ave visible en escena',!!birdModel?.parent],
-  ['Cámara válida',camera?.position.length()>0],
-  ['Audio disponible',!!(window.AudioContext||window.webkitAudioContext)],
-  ['Fotogramas generados',status.frames>4]
+  ['WebGL2 disponible',!!renderer?.capabilities.isWebGL2],
+  ['Escena 3D renderizando',scene?.children.length>20],
+  ['Terreno con geometría',terrain?.geometry.attributes.position.count>10000],
+  ['Relieve reproducible',terrainHeight(0,0)>0&&terrainHeight(3000,3000)<0],
+  ['Vegetación instanciada',forest?.count>1000],
+  ['Océano GPU',!!oceanFX?.mesh?.material.isShaderMaterial],
+  ['Cielo procedural GPU',!!skyFX?.mesh?.material.isShaderMaterial],
+  ['Sol físico aproximado',Number.isFinite(sunPosition(new Date(simMs)).altitude)],
+  ['Reloj Europe/Madrid',madridHour(new Date(simMs))>=0],
+  ['Aves disponibles',BIRDS.length>=12],
+  ['Selección de aves',document.querySelectorAll('[data-bird]').length===BIRDS.length],
+  ['Ave con alas articuladas',!!birdModel?.userData?.left?.pivot],
+  ['Siete tipos de clima',WEATHER.length===7],
+  ['Fauna terrestre',ecosystem.stats.deer>=4&&ecosystem.stats.fox>=2],
+  ['Fauna marina',ecosystem.stats.dolphins>=4],
+  ['Aves secundarias',ecosystem.stats.gulls>=10],
+  ['Polinizadores',ecosystem.stats.butterflies>=12],
+  ['Precipitación dinámica',!!rainFX?.mesh],
+  ['Cámara cinematográfica',camera?.position.length()>0],
+  ['Audio procedural',!!(window.AudioContext||window.webkitAudioContext)],
+  ['Fotogramas suficientes',status.frames>6],
+  ['Sin errores graves',status.error===null],
+  ['Perfil de calidad',scaleFactor>=.7]
  ];
  const failures=tests.filter(t=>!t[1]).length,el=$('selftest');
  el.classList.remove('hidden');
- el.innerHTML='<strong>AUTODIAGNÓSTICO · '+(failures?'FALLOS '+failures:'OK')+'</strong>'+tests.map(([n,ok])=>'<div class="'+(ok?'ok':'bad')+'">'+(ok?'✓ ':'✕ ')+n+'</div>').join('');
+ el.innerHTML='<strong>DIAGNÓSTICO · '+(failures?'FALLOS '+failures:'OK')+'</strong>'+tests.map(([n,ok])=>'<div class="'+(ok?'ok':'bad')+'">'+(ok?'✓ ':'✕ ')+n+'</div>').join('');
  status.selftest={passed:tests.length-failures,total:tests.length,success:failures===0};
  console.info('FlyingFree selftest',status.selftest);
 }

@@ -1,6 +1,6 @@
 {
   "name": "flyingfree-vuelo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,8 +8,14 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test tests/*.test.js",
-    "check": "npm run test && npm run build"
+    "check": "npm run test && npm run build",
+    "test:browser": "node tests/browser.mjs"
   },
-  "dependencies": {"three": "0.180.0"},
-  "devDependencies": {"vite": "6.3.5"}
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "vite": "6.3.5",
+    "playwright": "1.55.0"
+  }
 }
