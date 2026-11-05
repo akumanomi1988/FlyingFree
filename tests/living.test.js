@@ -118,3 +118,22 @@ test('vegetation detail is culled by observer altitude',async()=>{
  ground.update(3,{position:{x,y:y+750,z}},{x,y:y+750,z},.95,0,21);
  assert.equal(ground.active,false);
 });
+
+test('sheltering birds descend, land and enter grounded rest',()=>{
+ for(const {id,day,rain} of [{id:'owl',day:.95,rain:0},{id:'kestrel',day:.95,rain:.90}]){
+  const profile=BIRDS.find(b=>b.id===id),brain=createBirdBrain(profile,1988);
+  const visited=new Set();let rested=false;
+  for(let i=0;i<4800;i++){
+   const point=brain.update(i*.08,.08,day,rain);
+   visited.add(point.state);
+   if(point.state==='rest'&&point.grounded){
+    assert.ok(point.landings>0,id+' did not register its landing');
+    assert.ok(point.y>=terrainHeight(point.x,point.z)+4,id+' rests below ground');
+    rested=true;break;
+   }
+  }
+  assert.ok(visited.has('shelter'),id+' did not seek shelter');
+  assert.ok(visited.has('landing'),id+' bypassed the landing transition');
+  assert.ok(rested,id+' remained suspended above its shelter');
+ }
+});
