@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#081b21">
+<meta name="description" content="VUELO: una isla, un ave, música generativa y el transcurso de las horas. Todo creado en tu navegador.">
+<title>VUELO — Un mundo para quedarse</title>
+<link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+<main id="app">
+  <div id="viewport" aria-label="Paisaje tridimensional procedural"></div>
+  <div class="shade" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="brand"><span class="brand-mark">◈</span><span>VUELO</span><small>UN MUNDO PARA QUEDARSE</small></header>
+  <section class="hud" id="hud">
+    <div class="eyebrow">EN ESTE MOMENTO</div>
+    <div class="clock" id="clock">--:--</div>
+    <div class="caption" id="scene-caption">Un mundo en movimiento</div>
+    <div class="line"></div>
+    <div class="stat"><span>AVE</span><strong id="bird-name">—</strong></div>
+    <div class="stat"><span>CLIMA</span><strong id="weather-name">—</strong></div>
+    <div class="stat"><span>ESTACIÓN</span><strong id="season-name">—</strong></div>
+    <div class="stat"><span>TIEMPO</span><strong id="speed-name">×1</strong></div>
+  </section>
+  <div class="right-tools" id="tools">
+    <button class="circle" id="audio-btn" aria-label="Activar o silenciar sonido" title="Audio (M)">♪</button>
+    <button class="circle" id="photo-btn" aria-label="Guardar captura" title="Guardar PNG (P)">▣</button>
+    <button class="circle" id="help-btn" aria-label="Mostrar los controles" title="Ayuda">?</button>
+  </div>
+  <footer class="bottom" id="bottom"><span id="phase">OBSERVA. RESPIRA. VUELA.</span><span>37° N · OCÉANO PROCEDURAL · <span id="fps">-- FPS</span></span></footer>
+  <div class="intro" id="intro">
+    <div class="intro-card">
+      <div class="eyebrow centered">UN LUGAR QUE NO SE REPITE</div>
+      <div class="intro-symbol">◈</div>
+      <h1>VUELO</h1>
+      <p>Una isla viva. Un ave libre. La luz de cada instante.<br>Sin imágenes, vídeos ni música grabada.</p>
+      <button id="enter-btn" class="enter">ENTRAR EN EL PAISAJE <span>↗</span></button>
+      <p class="micro">Activa el sonido con un gesto. Auriculares recomendados.</p>
+    </div>
+  </div>
+  <aside id="help" class="help hidden" role="dialog" aria-label="Controles">
+    <button id="close-help" aria-label="Cerrar">×</button>
+    <h2>CONTROLES</h2>
+    <p><kbd>1</kbd> Amanecer <kbd>2</kbd> Mediodía <kbd>3</kbd> Atardecer <kbd>4</kbd> Noche</p>
+    <p><kbd>5</kbd> Cambiar clima <kbd>6</kbd> ×1 <kbd>7</kbd> ×60 <kbd>8</kbd> ×600</p>
+    <p><kbd>Espacio</kbd> Aletear <kbd>M</kbd> Audio <kbd>H</kbd> Interfaz</p>
+    <p><kbd>P</kbd> Captura PNG <kbd>F</kbd> Pantalla completa</p>
+    <p>URL: <code>?h=6.4&amp;bird=albatross&amp;weather=storm</code></p>
+  </aside>
+  <div id="error" class="error hidden" role="alert"></div>
+  <div id="selftest" class="selftest hidden"></div>
+</main>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
