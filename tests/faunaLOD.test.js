@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {createEcosystem} from '../src/ecosystem.js';
-import {faunaPathAngle,faunaPathOffset,FAUNA_LOD_DISTANCE,shouldAnimateFauna} from '../src/faunaLOD.js';
+import {faunaPathAngle,faunaPathOffset,FAUNA_LOD_DISTANCE,shouldAnimateFauna,terrainSlopeAngles} from '../src/faunaLOD.js';
 
 test('animal procedural routes do not jump at grazing and cycle boundaries',()=>{
   const s={cycle:19.5,phase:1.7,seed:7.2};
@@ -92,4 +92,16 @@ test('deer antlers remain bilaterally symmetric at generation',()=>{
     const antlers=head.children.filter(o=>o.isMesh&&o.geometry.type==='CylinderGeometry');
     assert.equal(antlers.length,actor.userData.antlered?10:0);
   }
+});
+
+test('terrain normal aligns animal bodies without unsafe rotations',()=>{
+  assert.deepEqual(terrainSlopeAngles(0,0,0),{pitch:0,roll:0});
+  const roll=terrainSlopeAngles(.2,0,0);
+  assert.ok(roll.roll>.15&&Math.abs(roll.pitch)<1e-8);
+  const pitch=terrainSlopeAngles(.2,0,Math.PI/2);
+  assert.ok(pitch.pitch<-.15&&Math.abs(pitch.roll)<1e-8);
+  const steep=terrainSlopeAngles(10,-10,0);
+  assert.ok(Math.abs(steep.pitch)<=.22&&Math.abs(steep.roll)<=.22);
+  const unknown=terrainSlopeAngles(NaN,Infinity,NaN);
+  assert.ok(Number.isFinite(unknown.pitch)&&Number.isFinite(unknown.roll));
 });
