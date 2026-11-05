@@ -98,6 +98,13 @@ try{
   await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog',390,844,
     async(page)=>{
       await page.locator('#enter-btn').click();
+      await page.waitForFunction(()=>document.querySelector('#audio-btn').classList.contains('active'),null,{timeout:8000});
+      assert.equal(await page.locator('#tv-audio').getAttribute('aria-pressed'),'true');
+      await page.keyboard.press('m');
+      await page.waitForFunction(()=>!document.querySelector('#audio-btn').classList.contains('active'));
+      assert.equal(await page.locator('#tv-audio').getAttribute('aria-pressed'),'false');
+      await page.keyboard.press('m');
+      await page.waitForFunction(()=>document.querySelector('#audio-btn').classList.contains('active'));
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false,'El selector no abre');
       await page.locator('[data-bird="owl"]').click();

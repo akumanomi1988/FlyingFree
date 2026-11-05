@@ -292,7 +292,7 @@ function ambient(date,dt){
   moonHalo.position.copy(moonOrb.position);moonHalo.visible=moonOrb.visible;
   skyFX.update(camera,sun,weatherState);
   windField.update(elapsed,weatherState);
-  sound.update(weatherState,night);
+  sound.update(weatherState,sun,currentWeather.id);
   return sun;
 }
 function fly(date,dt,sun){
@@ -402,7 +402,17 @@ function animate(now){
   }
 }
 function onResize(){if(!renderer)return;renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}
-async function audioToggle(){try{await sound.toggle();$('audio-btn').classList.toggle('active',sound.enabled)}catch(err){showError(err)}}
+async function audioToggle(){
+ try{
+  await sound.toggle();
+  for(const id of ['audio-btn','tv-audio']){
+   const button=$(id);
+   button.classList.toggle('active',sound.enabled);
+   button.setAttribute('aria-pressed',String(sound.enabled));
+   button.title=sound.enabled?'Silenciar música y ambiente':'Activar música y ambiente';
+  }
+ }catch(err){showError(err);}
+}
 function png(){try{renderer.render(scene,camera);const a=document.createElement('a');a.download='vuelo-'+new Date(simMs).toISOString().replaceAll(':','-')+'.png';a.href=renderer.domElement.toDataURL('image/png');a.click()}catch(err){showError(err)}}
 function setHour(h){
   timeOverride=true;
