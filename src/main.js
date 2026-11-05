@@ -22,7 +22,7 @@ let timeOverride=opts.hour!=null||Boolean(opts.phase);
 let weatherOverride=Boolean(opts.weather);
 let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
  opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
-let climatePending=false,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null;
+let climatePending=false,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
 let currentWeather=opts.weather||chooseWeather(new Date(simMs));
@@ -367,12 +367,19 @@ function changeWeather(){
   weatherOverride=true;
   $('weather-name').textContent=currentWeather.name;
 }
+async function requestWakeLock(){
+  if(!tvActive||!navigator.wakeLock?.request||wakeLock)return;
+  try{wakeLock=await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener?.('release',()=>{wakeLock=null;});
+  }catch{/* Device does not support wake lock or requires further user gesture. */}
+}
 function setTVMode(enabled){
   tvActive=Boolean(enabled);
   document.body.classList.toggle('tv-mode',tvActive);
   $('tv-overlay').classList.toggle('hidden',!tvActive);
   $('tv-actions').classList.toggle('hidden',!tvActive);
-  if(tvActive){$('intro').classList.add('off');revealTVControls();}
+  if(tvActive){$('intro').classList.add('off');revealTVControls();void requestWakeLock();}
+  else if(wakeLock){void wakeLock.release().catch(()=>{});wakeLock=null;}
 }
 function revealTVControls(){
   if(!tvActive)return;
@@ -470,6 +477,7 @@ function bindUI(){
  document.addEventListener('visibilitychange',()=>{
    lastFrame=performance.now();
    if(!document.hidden&&!timeOverride)simMs=Date.now();
+   if(!document.hidden&&tvActive)void requestWakeLock();
  });
  window.addEventListener('keydown',(event)=>{
   if(event.ctrlKey||event.altKey||event.metaKey)return;

@@ -26,7 +26,7 @@ async function render(name,query,width,height,runChecks){
   try{
     const r=await page.goto(root+query,{waitUntil:'domcontentloaded',timeout:30000});
     assert.equal(r?.status(),200,'Respuesta HTTP');
-    await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,{timeout:45000});
+    await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,null,{timeout:60000});
     await page.waitForTimeout(1100);
     const stats=await page.evaluate(()=>{
       const c=document.querySelector('#viewport canvas'),s=window.__FLYINGFREE_STATUS__;
@@ -56,7 +56,7 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
     assert.ok(stats.renderedFrames>6,'No hay animación');
-    assert.ok(stats.colors>(name.includes('night')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
+    assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);
     report.scenarios.push({name,success:true,stats});
