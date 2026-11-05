@@ -4,7 +4,7 @@
 **Repositorio:** https://github.com/akumanomi1988/FlyingFree  
 **Sitio público:** https://akumanomi1988.github.io/FlyingFree/  
 **Rama canónica:** `main`  
-**Integración funcional validada:** `51a3eddea154c8f8b8fecec0443e9d734a86beba` (PR #9).  
+**Último HEAD previo a la iteración de modelos:** `0166159d61ace99d2a4b6769ab25072bac732d84` (`main`).  
 **Stack:** JavaScript ES modules, Three.js 0.180.0, Vite 6.3.5, tests Node y Playwright.
 
 ## Estado verificado
@@ -42,3 +42,16 @@
 5. Ejecutar pruebas prolongadas de 30 minutos / 2 horas y ampliar progresivamente según evidencias.
 
 **Regla:** GitHub Actions verde no demuestra por sí solo calidad visual ni estabilidad prolongada. No declarar una mejora desplegada sin comprobar el workflow de Pages del commit correspondiente.
+
+## Iteración: geometría orgánica y LOD (PR #10)
+
+- Rama: `feature/organic-birds-fauna-trees-20261105` — https://github.com/akumanomi1988/FlyingFree/pull/10.
+- Aves protagonistas: malla de ala curvada subdividida, plumas contorneadas, proporciones por especie y detalles propios de búho, buitre, garza, colibrí, golondrina y martín pescador. Conservar escalas de `worldScale.js`.
+- Aves secundarias: gaviotas con `THREE.LOD`; silueta 3D cercana y malla mínima lejana.
+- Fauna: anatomía suavizada de ciervos, zorros, conejos y delfines; detalles faciales de mamíferos desactivables a distancia, con histéresis.
+- Árboles: `treeDetail.js` añade ramas/cúmulos vegetales mediante tres `InstancedMesh` reutilizados, desvanecimiento geométrico 100–145 m, máximo 48 individuos en escritorio y 29 en móvil, animación por viento de las copas próximas.
+- Evitar fugas al cambiar de especie: se liberan geometrías/materiales anteriores sin destruir recursos compartidos del resto de la escena.
+- Pruebas: `tests/organicModels.test.js` para 12 escalas de aves, geometría de alas, pool de árboles, fauna y LOD. `tests/browser.mjs` comprueba exposición de capa LOD y telemetría inicializada.
+- Validación: la primera revisión de la PR pasó tests, compilación y Playwright; una revisión posterior detectó que el estado de LOD se publicaba demasiado tarde en GPU por software. Corregido inicializando el estado antes del primer frame. **La revisión definitiva debe pasar CI antes de fusionarla**.
+- Pendiente: establecer base P50/P95/P99 en Chrome con GPU real y capturas comparativas, comprobar 12 especies desde varias distancias y mantener una prueba de estabilidad prolongada para TV.
+- No afirmar que esta PR está en `main` o desplegada hasta que lo confirmen los commits y GitHub Pages.
