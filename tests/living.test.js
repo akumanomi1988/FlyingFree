@@ -85,3 +85,11 @@ test('bird AI moves without teleportation and transitions between meaningful sta
   assert.ok(states.has('seek_food')||states.has('rest')||states.has('shelter'),id+' never used its AI');
  }
 });
+
+import * as THREE from 'three';
+import {createEcosystem} from '../src/ecosystem.js';
+test('ecosystem interaction loop never throws and exposes fauna states',()=>{
+ const scene=new THREE.Scene(),world=createEcosystem(THREE,scene,1988,.5);
+ assert.doesNotThrow(()=>world.update(2,.8,.25,{x:230,y:150,z:200},.1,{x:240,y:210,z:180}));
+ assert.ok(world.actors.some(g=>g.userData.behaviour));
+});

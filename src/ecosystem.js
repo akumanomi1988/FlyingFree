@@ -136,6 +136,8 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const z=s.originZ+Math.cos(theta*.83)*radius;
       const y=terrainHeight(x,z,seed);
       const alert=hero&&Math.hypot(hero.x-x,hero.z-z)<(s.type==='deer'?135:s.type==='rabbit'?75:95);
+      const enemy=s.type==='rabbit'?foxes.find(f=>Math.hypot(f.position.x-x,f.position.z-z)<90):null;
+      const prey=s.type==='fox'?rabbits.find(r=>Math.hypot(r.position.x-x,r.position.z-z)<115):null;
       const sidestep=alert?Math.sin(t*2+s.seed)*7:0;
       const runX=enemy?(x-enemy.position.x)/Math.max(1,Math.hypot(x-enemy.position.x,z-enemy.position.z))*18:prey?(prey.position.x-x)*.11:0;
       const runZ=enemy?(z-enemy.position.z)/Math.max(1,Math.hypot(x-enemy.position.x,z-enemy.position.z))*18:prey?(prey.position.z-z)*.11:0;
