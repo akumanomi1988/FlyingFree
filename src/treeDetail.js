@@ -75,7 +75,7 @@ export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
       for(let j=0;j<clusterCount;j++){
         const az=r.angle+j*2.399963229728653;
         const height=crownY+(j%3-1)*.10;
-        const radius=r.height*spread*(.40+(j%3)*.21);
+        const radius=r.height*spread*(.72+(j%3)*.17);
         const mesh=evergreen?needles:broad;
         obj.position.set(r.x+Math.cos(az)*radius,r.y+r.height*height,r.z+Math.sin(az)*radius);
         obj.quaternion.identity();
