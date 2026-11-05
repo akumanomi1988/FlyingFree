@@ -4,10 +4,12 @@ export function solveGroundedLeg(hipY,hipZ,footY,footZ,upper,lower,bend=1,out={}
   if(![hipY,hipZ,footY,footZ,upper,lower,bend].every(Number.isFinite)
     ||upper<=0||lower<=0)throw new RangeError('Invalid leg dimensions');
   const dy=footY-hipY,dz=footZ-hipZ;
-  const distance=Math.max(1e-8,Math.hypot(dy,dz));
+  const rawDistance=Math.hypot(dy,dz);
+  const distance=Math.max(1e-8,rawDistance);
   const reach=Math.max(Math.abs(upper-lower)+1e-5,
     Math.min(distance,upper+lower-1e-5));
-  const uy=dy/distance,uz=dz/distance;
+  const uy=rawDistance>1e-8?dy/distance:-1;
+  const uz=rawDistance>1e-8?dz/distance:0;
   const along=(upper*upper-lower*lower+reach*reach)/(2*reach);
   const offset=Math.sqrt(Math.max(0,upper*upper-along*along))*(bend>=0?1:-1);
   out.kneeY=hipY+uy*along-uz*offset;
