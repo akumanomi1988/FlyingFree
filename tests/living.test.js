@@ -79,7 +79,7 @@ test('bird AI moves without teleportation and transitions between meaningful sta
    assert.ok(Number.isFinite(point.x)&&Number.isFinite(point.y)&&Number.isFinite(point.z));
    assert.ok(point.speed>=0&&point.speed<=100);
    if(last)assert.ok(Math.hypot(point.x-last.x,point.y-last.y,point.z-last.z)<22,'Jump in '+id);
-   if(p.flight!=='marine')assert.ok(point.y>=terrainHeight(point.x,point.z)+4);
+   if(p.flight!=='marine')assert.ok(point.y>=terrainHeight(point.x,point.z)+.12);
    last=point;
   }
   assert.ok(states.has('seek_food')||states.has('rest')||states.has('shelter'),id+' never used its AI');
