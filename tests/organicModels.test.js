@@ -79,7 +79,12 @@ test('fauna retains behaviour and receives smooth anatomical meshes',()=>{
   assert.ok(eco.stats.fox>=2);
   assert.ok(eco.stats.dolphins>=4);
   assert.ok(eco.actors.every(g=>g.scale.x>0));
-  assert.ok(eco.actors.some(g=>g.userData.state.type==='deer'&&g.children.length>20));
+  const meshCount=g=>{let count=0;g.traverse(child=>{if(child.isMesh)count++});return count;};
+  assert.ok(eco.actors.some(g=>g.userData.state.type==='deer'&&meshCount(g)>20));
+  for(const animal of eco.actors.filter(g=>['deer','fox'].includes(g.userData.state.type))){
+    assert.equal(animal.userData.head?.isGroup,true,'head must be an articulated hierarchy');
+    assert.ok(animal.userData.head.children.length>=6,'muzzle/eyes/ears must follow head');
+  }
   assert.ok(eco.dolphins.every(d=>d.group.children.length>=7));
   assert.ok(eco.birds.every(b=>b.g.isLOD&&b.g.levels.length===2),
     'secondary gulls must have near 3D and far minimal LOD');
