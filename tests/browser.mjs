@@ -45,7 +45,7 @@ async function render(name,query,width,height,runChecks){
       return {canvas:true,renderedFrames:s.frames,fps:s.fps,error:s.error,colors:distinct.size,
         brightness:Math.round(luminance/(data.length/4)),colorVar:Math.round(variability/(data.length/4)),
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
-        scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,
+        scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,motion:s.motion,groundDetail:s.groundDetail,
         camera:!!document.querySelector('#viewport canvas'),
         species:document.querySelectorAll('[data-bird]').length};
     });
@@ -80,6 +80,11 @@ try{
       await page.waitForFunction(()=>!!window.__FLYINGFREE_STATUS__.selftest,{timeout:10000});
       const diagnostics=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.selftest);
       assert.equal(diagnostics.success,true,'Diagnósticos de WebGL / fauna');
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.motion?.windMaterials>=7,null,{timeout:15000});
+      const motion=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.motion);
+      assert.ok(motion.articulatedAnimals>=15,'Falta animación de fauna');
+      assert.ok(motion.clouds>=15,'Cielo sin capas de nubes');
+      assert.ok(motion.wind>0,'Viento sin inicializar');
       await page.keyboard.press('4');
       await page.waitForTimeout(1200);
       assert.ok((await page.locator('#clock').textContent()).startsWith('23:'),'La tecla de noche no actualiza el reloj');

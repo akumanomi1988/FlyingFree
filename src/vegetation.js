@@ -1,20 +1,64 @@
 import {terrainHeight,clamp} from './core.js';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {habitatAt,foliageDensity,makeCellRandom,insectActivity} from './ecology.js';
 
 // A bounded mesh pool, never individual thousands of Mesh objects.
 // 3 detail levels: landscape canopy > local meadow vegetation > pollinating insects.
-export function createGroundDetail(THREE,scene,quality=1){
+function grassBladeGeometry(THREE){
+ const verts=[],colors=[];
+ for(let i=0;i<5;i++){
+  const a=i*Math.PI*2/5,cx=Math.cos(a),cz=Math.sin(a),width=.23+(i%2)*.07,height=3.0+(i%3)*.4;
+  const x1=-cz*width,z1=cx*width;
+  const points=[[x1,0,z1],[-x1,0,-z1],[cx*.7,height,cz*.7]];
+  for(const p of points){verts.push(...p);colors.push(.54,.84,.45);}
+ }
+ const g=new THREE.BufferGeometry();
+ g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+ g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+ g.computeVertexNormals();return g;
+}
+function blossomGeometry(THREE){
+ const components=[];
+ // Visible slender stem and a cluster of five round petals, not a generic stone sphere.
+ const stem=new THREE.CylinderGeometry(.10,.13,3.15,5);
+ stem.translate(0,1.58,0);components.push(stem);
+ for(let i=0;i<5;i++){
+  const a=i*2*Math.PI/5;
+  const petal=new THREE.SphereGeometry(.54,6,5);
+  petal.scale(.8,.22,.55);petal.rotateY(a);
+  petal.translate(Math.cos(a)*.47,3.18,Math.sin(a)*.47);
+  components.push(petal);
+ }
+ const center=new THREE.SphereGeometry(.27,6,5);
+ center.translate(0,3.30,0);components.push(center);
+ const result=mergeGeometries(components);
+ for(const geo of components)geo.dispose();
+ return result;
+}
+function shrubGeometry(THREE){
+ const clusters=[];
+ for(const [x,y,z,sc] of [[0,2,0,1],[-1.6,2.4,.3,.69],[1.3,2.1,1.0,.72],[.5,2.55,-1.3,.70]]){
+  const g=new THREE.IcosahedronGeometry(2.4,1);
+  g.scale(sc,sc*.68,sc);g.translate(x,y,z);clusters.push(g);
+ }
+ const result=mergeGeometries(clusters);
+ for(const g of clusters)g.dispose();
+ return result;
+}
+export function createGroundDetail(THREE,scene,quality=1,windField=null){
  const dummy=new THREE.Object3D();
  const spec=[
-  {name:'grass',geo:new THREE.ConeGeometry(.26,3.8,3),color:0x80aa69,n:Math.round(2800*quality),kind:11},
-  {name:'flowers',geo:new THREE.IcosahedronGeometry(.78,0),color:0xffffff,n:Math.round(520*quality),kind:22},
-  {name:'shrubs',geo:new THREE.IcosahedronGeometry(3.1,1),color:0xffffff,n:Math.round(200*quality),kind:33}
+  {name:'grass',geo:grassBladeGeometry(THREE),color:0x80aa69,n:Math.round(2800*quality),kind:11},
+  {name:'flowers',geo:blossomGeometry(THREE),color:0xffffff,n:Math.round(520*quality),kind:22},
+  {name:'shrubs',geo:shrubGeometry(THREE),color:0xffffff,n:Math.round(200*quality),kind:33}
  ];
  const green=[0x4d874e,0x75a956,0x92b572,0x5d9360,0x668e54].map(c=>new THREE.Color(c));
  const bloom=[0xe7d27a,0xd4a1b8,0xece7de,0xb1b1dc,0xe7aa88].map(c=>new THREE.Color(c));
  const brushes=[0x55845f,0x769e64,0x407c60,0x8eae6d].map(c=>new THREE.Color(c));
  const meshes=spec.map(s=>{
-  const mesh=new THREE.InstancedMesh(s.geo,new THREE.MeshStandardMaterial({color:s.color,roughness:1,side:THREE.DoubleSide,flatShading:true}),s.n);
+  const material=new THREE.MeshStandardMaterial({color:s.color,roughness:1,side:THREE.DoubleSide,flatShading:s.name==='shrubs'});
+  if(windField)windField.apply(material,{amplitude:s.name==='grass'?.68:s.name==='flowers'?.27:.35,height:s.name==='shrubs'?6:3.8,frequency:s.name==='grass'?1.4:.78});
+  const mesh=new THREE.InstancedMesh(s.geo,material,s.n);
   mesh.visible=false;mesh.frustumCulled=false;mesh.count=0;scene.add(mesh);
   return {...s,mesh};
  });
@@ -33,7 +77,7 @@ export function createGroundDetail(THREE,scene,quality=1){
    const h=habitatAt(x,z),density=foliageDensity(h,item.name);
    if(rng()>density)continue;
    const scale=.55+rng()*1.55;
-   dummy.position.set(x,h.height+(item.name==='shrubs'?2.45:item.name==='flowers'?2.2:1.7)*scale,z);
+   dummy.position.set(x,h.height+.12,z);
    dummy.rotation.set(0,rng()*Math.PI*2,item.name==='grass'?(rng()-.5)*.17:0);
    dummy.scale.set(scale,scale*(item.name==='grass'?.7+rng()*.5:1),scale);
    dummy.updateMatrix();

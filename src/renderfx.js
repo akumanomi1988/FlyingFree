@@ -33,6 +33,9 @@ export function createSky(THREE,scene) {
         float sunsetBand=exp(-pow((y-.06)*6.2,2.0));
         c=mix(c,vec3(.90,.45,.28),sunsetBand*golden*.53*(1.0-cloud*.45));
         c+=vec3(.93,.66,.39)*pow(towardSun,280.0)*day*.28;
+        float horizonLight=exp(-pow((y-.11)*5.5,2.0))*
+          pow(max(dot(normalize(vRay.xz),normalize(sunDirection.xz)),0.0),3.0);
+        c+=vec3(.68,.31,.16)*horizonLight*golden*.28;
         c=mix(c,vec3(.15,.21,.26),cloud*.32);
         gl_FragColor=vec4(c,1.0);
       }`
@@ -81,24 +84,36 @@ export function createOcean(THREE,scene){
         gl_Position=projectionMatrix*viewMatrix*wp;
       }`,
     fragmentShader:`
-      uniform float day,storm,fogDensity;
+      uniform float day,storm,fogDensity,time;
       uniform vec3 sunlight,skyColor;
       varying vec3 vPosition,vNormal;
       varying float vWave;
       void main(){
-        vec3 N=normalize(vNormal),V=normalize(cameraPosition-vPosition);
+        vec3 V=normalize(cameraPosition-vPosition);
         vec3 L=normalize(sunlight);
+        float r1=sin(vPosition.x*.11+time*1.9)*cos(vPosition.z*.13-time*1.32);
+        float r2=sin((vPosition.x+vPosition.z)*.19+time*2.21);
+        float microFade=1.0-smoothstep(430.0,3200.0,length(cameraPosition-vPosition));
+        vec3 N=normalize(vNormal+vec3(r1*.07,0.0,r2*.05)*microFade);
         float diffuse=max(dot(N,L),0.0);
         float fresnel=pow(1.0-max(dot(V,N),0.0),3.0);
-        float specular=pow(max(dot(reflect(-L,N),V),0.0),80.0)*day*1.2;
-        float ripple=sin(vPosition.x*.18+vPosition.z*.11+vWave*2.0)*.5+.5;
-        vec3 deep=mix(vec3(.014,.061,.105),vec3(.028,.20,.24),day);
-        vec3 shallow=mix(vec3(.025,.09,.14),vec3(.13,.32,.32),day);
-        vec3 color=mix(deep,shallow,.35+diffuse*.35+ripple*.10);
-        color=mix(color,skyColor,fresnel*.50);
-        color+=vec3(1.0,.82,.58)*specular*.67;
-        float foam=smoothstep(3.45,5.2,abs(vWave))*storm*.16;
-        color=mix(color,vec3(.65,.78,.76),foam);
+        float sparkle=pow(max(dot(reflect(-L,N),V),0.0),90.0)*day;
+        float sunTrail=pow(max(dot(normalize(V.xz),normalize(L.xz)),0.0),20.0)
+          *pow(1.0-abs(N.y-.94),2.0)*day;
+        float coarse=sin(vPosition.x*.017+time*.7)*cos(vPosition.z*.019-time*.52)*.5+.5;
+        float shoreDistance=length(vec2(vPosition.x/1650.0,vPosition.z/1500.0));
+        float shoal=1.0-smoothstep(.92,1.24,shoreDistance);
+        vec3 deep=mix(vec3(.014,.045,.094),vec3(.016,.155,.204),day);
+        vec3 turquoise=mix(vec3(.044,.135,.16),vec3(.12,.38,.36),day);
+        vec3 color=mix(deep,turquoise,shoal*.55);
+        color+=vec3(.07,.17,.18)*(coarse*.32+diffuse*.25)*day;
+        color=mix(color,skyColor,fresnel*.47);
+        color+=mix(vec3(.65,.76,.81),vec3(1.0,.78,.46),.65)*
+          (sparkle*.84+sunTrail*.11);
+        float crest=smoothstep(3.6,5.9,abs(vWave));
+        float coast=1.0-smoothstep(.025,.11,abs(shoreDistance-.99));
+        float foam=clamp(coast*(.21+.22*coarse)+crest*storm*.23,0.0,.67);
+        color=mix(color,vec3(.77,.88,.82),foam);
         float dist=length(cameraPosition-vPosition);
         float fog=1.0-exp(-fogDensity*fogDensity*dist*dist);
         color=mix(color,skyColor,clamp(fog,0.0,.94));

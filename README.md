@@ -12,7 +12,7 @@ npm run build
 
 **Public website:** https://akumanomi1988.github.io/FlyingFree/
 
-## Features in v0.2
+## Características fundamentales
 - Twelve selectable bird species, each with an individual flight profile and articulated 3D silhouette.
 - Deer, foxes, rabbits, butterflies, gulls, and dolphins with habitat-aware motion and simple activity/rest cycles.
 - Procedural 3D island with trees, rocks, meadows, ocean shader, cloud layers, stars and sun.
@@ -81,3 +81,13 @@ No hay modelo de lenguaje por animal, renderizado fotorrealista, OBS, RTMP ni pr
 
 ## Pruebas
 `npm test` verifica reloj local, perfiles de fauna, terreno, biomas, estados y API meteorológica simulada. `npm run test:browser` utiliza Chromium/WebGL y escenarios de escritorio, móvil, noche, lluvia y salvapantallas TV con geolocalización y API mockeadas. El workflow de Pages bloquea el despliegue si falla cualquiera de estos pasos.
+
+## Animación y renderizado 0.5
+- Viento variable en GPU: copas de árboles, coníferas, arbustos, pétalos y hierba se deforman en el vertex shader sin crear miles de objetos o actualizar matrices en CPU.
+- Nubes volumétricas low-poly con deriva continua, sombra cromática y color al atardecer; resplandor del sol y luna, horizonte atmosférico más rico.
+- Océano con micro-oleaje, reflejos solares, color turquesa costero, brillo variable y espuma de rompiente.
+- Animación esquelética ligera de patas, orejas y colas en ciervos, zorros, conejos y delfines; aleteo y plegado de alas con interpolación, cola y postura de aterrizaje de las aves.
+- Cámara contextual con plano cercano al aterrizar o alimentarse; motas y luciérnagas generadas solo a baja altura.
+- Presupuesto de píxeles inicial limitado a ~3,7 MP para televisores 4K, degradación progresiva de escala bajo FPS insuficientes.
+- Las geometrías y los materiales se crean una sola vez. El detalle aéreo se oculta por altura; se añaden pruebas del viento, del movimiento animal, del LOD y de los renders.
+- Se mantiene un lenguaje visual **low-poly artístico**. No se presenta como fotorealismo, y todavía queda por medir la estabilidad en televisores físicos durante 24–72 h.
