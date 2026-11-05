@@ -1,6 +1,6 @@
 import { random,terrainHeight,TAU,clamp } from './core.js';
 import {FAUNA_SCALE} from './worldScale.js';
-import {createFaunaLODFactory,faunaPathAngle,faunaPathOffset,shouldAnimateFauna} from './faunaLOD.js';
+import {createFaunaLODFactory,faunaPathAngle,shouldAnimateFauna} from './faunaLOD.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
 export function createEcosystem(THREE,scene,seed=1988,quality=1){
@@ -231,9 +231,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const grazing=phase<.63,move=phase>=.63;
       const radius=s.type==='deer'?53:s.type==='fox'?98:28;
       const theta=faunaPathAngle(t,s);
-      const offset=faunaPathOffset(t,s,radius);
-      // The first update starts precisely at the generated habitat position.
-      const x=s.originX+offset.x,z=s.originZ+offset.z;
+      // Allocation-free trajectory evaluation; exactly anchored to spawn at t=0.
+      const x=s.originX+(Math.sin(theta)-s.anchorSin)*radius;
+      const z=s.originZ+(Math.cos(theta*.83)-s.anchorCos)*radius;
       const alert=hero&&Math.hypot(hero.x-x,hero.z-z)<(s.type==='deer'?135:s.type==='rabbit'?75:95);
       const enemy=s.type==='rabbit'?foxes.find(f=>Math.hypot(f.position.x-x,f.position.z-z)<90):null;
       const prey=s.type==='fox'?rabbits.find(r=>Math.hypot(r.position.x-x,r.position.z-z)<115):null;
@@ -248,7 +248,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       s.reactionZ+=(runZ-s.reactionZ)*response;
       const px=x+s.reactionX,pz=z+s.reactionZ;
       const vx=px-g.position.x,vz=pz-g.position.z;
-      g.position.set(px,terrainHeight(px,pz)+(s.type==='rabbit'&&(move||alert||enemy)?Math.abs(Math.sin(t*5+s.seed))*.16:0),pz);
+      const hop=s.type==='rabbit'&&(move||alert||enemy)
+        ?Math.abs(Math.sin(t*5+s.seed))*.16*clamp(t*2,0,1):0;
+      g.position.set(px,terrainHeight(px,pz)+hop,pz);
       g.userData.behaviour=enemy?'flee':prey?'hunt':alert?'alert':grazing?'foraging':'travelling';
       if(vx*vx+vz*vz>.000025){
         const facing=Math.atan2(-vx,-vz);
