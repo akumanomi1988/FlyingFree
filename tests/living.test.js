@@ -93,3 +93,28 @@ test('ecosystem interaction loop never throws and exposes fauna states',()=>{
  assert.doesNotThrow(()=>world.update(2,.8,.25,{x:230,y:150,z:200},.1,{x:240,y:210,z:180}));
  assert.ok(world.actors.some(g=>g.userData.behaviour));
 });
+
+test('a bird eventually lands and feeds at a procedural habitat target',()=>{
+ const kestrel=BIRDS.find(b=>b.id==='kestrel'),brain=createBirdBrain(kestrel,1988);
+ let hadDescent=false,hadLanding=false,hadFeeding=false;
+ for(let i=0;i<5600;i++){
+  const point=brain.update(i*.08,.08,.96,0);
+  if(point.state==='approach'||point.state==='landing')hadDescent=true;
+  if(point.landings>0)hadLanding=true;
+  if(point.feedings>0)hadFeeding=true;
+ }
+ assert.equal(hadDescent,true,'La IA no se aproxima a recursos');
+ assert.equal(hadLanding,true,'La IA no aterriza');
+ assert.equal(hadFeeding,true,'La IA no se alimenta');
+});
+test('vegetation detail is culled by observer altitude',async()=>{
+ const THREE=await import('three');
+ const {createGroundDetail}=await import('../src/vegetation.js');
+ const scene=new THREE.Scene(),ground=createGroundDetail(THREE,scene,.22);
+ const x=1000,z=100,y=terrainHeight(x,z);
+ const observer={position:{x,y:y+24,z}},bird={x,y:y+23,z};
+ ground.update(1,observer,bird,.95,0,21);
+ assert.equal(ground.active,true);
+ ground.update(3,{position:{x,y:y+750,z}},{x,y:y+750,z},.95,0,21);
+ assert.equal(ground.active,false);
+});

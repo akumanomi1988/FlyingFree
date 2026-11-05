@@ -49,7 +49,6 @@ async function render(name,query,width,height,runChecks){
         camera:!!document.querySelector('#viewport canvas'),
         species:document.querySelectorAll('[data-bird]').length};
     });
-    await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
     assert.equal(stats.canvas,true,'Canvas ausente');
     assert.equal(stats.error,null,'Excepción del motor');
     assert.equal(stats.species,12,'Selector incompleto');
@@ -59,6 +58,7 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);
+    await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
     report.scenarios.push({name,success:true,stats});
     await page.close();
   }catch(error){
