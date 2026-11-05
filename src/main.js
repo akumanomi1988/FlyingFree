@@ -7,6 +7,7 @@ import {createSky,createOcean,createPrecipitation} from './renderfx.js';
 import {createBirdBrain} from './behaviour.js';
 import {createGroundDetail} from './vegetation.js';
 import {createWindField} from './worldMotion.js';
+import {createTreeDetail} from './treeDetail.js';
 import {createFrameTelemetry} from './frameTelemetry.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
@@ -18,7 +19,7 @@ const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
-let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics;
+let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,lowFpsSeconds=0,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
@@ -132,6 +133,7 @@ function createLandscape(){
 function createForest(){
   const rng=random(1988);
   const n=innerWidth<720?1500:2450;
+  const treeRecords=[];
   const foliage=(color,animate=false,amplitude=.8,height=19)=>{
     const material=new THREE.MeshStandardMaterial({color,roughness:1,flatShading:true});
     if(animate)windField.apply(material,{amplitude,height,frequency:.67});
@@ -200,6 +202,7 @@ function createForest(){
       upper.setColorAt(pines,greens[Math.floor(rng()*greens.length)]);
       pines++;
     }
+    treeRecords.push({x,y,z,height:h,kind,angle:a});
     trees++;
   }
   trunk.count=trees;lower.count=upper.count=pines;broad.count=deciduous;cypress.count=cypresses;olive.count=olives;birch.count=birches;
@@ -210,6 +213,7 @@ function createForest(){
     scene.add(inst);
   }
   forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches};
+  treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1);
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
   let j=0;
@@ -256,8 +260,21 @@ function createStars(){
   stars=new THREE.Points(g,starMat);scene.add(stars);
 }
 function createBird(){
-  if(birdModel)scene.remove(birdModel);
+  const previousPosition=birdModel?.position.clone();
+  if(birdModel){
+    scene.remove(birdModel);
+    // Repeated species changes must not leak GPU buffers and materials.
+    const geometries=new Set(),materials=new Set();
+    birdModel.traverse(obj=>{
+      if(obj.isMesh){geometries.add(obj.geometry);
+        for(const material of Array.isArray(obj.material)?obj.material:[obj.material])materials.add(material);
+      }
+    });
+    for(const geo of geometries)geo.dispose();
+    for(const mat of materials)mat.dispose();
+  }
   birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird);
+  if(previousPosition)birdModel.position.copy(previousPosition);
   scene.add(birdModel);
   status.bird=currentBird.id;
 }
@@ -407,6 +424,7 @@ function animate(now){
   ecosystem.update(elapsed,sun.daylight,weatherState.cloud,position,weatherState.rain,camera.position);
   atmospherics.update(elapsed,camera,position,sun.daylight,weatherState);
   directCamera(position,dt);
+  treeDetail.update(camera.position,elapsed);
   groundDetail.update(elapsed,camera,position,sun.daylight,weatherState.rain,climate.weather?.temperature??18);
   updateSea(elapsed,dt,sun);
   renderer.render(scene,camera);
@@ -426,6 +444,7 @@ function animate(now){
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
     status.performance={...frameTelemetry.snapshot(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,points:renderer.info.render.points,lines:renderer.info.render.lines};
+    status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
     status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;status.insectCount=groundDetail.insectCount;
     status.motion={wind:+windField.strength.toFixed(2),windMaterials:windField.materials,
       clouds:clouds.length,articulatedAnimals:ecosystem.actors.length,motes:atmospherics.activeCount};
