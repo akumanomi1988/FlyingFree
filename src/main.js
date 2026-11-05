@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,BIRDS,WEATHER,chooseBird,chooseWeather,sunPosition,birdPosition,readOptions} from './core.js';
+import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,BIRDS,WEATHER,chooseBird,chooseWeather,sunPosition,readOptions} from './core.js';
 import {Soundscape} from './audio.js';
 import {createBirdRig,animateBirdRig} from './flight.js';
 import {createEcosystem} from './ecosystem.js';

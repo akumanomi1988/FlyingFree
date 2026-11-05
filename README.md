@@ -16,7 +16,7 @@ npm run build
 - Twelve selectable bird species, each with an individual flight profile and articulated 3D silhouette.
 - Deer, foxes, rabbits, butterflies, gulls, and dolphins with habitat-aware motion and simple activity/rest cycles.
 - Procedural 3D island with trees, rocks, meadows, ocean shader, cloud layers, stars and sun.
-- Solar position based on UTC, latitude 37° N, longitude -5° and presentation in Europe/Madrid.
+- Local astronomical sunlight when location is permitted; device time is used for the clock.
 - Seven types of weather, smooth transitions, particle rain, camera direction and synthetic soundtrack.
 - Five bird camera shots, wildlife documentary framing and panoramic sequences.
 - Adaptive render resolution for slow GPUs; limited geometry on narrow screens.
@@ -34,6 +34,8 @@ npm run build
 | H | Hide/show interface |
 | P | Capture PNG |
 | F | Fullscreen |
+| T | Toggle TV screensaver |
+| R | Return to real time |
 | Esc | Close panels |
 
 URLs: `?phase=dawn`, `?phase=sunset`, `?h=6.4`, `?bird=owl`, `?weather=storm`, `?broadcast=1`, `?selftest=1`.
