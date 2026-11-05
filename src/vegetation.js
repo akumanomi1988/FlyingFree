@@ -29,7 +29,8 @@ function blossomGeometry(THREE){
   petal.translate(Math.cos(a)*.47,3.18,Math.sin(a)*.47);
   components.push(petal);
  }
- const center=new THREE.IcosahedronGeometry(.27,0);center.translate(0,3.30,0);components.push(center);
+ const center=new THREE.SphereGeometry(.27,6,5);
+ center.translate(0,3.30,0);components.push(center);
  const result=mergeGeometries(components);
  for(const geo of components)geo.dispose();
  return result;

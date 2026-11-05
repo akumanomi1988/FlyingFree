@@ -29,6 +29,9 @@ test('ground vegetation and atmospheric LOD use bounded shared geometry',()=>{
  detail.update(1,{position:{x,y:y+24,z}},{x,y:y+19,z},.9,0,20);
  fx.update(1,{position:{x,y:y+60,z}},{x,y:y+25,z},.9,{rain:0,cloud:0});
  assert.equal(detail.active,true);
+ for(const object of scene.children){
+   if(object.isInstancedMesh)assert.ok(object.geometry?.attributes.position,'Invalid instanced geometry');
+ }
  assert.ok(wind.materials>=3);
  assert.ok(fx.activeCount>0);
  detail.update(4,{position:{x,y:y+900,z}},{x,y:y+900,z},.9,0,20);
