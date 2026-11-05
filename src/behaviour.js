@@ -14,7 +14,7 @@ export function createBirdBrain(bird,seed=1988){
   ty=floor+(mode==='rest'||mode==='shelter'?marine?8:8:mode==='forage'?marine?24:16:mode==='survey'?170:marine?52:100);
  }
  return {update(t,dt,day,rain){
-  dt=clamp(dt,0,.1);if(t>=next||Math.hypot(tx-x,tz-z)<20)plan(t,day,rain);
+  dt=clamp(dt,0,.1);if(t>=next||((mode==='cruise'||mode==='survey'||mode==='forage')&&Math.hypot(tx-x,tz-z)<20))plan(t,day,rain);
   const dx=tx-x,dz=tz-z,desired=Math.atan2(-dx,-dz);
   const diff=Math.atan2(Math.sin(desired-heading),Math.cos(desired-heading));
   heading+=clamp(diff,-dt*1.35,dt*1.35);
