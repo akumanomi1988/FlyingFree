@@ -7,6 +7,7 @@ import {createSky,createOcean,createPrecipitation} from './renderfx.js';
 import {createBirdBrain} from './behaviour.js';
 import {createGroundDetail} from './vegetation.js';
 import {createWindField} from './worldMotion.js';
+import {createFrameTelemetry} from './frameTelemetry.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
@@ -19,6 +20,7 @@ window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics;
 const windField=createWindField();
+const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,lowFpsSeconds=0,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
 const climate=createLiveClimate();
 let solarCoordinates=approximateSolarCoordinates();
@@ -379,6 +381,7 @@ function animate(now){
   const deltaRaw=Math.max(0,(now-lastFrame)/1000),dt=Math.min(deltaRaw,.10);
   lastFrame=now;
   if(!Number.isFinite(dt))return;
+  if(!document.hidden)frameTelemetry.record(deltaRaw*1000);
   elapsed+=dt;
   if(timeOverride)simMs+=deltaRaw*1000*speed;
   else simMs=Date.now();
@@ -422,6 +425,7 @@ function animate(now){
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
+    status.performance={...frameTelemetry.snapshot(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,points:renderer.info.render.points,lines:renderer.info.render.lines};
     status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;status.insectCount=groundDetail.insectCount;
     status.motion={wind:+windField.strength.toFixed(2),windMaterials:windField.materials,
       clouds:clouds.length,articulatedAnimals:ecosystem.actors.length,motes:atmospherics.activeCount};
@@ -591,6 +595,7 @@ function bindUI(){
  window.addEventListener('focus',revealTVControls);
  document.addEventListener('visibilitychange',()=>{
    lastFrame=performance.now();
+   frameTelemetry.reset();
    if(!document.hidden&&!timeOverride)simMs=Date.now();
    if(!document.hidden&&tvActive)void requestWakeLock();
  });
