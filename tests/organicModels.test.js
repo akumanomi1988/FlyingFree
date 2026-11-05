@@ -5,6 +5,18 @@ import {BIRDS} from '../src/core.js';
 import {createBirdRig,createWingSurfaceGeometry,wingPlanform,animateBirdRig} from '../src/flight.js';
 import {createEcosystem} from '../src/ecosystem.js';
 import {createTreeDetail,treeDetailWeight,TREE_DETAIL_POOL} from '../src/treeDetail.js';
+import {birdPlumage,BIRD_PLUMAGE} from '../src/speciesAppearance.js';
+
+test('all supported species have visibly distinct anatomy palettes',()=>{
+  assert.equal(Object.keys(BIRD_PLUMAGE).length,BIRDS.length);
+  for(const bird of BIRDS){
+    const colors=birdPlumage(bird.id);
+    for(const region of ['chest','wing','tip','crown','iris','bill'])
+      assert.ok(Number.isInteger(colors[region]),bird.id+' missing '+region);
+    assert.notEqual(colors.chest,colors.tip,bird.id+' chest and primaries must contrast');
+  }
+  assert.throws(()=>birdPlumage('unknown'),RangeError);
+});
 
 test('all twelve bird species have curved indexed wings, articulated feathers and realistic spans',()=>{
   for(const bird of BIRDS){
