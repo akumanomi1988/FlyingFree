@@ -69,7 +69,7 @@ export function createBirdBrain(profile,seed=1988){
    else if(t>=until)chooseAction(t,day,rain);
   }
   else if(state==='approach'){
-   if(Math.hypot(tx-x,tz-z)<21){landingRest=false;landingRest=true;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));}
+   if(Math.hypot(tx-x,tz-z)<21){landingRest=false;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));}
   }
   else if(state==='landing'){
    if(Math.hypot(tx-x,tz-z)<10&&Math.abs(y-ty)<3.4){
@@ -78,7 +78,7 @@ export function createBirdBrain(profile,seed=1988){
   }
   else if(state==='feed'&&t>=until){transition('takeoff',t);selectPatrol();until=t+3;}
   else if(state==='return'&&Math.hypot(tx-x,tz-z)<15){
-   transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
+   landingRest=true;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
   }
   else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15&&Math.abs(y-ty)<4){transition('rest',t);until=t+28+rng()*13;}
   else if(state==='rest'&&t>=until){
