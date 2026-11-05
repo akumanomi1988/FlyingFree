@@ -67,6 +67,8 @@ test('fauna retains behaviour and receives smooth anatomical meshes',()=>{
   assert.ok(eco.actors.every(g=>g.scale.x>0));
   assert.ok(eco.actors.some(g=>g.userData.state.type==='deer'&&g.children.length>20));
   assert.ok(eco.dolphins.every(d=>d.group.children.length>=7));
+  assert.ok(eco.birds.every(b=>b.g.isLOD&&b.g.levels.length===2),
+    'secondary gulls must have near 3D and far minimal LOD');
   eco.update(7,.8,.2,null,.1,new THREE.Vector3(50,100,0));
   assert.ok(eco.actors.every(g=>typeof g.userData.behaviour==='string'));
 });
