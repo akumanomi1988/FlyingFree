@@ -70,6 +70,13 @@ test('habitats, food targets and natural insect activity depend on biome',()=>{
   assert.ok(Number.isFinite(node.x)&&Number.isFinite(node.y)&&Number.isFinite(node.z));
  }
 });
+test('meadow flower and shrub density keys match the instancing specification',()=>{
+ const meadow={type:'meadow'};
+ assert.ok(foliageDensity(meadow,'flowers')>0,'Flower instances must be eligible to spawn');
+ assert.ok(foliageDensity(meadow,'shrubs')>0,'Shrub instances must be eligible to spawn');
+ assert.equal(foliageDensity(meadow,'unknown'),0);
+});
+
 test('bird AI moves without teleportation and transitions between meaningful states',()=>{
  for(const id of ['kestrel','swallow','owl','albatross','heron']){
   const p=BIRDS.find(x=>x.id===id),brain=createBirdBrain(p,1988);let last=null;const states=new Set();
