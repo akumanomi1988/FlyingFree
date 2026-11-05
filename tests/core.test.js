@@ -13,7 +13,7 @@ test('bird and weather choices repeat for same date',()=>{
 });
 test('bird profiles and weather enums have full coverage',()=>{
  assert.equal(BIRDS.length,12);assert.equal(WEATHER.length,7);
- for(const bird of BIRDS)assert.ok(bird.id&&bird.flight&&bird.visualScale>0);
+ for(const bird of BIRDS)assert.ok(bird.id&&bird.flight&&bird.wingspan>=.1&&bird.wingspan<=3.5);
 });
 test('URL query validates hours and TV mode',()=>{
  assert.equal(readOptions('?h=99').hour,null);assert.equal(readOptions('?weather=bad').weather,undefined);

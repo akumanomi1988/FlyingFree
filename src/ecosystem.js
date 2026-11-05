@@ -1,4 +1,5 @@
 import { random,terrainHeight,TAU,clamp } from './core.js';
+import {FAUNA_SCALE} from './worldScale.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
 export function createEcosystem(THREE,scene,seed=1988,quality=1){
@@ -36,7 +37,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
         antler.rotation.z=-side*.26;
       }
     }
-    group.scale.setScalar(5.0);
+    group.scale.setScalar(FAUNA_SCALE.deer);
     return group;
   }
   function fox(){
@@ -54,7 +55,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       }
     }
     const tail=create(g,sphere,foxCoat,0,.65,.90,.26,.27,.82);
-    tail.rotation.x=-.35;g.userData.tail=tail;g.scale.setScalar(4.8);
+    tail.rotation.x=-.35;g.userData.tail=tail;g.scale.setScalar(FAUNA_SCALE.fox);
     return g;
   }
   function rabbit(){
@@ -70,7 +71,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     }
     const hind=create(g,sphere,brown,0,.24,.40,.29,.26,.27);
     g.userData.legs.push(hind);
-    g.scale.setScalar(3.1);return g;
+    g.scale.setScalar(FAUNA_SCALE.rabbit);return g;
   }
   function addActor(type,count,range){
     for(let i=0;i<count;i++){
@@ -92,11 +93,11 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   const dummy=new THREE.Object3D();let flowerCount=0;
   for(let i=0;i<count*6&&flowerCount<count;i++){
     const [x,y,z]=habitatPos(1200,15,138);
-    dummy.position.set(x,y+2.6,z);dummy.rotation.set(rng()*TAU,rng()*TAU,rng()*TAU);
-    const s=.95+rng()*1.4;dummy.scale.set(s,s*.47,s);dummy.updateMatrix();
+    dummy.position.set(x,y+.27,z);dummy.rotation.set(rng()*TAU,rng()*TAU,rng()*TAU);
+    const s=.95+rng()*1.4;dummy.scale.set(s*.045,s*.028,s*.045);dummy.updateMatrix();
     blossom.setMatrixAt(flowerCount,dummy.matrix);
     blossom.setColorAt(flowerCount, new THREE.Color([0xd3a0a9,0xdad490,0xa6bfa2,0xccbad1][Math.floor(rng()*4)]));
-    flowers.push(new THREE.Vector3(x,y+3,z));flowerCount++;
+    flowers.push(new THREE.Vector3(x,y+.32,z));flowerCount++;
   }
   blossom.count=flowerCount;blossom.instanceMatrix.needsUpdate=true;
   if(blossom.instanceColor)blossom.instanceColor.needsUpdate=true;
@@ -108,8 +109,8 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     const flower=flowers[Math.floor(rng()*flowers.length)];
     const g=new THREE.Group();const left=create(g,wingGeom,wingMat,-.47,0,0,.58,.13,.38);
     const right=create(g,wingGeom,wingMat,.47,0,0,.58,.13,.38);
-    g.position.copy(flower);g.position.y+=3+rng()*7;
-    g.scale.setScalar(2.0);
+    g.position.copy(flower);g.position.y+=.1+rng()*.45;
+    g.scale.setScalar(FAUNA_SCALE.butterfly);
     root.add(g);
     butterflies.push({g,left,right,origin:g.position.clone(),seed:rng()*100});
   }
@@ -120,7 +121,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   const gullMat=new THREE.MeshStandardMaterial({color:0xe4e5d9,side:THREE.DoubleSide,roughness:.87});
   for(let i=0;i<Math.round(22*quality);i++){
     const g=new THREE.Mesh(vgeom,gullMat);
-    g.scale.setScalar(8);root.add(g);
+    g.scale.setScalar(FAUNA_SCALE.gull);root.add(g);
     birds.push({g,phase:rng()*TAU,offset:rng()*TAU,alt:170+rng()*180,radius:850+rng()*700});
   }
   const dolphins=[];
@@ -133,7 +134,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     create(tail,sphere,dolphinMat,0,0,.30,.2,.16,.65);
     for(const side of [-1,1])create(tail,sphere,dolphinMat,side*.32,0,.64,.42,.055,.23);
     group.userData.tail=tail;
-    group.scale.setScalar(7);
+    group.scale.setScalar(FAUNA_SCALE.dolphin);
     root.add(group);
     dolphins.push({group,phase:rng()*TAU,radius:1900+rng()*470,period:11+rng()*12,offset:i});
   }
@@ -156,7 +157,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const runX=enemy?(x-enemy.position.x)/Math.max(1,Math.hypot(x-enemy.position.x,z-enemy.position.z))*18:prey?(prey.position.x-x)*.11:0;
       const runZ=enemy?(z-enemy.position.z)/Math.max(1,Math.hypot(x-enemy.position.x,z-enemy.position.z))*18:prey?(prey.position.z-z)*.11:0;
       const px=x+sidestep+runX,pz=z+runZ;
-      g.position.set(px,terrainHeight(px,pz)+(s.type==='rabbit'&&(move||alert||enemy)?Math.abs(Math.sin(t*5+s.seed))*3.6:0),pz);
+      g.position.set(px,terrainHeight(px,pz)+(s.type==='rabbit'&&(move||alert||enemy)?Math.abs(Math.sin(t*5+s.seed))*.16:0),pz);
       g.userData.behaviour=enemy?'flee':prey?'hunt':alert?'alert':grazing?'foraging':'travelling';
       g.rotation.y=-theta+.1*Math.sin(t*.25+s.seed);
       const running=Boolean(enemy||prey||alert||move);
@@ -178,7 +179,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     }
     for(const b of butterflies){
       const time=t+b.seed;
-      b.g.position.set(b.origin.x+Math.sin(time*.9)*15,b.origin.y+Math.cos(time*1.3)*5,b.origin.z+Math.cos(time*.85)*12);
+      b.g.position.set(b.origin.x+Math.sin(time*.9)*.48,b.origin.y+Math.cos(time*1.3)*.24,b.origin.z+Math.cos(time*.85)*.42);
       b.g.rotation.y=time*.6;
       b.left.rotation.z=Math.sin(time*12)*.9;
       b.right.rotation.z=-Math.sin(time*12)*.9;
@@ -188,7 +189,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const time=t*.12+b.phase,theta=time+b.offset;
       b.g.position.set(Math.sin(theta)*b.radius,b.alt+Math.sin(time*1.4)*22,Math.cos(theta)*b.radius*.78);
       b.g.rotation.set(Math.sin(time*1.8)*.08,theta+.7,Math.cos(time*.6)*.19);
-      b.g.scale.y=7.6+Math.sin(t*3.8+b.phase)*1.65;
+      b.g.scale.y=FAUNA_SCALE.gull*(1+Math.sin(t*3.8+b.phase)*.06);
     }
     for(const d of dolphins){
       const theta=t*.028+d.phase, pulse=(t+d.offset*3.1)%d.period;
@@ -200,9 +201,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   }
   function focus(t){
     const slot=Math.floor(t/34)%4;
-    if(slot===0){const a=actors.find(g=>g.userData.state.type==='deer');return {point:a.position.clone().add(new THREE.Vector3(0,8,0)),kind:'meadow'};}
-    if(slot===1){const a=dolphins[0].group;return {point:a.position.clone().add(new THREE.Vector3(0,10,0)),kind:'ocean'};}
-    if(slot===2){const a=actors.find(g=>g.userData.state.type==='fox');return {point:a.position.clone().add(new THREE.Vector3(0,7,0)),kind:'forest'};}
+    if(slot===0){const a=actors.find(g=>g.userData.state.type==='deer');return {point:a.position.clone().add(new THREE.Vector3(0,1.2,0)),kind:'meadow'};}
+    if(slot===1){const a=dolphins[0].group;return {point:a.position.clone().add(new THREE.Vector3(0,.4,0)),kind:'ocean'};}
+    if(slot===2){const a=actors.find(g=>g.userData.state.type==='fox');return {point:a.position.clone().add(new THREE.Vector3(0,.45,0)),kind:'forest'};}
     return {point:butterflies[0]?.g.position.clone()||new THREE.Vector3(0,150,0),kind:'flowers'};
   }
   return {root,actors,birds,dolphins,butterflies,flowers,update,focus,

@@ -70,6 +70,13 @@ test('habitats, food targets and natural insect activity depend on biome',()=>{
   assert.ok(Number.isFinite(node.x)&&Number.isFinite(node.y)&&Number.isFinite(node.z));
  }
 });
+test('meadow flower and shrub density keys match the instancing specification',()=>{
+ const meadow={type:'meadow'};
+ assert.ok(foliageDensity(meadow,'flowers')>0,'Flower instances must be eligible to spawn');
+ assert.ok(foliageDensity(meadow,'shrubs')>0,'Shrub instances must be eligible to spawn');
+ assert.equal(foliageDensity(meadow,'unknown'),0);
+});
+
 test('bird AI moves without teleportation and transitions between meaningful states',()=>{
  for(const id of ['kestrel','swallow','owl','albatross','heron']){
   const p=BIRDS.find(x=>x.id===id),brain=createBirdBrain(p,1988);let last=null;const states=new Set();
@@ -79,7 +86,7 @@ test('bird AI moves without teleportation and transitions between meaningful sta
    assert.ok(Number.isFinite(point.x)&&Number.isFinite(point.y)&&Number.isFinite(point.z));
    assert.ok(point.speed>=0&&point.speed<=100);
    if(last)assert.ok(Math.hypot(point.x-last.x,point.y-last.y,point.z-last.z)<22,'Jump in '+id);
-   if(p.flight!=='marine')assert.ok(point.y>=terrainHeight(point.x,point.z)+4);
+   if(p.flight!=='marine')assert.ok(point.y>=terrainHeight(point.x,point.z)+.12);
    last=point;
   }
   assert.ok(states.has('seek_food')||states.has('rest')||states.has('shelter'),id+' never used its AI');
@@ -117,4 +124,23 @@ test('vegetation detail is culled by observer altitude',async()=>{
  assert.equal(ground.active,true);
  ground.update(3,{position:{x,y:y+750,z}},{x,y:y+750,z},.95,0,21);
  assert.equal(ground.active,false);
+});
+
+test('sheltering birds descend, land and enter grounded rest',()=>{
+ for(const {id,day,rain} of [{id:'owl',day:.95,rain:0},{id:'kestrel',day:.95,rain:.90}]){
+  const profile=BIRDS.find(b=>b.id===id),brain=createBirdBrain(profile,1988);
+  const visited=new Set();let rested=false;
+  for(let i=0;i<4800;i++){
+   const point=brain.update(i*.08,.08,day,rain);
+   visited.add(point.state);
+   if(point.state==='rest'&&point.grounded){
+    assert.ok(point.landings>0,id+' did not register its landing');
+    assert.ok(point.y>=terrainHeight(point.x,point.z)+.12,id+' rests below ground');
+    rested=true;break;
+   }
+  }
+  assert.ok(visited.has('shelter'),id+' did not seek shelter');
+  assert.ok(visited.has('landing'),id+' bypassed the landing transition');
+  assert.ok(rested,id+' remained suspended above its shelter');
+ }
 });

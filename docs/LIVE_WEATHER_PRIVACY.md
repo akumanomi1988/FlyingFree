@@ -1,7 +1,7 @@
 # Privacidad, clima y modos de ejecución
 
 ## Geolocalización
-La web no contiene una ubicación predeterminada del emisor. El navegador puede solicitar al visitante permiso para conocer su posición al pulsar «Entrar» o «Clima local». El permiso se gestiona desde el navegador.
+La web no contiene una ubicación predeterminada del emisor. En la visita normal el navegador solo solicita la posición al pulsar «Entrar con clima local» o «Clima local». «Continuar sin ubicación» no consulta los datos geográficos, incluso si hubo un permiso previo. El modo TV y el modo emisión reutilizan un permiso previo sin provocar nuevas solicitudes; si no existe, el modo TV ofrece un botón de activación. El permiso se gestiona desde el navegador.
 
 La aplicación transforma la latitud y la longitud a 0,1° antes de solicitar datos a Open-Meteo. Eso equivale a una cuadrícula aproximada, no a una dirección exacta. Nunca escribe las coordenadas en la interfaz, la URL, logs propios o localStorage. Mientras la página permanece abierta las coordenadas aproximadas permanecen temporalmente en memoria, para calcular la trayectoria solar y actualizar las condiciones actuales.
 

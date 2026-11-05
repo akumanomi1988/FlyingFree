@@ -9,7 +9,8 @@ import {createGroundDetail} from './vegetation.js';
 import {createWindField} from './worldMotion.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
-import {createLiveClimate,approximateSolarCoordinates} from './localClimate.js';
+import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
+import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from './localClimate.js';
 import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,localDateLabel} from './localTime.js';
 
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
@@ -25,11 +26,12 @@ let timeOverride=opts.hour!=null||Boolean(opts.phase);
 let weatherOverride=Boolean(opts.weather);
 let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
  opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
-let climatePending=false,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
+let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
 let currentWeather=opts.weather||chooseWeather(new Date(simMs));
 let speed=1,flapBoost=0,lastFrame=performance.now(),elapsed=0,cameraLook=new THREE.Vector3(0,150,0),sleepFactor=0;
+const lastCameraBird=new THREE.Vector3();let cameraBirdTracked=false;
 let weatherState={cloud:currentWeather.cloud,rain:currentWeather.rain,fog:currentWeather.fog},renderFrames=0,fpsTimer=0,lastClimatePoll=0;
 const sound=new Soundscape();
 const canvasParent=$('viewport');
@@ -50,7 +52,7 @@ function init(){
   renderer.toneMappingExposure=1.05;
   canvasParent.appendChild(renderer.domElement);
   scene=new THREE.Scene();scene.background=skyDay.clone();scene.fog=new THREE.FogExp2(skyDay.clone(),.00013);
-  camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,1,12500);
+  camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.15,12500);
   camera.position.set(250,450,820);
   hemi=new THREE.HemisphereLight(0xd7efff,0x394337,1.7);scene.add(hemi);
   sunLight=new THREE.DirectionalLight('#ffead0',2.5);sunLight.position.set(500,950,-350);scene.add(sunLight);
@@ -75,7 +77,9 @@ function init(){
   const startPos=birdBrain.update(0,0,startSun.daylight,0);
   birdModel.position.set(startPos.x,startPos.y,startPos.z);
   const heading=new THREE.Vector3(-Math.sin(startPos.heading),0,-Math.cos(startPos.heading));
-  camera.position.copy(birdModel.position).addScaledVector(heading,-185).add(new THREE.Vector3(38,26,14));
+  const startDistance=birdCameraDistance(currentBird);
+  camera.position.copy(birdModel.position).addScaledVector(heading,-startDistance).add(new THREE.Vector3(startDistance*.3,startDistance*.25,0));
+  lastCameraBird.copy(birdModel.position);cameraBirdTracked=true;
   cameraLook.set(startPos.x,startPos.y,startPos.z);
   camera.lookAt(cameraLook);
   ecosystem=createEcosystem(THREE,scene,1988,innerWidth<720?.65:1);
@@ -88,7 +92,9 @@ function init(){
   bindUI();onResize();status.ready=true;status.scene={terrain:true,forest:true,bird:true,water:true,clouds:true,stars:true,fauna:true,sky:true,rain:true};
   if(opts.broadcast){$('intro').classList.add('off');document.body.classList.add('no-ui');}
   if(opts.tv)setTVMode(true);
-  void connectClimate(true);
+  // Normal visits wait for the explicit choice on the intro screen.
+  // TV/broadcast may reuse a permission already granted, without prompting.
+  if(opts.broadcast||opts.tv)void connectClimate(true);
   if(opts.selftest)window.setTimeout(selfTest,2500);
   requestAnimationFrame(animate);
 }
@@ -149,35 +155,46 @@ function createForest(){
     if(y<14||y>340||rng()<smooth(190,335,y)*.56)continue;
     const habitat=habitatAt(x,z);
     if(habitat.type==='rock'||habitat.slope>.85)continue;
-    const s=.55+rng()*1.25,a=rng()*TAU;
+    const s=.78+rng()*.50,a=rng()*TAU;
     const kind=habitat.type==='shore'?'olive':
       y<125&&habitat.humidity<.50&&rng()<.35?'olive':
       habitat.type==='forest'&&rng()<.16?'birch':
       habitat.type==='forest'&&rng()<.22?'oak':
       y<195&&rng()<.13?'cypress':'pine';
-    const oak=kind==='oak';
+    const h=TREE_HEIGHT_M[kind]*s;
+    const trunkRatio=kind==='olive'?.43:kind==='birch'?.58:kind==='oak'?.44:kind==='cypress'?.34:.47;
+    const trunkThickness=kind==='olive'?.26:kind==='birch'?.30:kind==='oak'?.58:kind==='cypress'?.43:.52;
+    const trunkHeight=h*trunkRatio;
     temp.rotation.set(0,a,0);
-    temp.position.set(x,y+7*s,z);temp.scale.set(s,s,s);temp.updateMatrix();
-    trunk.setMatrixAt(trees,temp.matrix);
+    temp.position.set(x,y+trunkHeight*.5,z);
+    temp.scale.set(s*trunkThickness,trunkHeight/16,s*trunkThickness);
+    temp.updateMatrix();trunk.setMatrixAt(trees,temp.matrix);
     if(kind==='cypress'){
-      temp.position.set(x,y+25*s,z);temp.scale.set(s*.73,s*.95,s*.73);temp.updateMatrix();
-      cypress.setMatrixAt(cypresses++,temp.matrix);
+      temp.position.set(x,y+h*.52,z);
+      temp.scale.set(h*.16/4.9,h*.96/43,h*.16/4.9);
+      temp.updateMatrix();cypress.setMatrixAt(cypresses++,temp.matrix);
     }else if(kind==='olive'){
-      temp.position.set(x,y+20*s,z);temp.scale.set(s*1.05,s*.66,s*1.05);temp.updateMatrix();
-      olive.setMatrixAt(olives++,temp.matrix);
+      temp.position.set(x,y+h*.66,z);
+      temp.scale.set(h*.45/8.5,h*.32/8.5,h*.45/8.5);
+      temp.updateMatrix();olive.setMatrixAt(olives++,temp.matrix);
     }else if(kind==='birch'){
-      temp.position.set(x,y+26*s,z);temp.scale.set(s*.82,s*.96,s*.88);temp.updateMatrix();
-      birch.setMatrixAt(birches++,temp.matrix);
-    }else if(oak){
-      temp.position.set(x,y+25*s,z);
-      temp.scale.set(s*(.92+rng()*.4),s*(.65+rng()*.2),s);
+      temp.position.set(x,y+h*.72,z);
+      temp.scale.set(h*.24/9,h*.28/9,h*.24/9);
+      temp.updateMatrix();birch.setMatrixAt(birches++,temp.matrix);
+    }else if(kind==='oak'){
+      temp.position.set(x,y+h*.70,z);
+      temp.scale.set(h*.40/11,h*.30/11,h*.40/11);
       temp.updateMatrix();broad.setMatrixAt(deciduous,temp.matrix);
       broad.setColorAt(deciduous,broadGreens[Math.floor(rng()*broadGreens.length)]);
       deciduous++;
     }else{
-      temp.position.set(x,y+19*s,z);temp.scale.set(s,s,s);temp.updateMatrix();lower.setMatrixAt(pines,temp.matrix);
+      temp.position.set(x,y+h*.49,z);
+      temp.scale.set(s*.85,h*.70/21,s*.85);
+      temp.updateMatrix();lower.setMatrixAt(pines,temp.matrix);
       lower.setColorAt(pines,greens[Math.floor(rng()*greens.length)]);
-      temp.position.set(x,y+31*s,z);temp.scale.set(s*.88,s*.83,s*.88);temp.updateMatrix();upper.setMatrixAt(pines,temp.matrix);
+      temp.position.set(x,y+h*.74,z);
+      temp.scale.set(s*.65,h*.52/20,s*.65);
+      temp.updateMatrix();upper.setMatrixAt(pines,temp.matrix);
       upper.setColorAt(pines,greens[Math.floor(rng()*greens.length)]);
       pines++;
     }
@@ -298,7 +315,7 @@ function ambient(date,dt){
 function fly(date,dt,sun){
  const day=smooth(-.14,.045,sun.altitude);
  const action=birdBrain.update(elapsed,dt,day,weatherState.rain);
- birdModel.position.set(action.x,action.y+(action.grounded?0:Math.max(0,Math.sin(elapsed*3.2)*.35)),action.z);
+ birdModel.position.set(action.x,action.y+(action.grounded?0:Math.sin(elapsed*3.2)*currentBird.wingspan*.012),action.z);
  birdModel.rotation.y=action.heading;
  animateBirdRig(birdModel,elapsed,{energy:action.flapping?.89:.40,sleeping:action.wingsFolded,
   bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
@@ -311,35 +328,46 @@ function fly(date,dt,sun){
 function directCamera(bird,dt){
   const shot=Math.floor(elapsed/31)%7;
   const yaw=birdModel.rotation.y,forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
-  let target=bird.clone(),desired;
+  const side=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+  const span=currentBird.wingspan,near=birdCameraDistance(currentBird);
+  const low=['approach','landing','feed','rest'].includes(status.behaviour);
+  const tracking=low||![2,5,6].includes(shot);
+  // Translate the observer along with the bird before easing. Without this,
+  // a 60 m/s bird outruns an otherwise close cinematic chase camera.
+  if(tracking&&cameraBirdTracked){
+    const motion=bird.clone().sub(lastCameraBird);
+    if(motion.lengthSq()<2500){camera.position.add(motion);cameraLook.add(motion);}
+  }
+  lastCameraBird.copy(bird);cameraBirdTracked=true;
+  let target=bird.clone().add(new THREE.Vector3(0,span*.08,0)),desired;
   switch(shot){
-    case 0:desired=bird.clone().addScaledVector(forward,-180).add(new THREE.Vector3(42,24,14));break;
-    case 1:desired=bird.clone().add(new THREE.Vector3(Math.cos(elapsed*.048)*225,52,Math.sin(elapsed*.048)*225));break;
+    case 0:desired=bird.clone().addScaledVector(forward,-near).addScaledVector(side,near*.30).add(new THREE.Vector3(0,near*.24,0));break;
+    case 1:desired=bird.clone().add(new THREE.Vector3(Math.cos(elapsed*.048)*near*1.18,near*.36,Math.sin(elapsed*.048)*near*1.18));break;
     case 2:desired=new THREE.Vector3(950,650,1320);target.lerp(new THREE.Vector3(0,210,0),.38);break;
-    case 3:desired=bird.clone().add(new THREE.Vector3(-205,-Math.min(35,bird.y-30),135));break;
-    case 4:desired=bird.clone().addScaledVector(forward,165).add(new THREE.Vector3(35,42,0));break;
+    case 3:desired=bird.clone().addScaledVector(side,-near*1.2).addScaledVector(forward,-near*.25).add(new THREE.Vector3(0,near*.22,0));break;
+    case 4:desired=bird.clone().addScaledVector(forward,near*1.15).addScaledVector(side,near*.24).add(new THREE.Vector3(0,near*.37,0));break;
     case 5:{
       const fauna=ecosystem.focus(elapsed);target=fauna.point;
-      desired=target.clone().add(new THREE.Vector3(fauna.kind==='ocean'?165:70,fauna.kind==='ocean'?56:45,fauna.kind==='ocean'?215:112));
+      const d=fauna.kind==='ocean'?18:fauna.kind==='flowers'?.75:8;
+      desired=target.clone().add(new THREE.Vector3(d*.42,d*.38,d));
       break;
     }
     default:desired=new THREE.Vector3(-1230,510,-900);target=new THREE.Vector3(90,170,10);break;
   }
-  const low=['approach','landing','feed','rest'].includes(status.behaviour);
   if(low){
-    const side=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-    desired=bird.clone().addScaledVector(side,62).addScaledVector(forward,-57).add(new THREE.Vector3(0,28,0));
-    target=bird.clone().add(new THREE.Vector3(0,7,0));
+    const d=Math.max(.55,span*2.8);
+    desired=bird.clone().addScaledVector(side,d*.65).addScaledVector(forward,-d*.75).add(new THREE.Vector3(0,d*.35,0));
+    target=bird.clone().add(new THREE.Vector3(0,span*.12,0));
   }
-  desired.y=Math.max(desired.y,terrainHeight(desired.x,desired.z)+28,-1);
-  const ease=1-Math.exp(-dt*.62);
+  const clearance=low?.35:shot===5?.45:tracking?Math.max(.65,span*.4):8;
+  desired.y=Math.max(desired.y,terrainHeight(desired.x,desired.z)+clearance);
+  const ease=1-Math.exp(-dt*2.2);
   camera.position.lerp(desired,ease);
-  // Never let interpolation push the observer below the terrain.
-  camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+20,-1);
-  cameraLook.lerp(target,1-Math.exp(-dt*.86));
+  camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+clearance);
+  cameraLook.lerp(target,1-Math.exp(-dt*1.8));
   camera.lookAt(cameraLook);
-  const fov=low?43:[52,51,61,50,49,47,62][shot];
-  camera.fov=lerp(camera.fov,fov,1-Math.exp(-dt*.48));
+  const fov=low?48:[54,52,61,53,53,48,62][shot];
+  camera.fov=lerp(camera.fov,fov,1-Math.exp(-dt*.8));
   camera.updateProjectionMatrix();
 }
 function updateSea(t,dt,sun){
@@ -355,6 +383,12 @@ function animate(now){
   if(timeOverride)simMs+=deltaRaw*1000*speed;
   else simMs=Date.now();
   const date=new Date(simMs);
+  // Use wall-clock time so hidden tabs and long-running TV sessions still refresh.
+  // The climate adapter coalesces requests and caches successful observations.
+  if(climate.enabled&&!climatePending&&
+     Date.now()-lastClimatePoll>=(climate.weather?WEATHER_REFRESH_MS:60_000)){
+    void pollClimate();
+  }
   // A week-scale cycle for the default bird; manual selections always persist.
   if(!manuallySelected&&status.frames%120===0){
     const dailyBird=chooseBird(date);
@@ -446,18 +480,39 @@ function revealTVControls(){
   controlsTimeout=setTimeout(()=>$('tv-actions').classList.remove('active'),5500);
 }
 async function connectClimate(onlyPreviouslyGranted=false){
- if(climatePending)return;climatePending=true;
+ // A visible user click must never be swallowed by the silent permission restore.
+ // The explicit attempt supersedes an in-flight silent restore.
+ if(climatePending&&(!climateInitialRestore||onlyPreviouslyGranted))return;
+ const attempt=++climateAttempt;
+ climatePending=true;climateInitialRestore=onlyPreviouslyGranted;
  try{
    const allowed=await climate.requestLocation({onlyPreviouslyGranted});
-   if(!allowed){climateMessage='Clima simulado · activar datos reales';return;}
+   if(attempt!==climateAttempt)return;
+   if(!allowed){
+     let blocked=false;
+     try{blocked=(await navigator.permissions?.query({name:'geolocation'}))?.state==='denied';}catch{}
+     if(attempt!==climateAttempt)return;
+     climateMessage=blocked?'Ubicación bloqueada · permite Ubicación en los ajustes del sitio junto a la dirección web':'Clima simulado · activar datos reales';
+     return;
+   }
    solarCoordinates=climate.coordinates;
    weatherOverride=false;
    await pollClimate(true);
  }catch(err){
-   climateMessage=err?.message==='Ubicación no autorizada'?'Ubicación no autorizada · clima simulado':'Datos no disponibles · clima simulado';
- }finally{climatePending=false;updateWeatherUI(new Date(simMs));}
+   if(attempt!==climateAttempt)return;
+   const denied=err?.message==='Ubicación no autorizada';
+   climateMessage=denied?'Ubicación bloqueada · permite Ubicación en los ajustes del sitio junto a la dirección web':
+     err?.message==='Geolocalización no disponible'?'El navegador no permite acceder a la ubicación · clima simulado':
+     'Datos no disponibles · clima simulado';
+ }finally{
+   if(attempt===climateAttempt){
+     climatePending=false;climateInitialRestore=false;
+     updateWeatherUI(new Date(simMs));
+   }
+ }
 }
 async function pollClimate(force=false){
+ lastClimatePoll=Date.now();
  try{
   const observed=await climate.refresh(force);
   if(observed&&!weatherOverride){
@@ -513,11 +568,13 @@ function refreshPicker(){
 }
 function bindUI(){
  refreshPicker();
- $('enter-btn').addEventListener('click',()=>{
+ const enterExperience=(withLocation)=>{
    $('intro').classList.add('off');
    void audioToggle();
-   void connectClimate(false);
- });
+   if(withLocation)void connectClimate(false);
+ };
+ $('enter-btn').addEventListener('click',()=>enterExperience(true));
+ $('skip-location-btn').addEventListener('click',()=>enterExperience(false));
  $('audio-btn').addEventListener('click',audioToggle);
  $('tv-audio').addEventListener('click',audioToggle);
  $('photo-btn').addEventListener('click',png);
