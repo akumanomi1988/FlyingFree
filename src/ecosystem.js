@@ -14,6 +14,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     if(rotation)mesh.rotation.set(...rotation);
     parent.add(mesh);return mesh;
   };
+  const detail=(...args)=>{const mesh=create(...args);mesh.userData.detailOnly=true;return mesh;};
   const segment=(parent,m,from,to,thickness=1)=>{
     a3.set(...from);b3.set(...to);
     const delta=b3.clone().sub(a3),len=delta.length();
@@ -36,14 +37,14 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     group.userData.body=create(group,sphere,brown,0,1.5,0,.52,.53,1.08);
     create(group,sphere,cream,0,1.6,-.77,.33,.55,.46);
     group.userData.head=create(group,sphere,brown,0,2.14,-.91,.30,.31,.38);
-    create(group,sphere,cream,0,2.10,-1.19,.20,.16,.30);
-    create(group,sphere,dark,0,2.16,-1.46,.105,.085,.09);
-    create(group,sphere,cream,0,1.61,.98,.30,.24,.15);
+    detail(group,sphere,cream,0,2.10,-1.19,.20,.16,.30);
+    detail(group,sphere,dark,0,2.16,-1.46,.105,.085,.09);
+    detail(group,sphere,cream,0,1.61,.98,.30,.24,.15);
     for(const side of [-1,1]){
       const ear=create(group,sphere,brown,side*.36,2.42,-.79,.25,.11,.30);
       ear.rotation.z=side*.18;
-      create(group,sphere,cream,side*.36,2.43,-.84,.17,.065,.19);
-      create(group,eyeGeo,dark,side*.275,2.24,-1.08,.071,.072,.057);
+      detail(group,sphere,cream,side*.36,2.43,-.84,.17,.065,.19);
+      detail(group,eyeGeo,dark,side*.275,2.24,-1.08,.071,.072,.057);
       for(const z of [-.63,.7]){
         const leg=create(group,legGeo,brown,side*.3,.68,z,.75,1.22,.75);
         leg.userData.leg={side,z};group.userData.legs.push(leg);
@@ -67,13 +68,13 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     g.userData.head=create(g,sphere,foxCoat,0,.79,-.67,.34,.34,.40);
     create(g,sphere,white,0,.52,-.83,.27,.16,.46);
     create(g,new THREE.ConeGeometry(.21,.46,12),white,0,.64,-1.09,.78,.68,1,[-Math.PI/2,0,0]);
-    create(g,eyeGeo,dark,0,.69,-1.33,.085,.085,.095);
+    detail(g,eyeGeo,dark,0,.69,-1.33,.085,.085,.095);
     for(const side of [-1,1]){
       const ear=create(g,new THREE.ConeGeometry(.15,.39,9),foxCoat,side*.25,1.15,-.82);
       ear.rotation.x=-.15;
-      create(g,new THREE.ConeGeometry(.085,.25,9),dark,side*.25,1.18,-.86);
-      create(g,eyeGeo,dark,side*.28,.91,-.88,.074,.075,.065);
-      create(g,sphere,white,side*.23,.51,-.91,.17,.15,.22);
+      detail(g,new THREE.ConeGeometry(.085,.25,9),dark,side*.25,1.18,-.86);
+      detail(g,eyeGeo,dark,side*.28,.91,-.88,.074,.075,.065);
+      detail(g,sphere,white,side*.23,.51,-.91,.17,.15,.22);
       for(const z of [-.52,.57]){
         const leg=create(g,legGeo,dark,side*.25,.24,z,.54,.44,.54);
         leg.userData.leg={side,z};g.userData.legs.push(leg);
@@ -91,12 +92,12 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     g.userData.body=create(g,sphere,cream,0,.36,0,.35,.34,.51);
     create(g,sphere,brown,0,.54,-.43,.28,.28,.30);
     create(g,sphere,cream,0,.40,.55,.18,.18,.18);
-    create(g,eyeGeo,dark,0,.52,-.75,.085,.075,.07);
+    detail(g,eyeGeo,dark,0,.52,-.75,.085,.075,.07);
     for(const side of [-1,1]){
       const ear=create(g,sphere,cream,side*.14,1.02,-.43,.105,.45,.16);
       ear.rotation.z=side*.18;g.userData.ears.push(ear);
-      create(ear,sphere,brown,0,0,-.16,.55,.84,.25);
-      create(g,eyeGeo,dark,side*.27,.57,-.58,.072,.081,.058);
+      detail(ear,sphere,brown,0,0,-.16,.55,.84,.25);
+      detail(g,eyeGeo,dark,side*.27,.57,-.58,.072,.081,.058);
       const paw=create(g,sphere,brown,side*.25,.18,-.28,.17,.14,.27);
       g.userData.legs.push(paw);
     }
@@ -110,6 +111,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const [x,y,z]=habitatPos(range,type==='rabbit'?13:28,type==='fox'?235:180);
       g.position.set(x,y,z);g.rotation.y=rng()*TAU;
       g.userData.state={type,originX:x,originZ:z,seed:rng()*100,phase:rng()*TAU,speed:type==='fox'?.8:type==='rabbit'?.6:.24,cycle:13+rng()*19};
+      g.userData.details=[];
+      g.traverse(mesh=>{if(mesh.userData.detailOnly)g.userData.details.push(mesh);});
+      g.userData.detailVisible=true;
       root.add(g);actors.push(g);
     }
   }
@@ -239,6 +243,16 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       if(g.userData.head)g.userData.head.rotation.x=grazing?.13+Math.sin(t*.58+s.seed)*.11:Math.sin(t*.68+s.seed)*.06;
       g.rotation.x=s.type==='deer'&&grazing?Math.sin(t*.17+s.seed)*.025:0;
       g.visible=!observer||Math.hypot(observer.x-g.position.x,observer.z-g.position.z)<1050;
+      // Tiny facial decorations cost draw calls but have no silhouette value at distance.
+      const dx=observer?observer.x-g.position.x:0;
+      const dy=observer?observer.y-g.position.y:0;
+      const dz=observer?observer.z-g.position.z:0;
+      const detailDistance=observer?Math.hypot(dx,dy,dz):0;
+      const showDetails=!observer||detailDistance<(g.userData.detailVisible?205:160);
+      if(showDetails!==g.userData.detailVisible){
+        for(const mesh of g.userData.details)mesh.visible=showDetails;
+        g.userData.detailVisible=showDetails;
+      }
     }
     for(const b of butterflies){
       const time=t+b.seed;
