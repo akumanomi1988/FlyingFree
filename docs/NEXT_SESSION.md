@@ -54,4 +54,15 @@
 - Pruebas: `tests/organicModels.test.js` para 12 escalas de aves, geometría de alas, pool de árboles, fauna y LOD. `tests/browser.mjs` comprueba exposición de capa LOD y telemetría inicializada.
 - Validación: la primera revisión de la PR pasó tests, compilación y Playwright; una revisión posterior detectó que el estado de LOD se publicaba demasiado tarde en GPU por software. Corregido inicializando el estado antes del primer frame. **La revisión definitiva debe pasar CI antes de fusionarla**.
 - Pendiente: establecer base P50/P95/P99 en Chrome con GPU real y capturas comparativas, comprobar 12 especies desde varias distancias y mantener una prueba de estabilidad prolongada para TV.
-- No afirmar que esta PR está en `main` o desplegada hasta que lo confirmen los commits y GitHub Pages.
+- PR #10 fusionada en `main` mediante squash commit `078d31b0b3926810eabe73d71a524f23dea5d484`. Despliegue Pages aún requiere verificación de workflow.
+
+## Iteración: continuidad, plumaje y LOD estable (PR #11)
+
+- Rama: `feature/bird-continuity-batched-plumage-20261105`, PR: https://github.com/akumanomi1988/FlyingFree/pull/11.
+- Corrección de continuidad: `createBirdBrain` acepta estado inicial validado y expone `snapshot`. El selector de especies conserva posición, dirección, velocidad y necesidades fisiológicas. No reinstanciar el ave en otro lugar.
+- Optimización de modelo: `meshBatch.js` fusiona geometrías rígidas compatibles por material para reducir draw calls del plumaje. Alas principales y puntas siguen con grupos y animación independiente; datos UV de plumas compatibles con el merge.
+- Color anatómico: `speciesAppearance.js` define paletas de cabeza, pecho, primarias, alas y marcas faciales para las doce especies. No usa recursos con restricciones de licencia.
+- Arbolado: `treeDetail.js` recalcula LOD a intervalos cortos bajo movimiento y reduce el radio de fade cuando el pool de 48 árboles está saturado. Evita detalles cercanos emergiendo abruptamente al alcanzar el límite de pool.
+- Telemetría: `status.birdDrawCallsSaved` permite conocer el ahorro de draw calls por ave; no equivale a una medición directa de tiempo de GPU.
+- Pruebas: `tests/birdContinuity.test.js`, `tests/organicModels.test.js` y `tests/browser.mjs` validan continuidad, número de llamadas ahorradas, cotas geométricas, paletas por especie y WebGL.
+- Gate: exigir Node tests, build Vite y Playwright/WebGL del commit HEAD antes de integrar a `main`; comprobar después GitHub Pages y comparar P95 de hardware real.
