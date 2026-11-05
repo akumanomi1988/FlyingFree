@@ -59,13 +59,14 @@ function createLandscape(){
     const x=p.getX(i),z=p.getZ(i),y=terrainHeight(x,z),detail=fbm(x*.003,z*.003);
     p.setY(i,y);
     let col;
-    if(y< -9)col=new THREE.Color('#a1b6ab');
-    else if(y<15)col=new THREE.Color('#bcaa7d');
-    else if(y<95)col=new THREE.Color(month>=9||month<=1?'#687951':'#557f59');
-    else if(y<225)col=new THREE.Color('#52715a');
-    else if(y<350)col=new THREE.Color('#79837b');
-    else col=new THREE.Color(month>=10||month<=2?'#dbe3db':'#8e9693');
-    col.multiplyScalar(.86+detail*.2+(fbm(x*.07,z*.07)+1)*.025);
+    if(y< -9)col=new THREE.Color('#5f9e9b');
+    else if(y<16)col=new THREE.Color('#d1bf93');
+    else if(y<95)col=new THREE.Color(month>=9||month<=1?'#739f64':'#70a86c');
+    else if(y<235)col=new THREE.Color('#618c5e');
+    else if(y<325)col=new THREE.Color('#76946d');
+    else if(y<402)col=new THREE.Color('#8b9982');
+    else col=new THREE.Color(month>=10||month<=2?'#d4dcd2':'#87938b');
+    col.multiplyScalar(.96+detail*.13+(fbm(x*.07,z*.07)+1)*.04);
     cols.push(col.r,col.g,col.b);
   }
   p.needsUpdate=true;g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));g.computeVertexNormals();
@@ -80,31 +81,57 @@ function createLandscape(){
   }
 }
 function createForest(){
-  const rand=random(1988),n=Math.round((innerWidth<720?1400:2350));
-  const leaves=new THREE.InstancedMesh(new THREE.ConeGeometry(7,27,5),createMaterial('#315d45'),n);
-  const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(1.15,1.55,17,4),createMaterial('#625642'),n);
-  leaves.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-  const colors=[new THREE.Color('#2c5e43'),new THREE.Color('#4c7952'),new THREE.Color('#6a8660')];
-  let count=0;
-  for(let i=0;i<n*7&&count<n;i++){
-    const x=(rand()-.5)*3400,z=(rand()-.5)*3050,y=terrainHeight(x,z);
-    if(y<22||y>286||rand()<smooth(150,290,y)*.65)continue;
-    const s=.55+rand()*1.5;
-    temp.position.set(x,y+15*s,z);temp.rotation.set(0,rand()*TAU,0);temp.scale.set(s,s,s);temp.updateMatrix();
-    leaves.setMatrixAt(count,temp.matrix);leaves.setColorAt(count,colors[Math.floor(rand()*colors.length)]);
+  const rng=random(1988);
+  const n=innerWidth<720?1500:2450;
+  const foliage=(color)=>new THREE.MeshStandardMaterial({color,roughness:1,flatShading:true});
+  const lower=new THREE.InstancedMesh(new THREE.ConeGeometry(8,21,7),foliage('#609c70'),n);
+  const upper=new THREE.InstancedMesh(new THREE.ConeGeometry(6,20,7),foliage('#729f70'),n);
+  const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(1.05,1.55,16,6),foliage('#635c4b'),n);
+  const broad=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(11,1),foliage('#7eac72'),n);
+  const greens=['#447755','#5a9161','#699f68','#4f8060','#87ac72'].map(c=>new THREE.Color(c));
+  const broadGreens=['#90b771','#74a36a','#a4bf7c','#719563'].map(c=>new THREE.Color(c));
+  let pines=0,deciduous=0,trees=0;
+  for(let attempt=0;attempt<n*8&&trees<n;attempt++){
+    const x=(rng()-.5)*3450,z=(rng()-.5)*3060,y=terrainHeight(x,z);
+    if(y<14||y>340||rng()<smooth(190,335,y)*.56)continue;
+    const s=.55+rng()*1.25,a=rng()*TAU;
+    const oak=y<218&&rng()<.38;
+    temp.rotation.set(0,a,0);
     temp.position.set(x,y+7*s,z);temp.scale.set(s,s,s);temp.updateMatrix();
-    trunks.setMatrixAt(count,temp.matrix);count++;
+    trunk.setMatrixAt(trees,temp.matrix);
+    if(oak){
+      temp.position.set(x,y+25*s,z);
+      temp.scale.set(s*(.92+rng()*.4),s*(.65+rng()*.2),s);
+      temp.updateMatrix();broad.setMatrixAt(deciduous,temp.matrix);
+      broad.setColorAt(deciduous,broadGreens[Math.floor(rng()*broadGreens.length)]);
+      deciduous++;
+    }else{
+      temp.position.set(x,y+19*s,z);temp.scale.set(s,s,s);temp.updateMatrix();lower.setMatrixAt(pines,temp.matrix);
+      lower.setColorAt(pines,greens[Math.floor(rng()*greens.length)]);
+      temp.position.set(x,y+31*s,z);temp.scale.set(s*.88,s*.83,s*.88);temp.updateMatrix();upper.setMatrixAt(pines,temp.matrix);
+      upper.setColorAt(pines,greens[Math.floor(rng()*greens.length)]);
+      pines++;
+    }
+    trees++;
   }
-  leaves.count=trunks.count=count;leaves.instanceMatrix.needsUpdate=trunks.instanceMatrix.needsUpdate=true;
-  if(leaves.instanceColor)leaves.instanceColor.needsUpdate=true;
-  scene.add(leaves,trunks);forest={leaves,trunks,count};
-  // Sparse rock outcrops on mountain ridges.
-  const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),createMaterial('#77817a'),180);
+  trunk.count=trees;lower.count=upper.count=pines;broad.count=deciduous;
+  for(const inst of [trunk,lower,upper,broad]){
+    inst.instanceMatrix.needsUpdate=true;
+    if(inst.instanceColor)inst.instanceColor.needsUpdate=true;
+    inst.frustumCulled=false;
+    scene.add(inst);
+  }
+  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous};
+  const rockMaterial=foliage('#7c8679');
+  const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
   let j=0;
-  for(let i=0;i<1500&&j<180;i++){
-    const x=(rand()-.5)*2200,z=(rand()-.5)*2300,y=terrainHeight(x,z);
-    if(y<140)continue;
-    const scale=10+rand()*25;temp.position.set(x,y+3,z);temp.rotation.set(rand(),rand()*TAU,rand());temp.scale.set(scale,scale*.55,scale*1.25);temp.updateMatrix();rocks.setMatrixAt(j++,temp.matrix);
+  for(let attempt=0;attempt<850&&j<95;attempt++){
+    const x=(rng()-.5)*1900,z=(rng()-.5)*1800,y=terrainHeight(x,z);
+    if(y<240)continue;
+    const scale=6+rng()*13;
+    temp.position.set(x,y-1,z);temp.rotation.set(rng(),rng()*TAU,rng());
+    temp.scale.set(scale,scale*.45,scale*.82);temp.updateMatrix();
+    rocks.setMatrixAt(j++,temp.matrix);
   }
   rocks.count=j;rocks.instanceMatrix.needsUpdate=true;scene.add(rocks);
 }
@@ -164,10 +191,10 @@ function ambient(date,dt){
   color.lerp(new THREE.Color('#344a58'),cloud*.31);
   scene.background.copy(color);scene.fog.color.copy(color);
   scene.fog.density=.00008+weatherState.fog*.00036+cloud*.000038;
-  renderer.toneMappingExposure=.83+day*.38;
-  sunLight.intensity=Math.max(0,.12+day*(2.65-cloud*1.6)+lightning);
-  hemi.intensity=.31+day*(1.75-cloud*.58)+lightning*.2;
-  sunLight.color.setRGB(1,.74+sun.golden*.1+day*.11,.58+day*.33);
+  renderer.toneMappingExposure=1.00+day*.34;
+  sunLight.intensity=Math.max(0,.48+day*(2.60-cloud*1.50)+lightning);
+  hemi.intensity=.66+day*(1.55-cloud*.54)+lightning*.2;
+  sunLight.color.setRGB(.69+day*.31,.77+day*.16+sun.golden*.04,.89+day*.03-sun.golden*.11);
   const sunVec=new THREE.Vector3(Math.sin(sun.azimuth)*Math.cos(alt),Math.sin(alt),-Math.cos(sun.azimuth)*Math.cos(alt));
   sunLight.position.copy(sunVec).multiplyScalar(2000);
   sunOrb.position.copy(camera.position).addScaledVector(sunVec,6800);
@@ -292,8 +319,12 @@ function animate(now){
 function onResize(){if(!renderer)return;renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}
 async function audioToggle(){try{await sound.toggle();$('audio-btn').classList.toggle('active',sound.enabled)}catch(err){showError(err)}}
 function png(){try{renderer.render(scene,camera);const a=document.createElement('a');a.download='vuelo-'+new Date(simMs).toISOString().replaceAll(':','-')+'.png';a.href=renderer.domElement.toDataURL('image/png');a.click()}catch(err){showError(err)}}
-function setHour(h){simMs=withMadridHour(new Date(simMs),h).getTime()}
-function changeWeather(){const i=WEATHER.indexOf(currentWeather);currentWeather=WEATHER[(i+1)%WEATHER.length]}
+function setHour(h){
+  simMs=withMadridHour(new Date(simMs),h).getTime();
+  const now=madridHour(new Date(simMs));
+  $('clock').textContent=String(Math.floor(now)).padStart(2,'0')+':'+String(Math.floor((now%1)*60)).padStart(2,'0');
+}
+function changeWeather(){const i=WEATHER.indexOf(currentWeather);currentWeather=WEATHER[(i+1)%WEATHER.length];$('weather-name').textContent=currentWeather.name}
 function refreshPicker(){
   const picker=$('bird-options');
   if(!picker)return;

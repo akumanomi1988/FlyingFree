@@ -82,7 +82,7 @@ try{
       assert.equal(diagnostics.success,true,'Diagnósticos de WebGL / fauna');
       await page.keyboard.press('4');
       await page.waitForTimeout(1200);
-      assert.ok((await page.locator('#clock').innerText()).startsWith('23:'),'La tecla de noche no actualiza el reloj');
+      assert.ok((await page.locator('#clock').textContent()).startsWith('23:'),'La tecla de noche no actualiza el reloj');
       await page.keyboard.press('5');
       await page.waitForTimeout(1200);
       assert.equal(await page.locator('#weather-name').innerText(),'Soleado','Cambio de clima');

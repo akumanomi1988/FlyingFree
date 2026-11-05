@@ -11,8 +11,8 @@ export function terrainHeight(x,z,seed=1988){
   const radius=Math.hypot(x/1650,z/1500);
   const outline=1+fbm(x*.0019+7,z*.0019-9,seed)*.15;
   const shore=1-smooth(.67,1.045,radius/outline);
-  const ridge=Math.pow(clamp(1-radius/1.09),1.8)*290;
-  const hills=65+fbm(x*.0017+4,z*.0017+15,seed)*90+Math.abs(fbm(x*.004,z*.004,seed))*58;
+  const ridge=Math.pow(clamp(1-radius/1.09),1.8)*214;
+  const hills=67+fbm(x*.0017+4,z*.0017+15,seed)*71+Math.abs(fbm(x*.004,z*.004,seed))*42;
   return -32+Math.max(0,shore)*(ridge+hills);
 }
 export const BIRDS=[
