@@ -46,6 +46,7 @@ async function render(name,query,width,height,runChecks){
         brightness:Math.round(luminance/(data.length/4)),colorVar:Math.round(variability/(data.length/4)),
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,motion:s.motion,groundDetail:s.groundDetail,
+        treeDetail:s.treeDetail,performance:s.performance,
         camera:!!document.querySelector('#viewport canvas'),
         species:document.querySelectorAll('[data-bird]').length};
     });
@@ -55,6 +56,8 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
     assert.ok(stats.renderedFrames>6,'No hay animación');
+    assert.ok(stats.treeDetail?.capacity>=12,'La capa de LOD arbóreo no está integrada');
+    assert.ok(Number.isInteger(stats.performance?.samples),'No se inicializó la telemetría de fotogramas');
     assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);

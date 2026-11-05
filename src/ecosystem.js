@@ -5,11 +5,23 @@ import {FAUNA_SCALE} from './worldScale.js';
 export function createEcosystem(THREE,scene,seed=1988,quality=1){
   const rng=random(seed^0x5ade9);
   const root=new THREE.Group();scene.add(root);
-  const mat=(color)=>new THREE.MeshStandardMaterial({color,roughness:1,flatShading:true});
+  const mat=(color)=>new THREE.MeshStandardMaterial({color,roughness:.94,flatShading:false});
   const brown=mat(0xb18e64),cream=mat(0xe1cbb0),dark=mat(0x49483b),foxCoat=mat(0xc7794b),white=mat(0xf4debd),grass=mat(0x719b6c),flowerColors=[mat(0xe0af72),mat(0xcf849b),mat(0xe5d4ad),mat(0xb3aed8)];
-  const sphere=new THREE.SphereGeometry(1,8,6),legGeo=new THREE.CylinderGeometry(.1,.12,1,6),antlerGeo=new THREE.CylinderGeometry(.033,.045,1,5);
-  const create=(parent,geo,m,x,y,z,sx=1,sy=1,sz=1)=>{
-    const mesh=new THREE.Mesh(geo,m);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);return mesh;
+  const sphere=new THREE.SphereGeometry(1,18,12),legGeo=new THREE.CylinderGeometry(.1,.12,1,10),antlerGeo=new THREE.CylinderGeometry(.055,.085,1,9);
+  const eyeGeo=new THREE.SphereGeometry(1,10,8),up=new THREE.Vector3(0,1,0),a3=new THREE.Vector3(),b3=new THREE.Vector3();
+  const create=(parent,geo,m,x,y,z,sx=1,sy=1,sz=1,rotation=null)=>{
+    const mesh=new THREE.Mesh(geo,m);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);
+    if(rotation)mesh.rotation.set(...rotation);
+    parent.add(mesh);return mesh;
+  };
+  const detail=(...args)=>{const mesh=create(...args);mesh.userData.detailOnly=true;return mesh;};
+  const segment=(parent,m,from,to,thickness=1)=>{
+    a3.set(...from);b3.set(...to);
+    const delta=b3.clone().sub(a3),len=delta.length();
+    const line=create(parent,antlerGeo,m,(from[0]+to[0])*.5,(from[1]+to[1])*.5,
+      (from[2]+to[2])*.5,thickness,len,thickness);
+    line.quaternion.setFromUnitVectors(up,delta.multiplyScalar(1/Math.max(len,.0001)));
+    return line;
   };
   const actors=[];
   function habitatPos(maxRadius,minElevation=22,maxElevation=250){
@@ -25,16 +37,25 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     group.userData.body=create(group,sphere,brown,0,1.5,0,.52,.53,1.08);
     create(group,sphere,cream,0,1.6,-.77,.33,.55,.46);
     group.userData.head=create(group,sphere,brown,0,2.14,-.91,.30,.31,.38);
-    create(group,sphere,dark,0,2.16,-1.24,.16,.14,.21);
+    detail(group,sphere,cream,0,2.10,-1.19,.20,.16,.30);
+    detail(group,sphere,dark,0,2.16,-1.46,.105,.085,.09);
+    detail(group,sphere,cream,0,1.61,.98,.30,.24,.15);
     for(const side of [-1,1]){
-      create(group,sphere,brown,side*.28,2.38,-.82,.22,.13,.28);
+      const ear=create(group,sphere,brown,side*.36,2.42,-.79,.25,.11,.30);
+      ear.rotation.z=side*.18;
+      detail(group,sphere,cream,side*.36,2.43,-.84,.17,.065,.19);
+      detail(group,eyeGeo,dark,side*.275,2.24,-1.08,.071,.072,.057);
       for(const z of [-.63,.7]){
         const leg=create(group,legGeo,brown,side*.3,.68,z,.75,1.22,.75);
         leg.userData.leg={side,z};group.userData.legs.push(leg);
       }
       if(rng()>.32){
-        const antler=create(group,antlerGeo,cream,side*.22,2.73,-1.0,.85,.69,.85);
-        antler.rotation.z=-side*.26;
+        // Branching antlers taper outward; reused geometry keeps per-deer cost bounded.
+        segment(group,cream,[side*.21,2.42,-.96],[side*.41,3.04,-1.04],1.15);
+        segment(group,cream,[side*.41,3.04,-1.04],[side*.57,3.30,-1.06],.80);
+        segment(group,cream,[side*.33,2.80,-1.01],[side*.58,2.91,-1.28],.66);
+        segment(group,cream,[side*.43,3.04,-1.05],[side*.71,3.16,-1.26],.53);
+        segment(group,cream,[side*.49,3.16,-1.05],[side*.67,3.37,-1.17],.40);
       }
     }
     group.scale.setScalar(FAUNA_SCALE.deer);
@@ -45,17 +66,24 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     g.userData.legs=[];
     g.userData.body=create(g,sphere,foxCoat,0,.65,0,.35,.35,.86);
     g.userData.head=create(g,sphere,foxCoat,0,.79,-.67,.34,.34,.40);
-    create(g,new THREE.ConeGeometry(.21,.46,6),white,0,.6,-1.06,.75,.65,1,[Math.PI/2,0,0]);
+    create(g,sphere,white,0,.52,-.83,.27,.16,.46);
+    create(g,new THREE.ConeGeometry(.21,.46,12),white,0,.64,-1.09,.78,.68,1,[-Math.PI/2,0,0]);
+    detail(g,eyeGeo,dark,0,.69,-1.33,.085,.085,.095);
     for(const side of [-1,1]){
-      const ear=create(g,new THREE.ConeGeometry(.16,.38,5),foxCoat,side*.25,1.15,-.82);
+      const ear=create(g,new THREE.ConeGeometry(.15,.39,9),foxCoat,side*.25,1.15,-.82);
       ear.rotation.x=-.15;
+      detail(g,new THREE.ConeGeometry(.085,.25,9),dark,side*.25,1.18,-.86);
+      detail(g,eyeGeo,dark,side*.28,.91,-.88,.074,.075,.065);
+      detail(g,sphere,white,side*.23,.51,-.91,.17,.15,.22);
       for(const z of [-.52,.57]){
         const leg=create(g,legGeo,dark,side*.25,.24,z,.54,.44,.54);
         leg.userData.leg={side,z};g.userData.legs.push(leg);
       }
     }
-    const tail=create(g,sphere,foxCoat,0,.65,.90,.26,.27,.82);
-    tail.rotation.x=-.35;g.userData.tail=tail;g.scale.setScalar(FAUNA_SCALE.fox);
+    const tail=create(g,sphere,foxCoat,0,.67,.95,.25,.25,.78);
+    tail.rotation.x=-.35;
+    create(tail,sphere,white,0,.01,.60,.89,.86,.38);
+    g.userData.tail=tail;g.scale.setScalar(FAUNA_SCALE.fox);
     return g;
   }
   function rabbit(){
@@ -63,9 +91,13 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     g.userData.legs=[];g.userData.ears=[];
     g.userData.body=create(g,sphere,cream,0,.36,0,.35,.34,.51);
     create(g,sphere,brown,0,.54,-.43,.28,.28,.30);
+    create(g,sphere,cream,0,.40,.55,.18,.18,.18);
+    detail(g,eyeGeo,dark,0,.52,-.75,.085,.075,.07);
     for(const side of [-1,1]){
       const ear=create(g,sphere,cream,side*.14,1.02,-.43,.105,.45,.16);
       ear.rotation.z=side*.18;g.userData.ears.push(ear);
+      detail(ear,sphere,brown,0,0,-.16,.55,.84,.25);
+      detail(g,eyeGeo,dark,side*.27,.57,-.58,.072,.081,.058);
       const paw=create(g,sphere,brown,side*.25,.18,-.28,.17,.14,.27);
       g.userData.legs.push(paw);
     }
@@ -79,6 +111,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const [x,y,z]=habitatPos(range,type==='rabbit'?13:28,type==='fox'?235:180);
       g.position.set(x,y,z);g.rotation.y=rng()*TAU;
       g.userData.state={type,originX:x,originZ:z,seed:rng()*100,phase:rng()*TAU,speed:type==='fox'?.8:type==='rabbit'?.6:.24,cycle:13+rng()*19};
+      g.userData.details=[];
+      g.traverse(mesh=>{if(mesh.userData.detailOnly)g.userData.details.push(mesh);});
+      g.userData.detailVisible=true;
       root.add(g);actors.push(g);
     }
   }
@@ -119,20 +154,52 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   vgeom.setAttribute('position',new THREE.Float32BufferAttribute([-.6,0,0,0,.14,.18,0,.14,.18,.6,0,0,0,.14,.18,0,.05,-.25],3));
   vgeom.computeVertexNormals();
   const gullMat=new THREE.MeshStandardMaterial({color:0xe4e5d9,side:THREE.DoubleSide,roughness:.87});
+  const gullDark=mat(0x667681),gullBill=mat(0xd8ad5b);
+  // Secondary birds have a 3D silhouette nearby, but revert to two triangles
+  // after the camera moves away. Each LOD is selected by the renderer.
   for(let i=0;i<Math.round(22*quality);i++){
-    const g=new THREE.Mesh(vgeom,gullMat);
+    const high=new THREE.Group();
+    create(high,sphere,gullMat,0,0,0,.17,.14,.45);
+    create(high,sphere,gullMat,0,.14,-.38,.14,.14,.16);
+    create(high,new THREE.ConeGeometry(.065,.24,8),gullBill,0,.12,-.59,1,1,1,[-Math.PI/2,0,0]);
+    const wings=[];
+    for(const side of [-1,1]){
+      const pivot=new THREE.Group();pivot.position.set(side*.11,.055,-.13);high.add(pivot);
+      const wing=create(pivot,sphere,gullMat,side*.30,.02,.10,.45,.05,.19);
+      wing.rotation.y=-side*.21;
+      for(let f=0;f<3;f++){
+        const feather=create(pivot,sphere,f===2?gullDark:gullMat,
+          side*(.38+f*.10),-.02,.22+f*.045,.17,.025,.24-f*.04);
+        feather.rotation.y=side*(.14+f*.12);
+      }
+      create(high,new THREE.SphereGeometry(1,8,6),gullDark,side*.13,.19,-.45,.025,.028,.02);
+      wings.push(pivot);
+    }
+    for(let k=-1;k<=1;k++)create(high,sphere,gullMat,k*.07,-.03,.43,.055,.025,.27);
+    const distant=new THREE.Mesh(vgeom,gullMat);
+    const g=new THREE.LOD();g.addLevel(high,0);g.addLevel(distant,155);
     g.scale.setScalar(FAUNA_SCALE.gull);root.add(g);
-    birds.push({g,phase:rng()*TAU,offset:rng()*TAU,alt:170+rng()*180,radius:850+rng()*700});
+    birds.push({g,wings,phase:rng()*TAU,offset:rng()*TAU,alt:170+rng()*180,radius:850+rng()*700});
   }
   const dolphins=[];
   const dolphinMat=mat(0x7192a2);
   for(let i=0;i<Math.round(7*quality);i++){
     const group=new THREE.Group();
     create(group,sphere,dolphinMat,0,0,0,.56,.42,1.85);
-    create(group,new THREE.ConeGeometry(.34,.7,5),dolphinMat,0,.48,.32,1,1,1,[0,0,Math.PI]);
+    create(group,sphere,cream,0,-.20,-.32,.47,.21,1.20);
+    create(group,sphere,dolphinMat,0,-.05,-1.76,.19,.14,.55);
+    create(group,new THREE.ConeGeometry(.34,.72,9),dolphinMat,0,.57,.28,1,1,1,[0,0,-.18]);
+    for(const side of [-1,1]){
+      const flipper=create(group,sphere,dolphinMat,side*.52,-.22,-.22,.67,.075,.22);
+      flipper.rotation.z=side*.22;flipper.rotation.y=-side*.25;
+      create(group,eyeGeo,dark,side*.49,.06,-1.05,.07,.065,.06);
+    }
     const tail=new THREE.Group();tail.position.z=1.2;group.add(tail);
     create(tail,sphere,dolphinMat,0,0,.30,.2,.16,.65);
-    for(const side of [-1,1])create(tail,sphere,dolphinMat,side*.32,0,.64,.42,.055,.23);
+    for(const side of [-1,1]){
+      const fluke=create(tail,sphere,dolphinMat,side*.36,0,.65,.45,.06,.21);
+      fluke.rotation.y=side*.25;
+    }
     group.userData.tail=tail;
     group.scale.setScalar(FAUNA_SCALE.dolphin);
     root.add(group);
@@ -176,6 +243,16 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       if(g.userData.head)g.userData.head.rotation.x=grazing?.13+Math.sin(t*.58+s.seed)*.11:Math.sin(t*.68+s.seed)*.06;
       g.rotation.x=s.type==='deer'&&grazing?Math.sin(t*.17+s.seed)*.025:0;
       g.visible=!observer||Math.hypot(observer.x-g.position.x,observer.z-g.position.z)<1050;
+      // Tiny facial decorations cost draw calls but have no silhouette value at distance.
+      const dx=observer?observer.x-g.position.x:0;
+      const dy=observer?observer.y-g.position.y:0;
+      const dz=observer?observer.z-g.position.z:0;
+      const detailDistance=observer?Math.hypot(dx,dy,dz):0;
+      const showDetails=!observer||detailDistance<(g.userData.detailVisible?205:160);
+      if(showDetails!==g.userData.detailVisible){
+        for(const mesh of g.userData.details)mesh.visible=showDetails;
+        g.userData.detailVisible=showDetails;
+      }
     }
     for(const b of butterflies){
       const time=t+b.seed;
@@ -189,7 +266,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const time=t*.12+b.phase,theta=time+b.offset;
       b.g.position.set(Math.sin(theta)*b.radius,b.alt+Math.sin(time*1.4)*22,Math.cos(theta)*b.radius*.78);
       b.g.rotation.set(Math.sin(time*1.8)*.08,theta+.7,Math.cos(time*.6)*.19);
-      b.g.scale.y=FAUNA_SCALE.gull*(1+Math.sin(t*3.8+b.phase)*.06);
+      const flap=Math.sin(t*3.8+b.phase)*.15;
+      b.wings[0].rotation.z=-flap;
+      b.wings[1].rotation.z=flap;
     }
     for(const d of dolphins){
       const theta=t*.028+d.phase, pulse=(t+d.offset*3.1)%d.period;
