@@ -1,4 +1,5 @@
 import { clamp, TAU } from './core.js';
+import {birdRigScale} from './worldScale.js';
 
 // A deformable, feathered silhouette: all geometry originates in WebGL.
 export function createBirdRig(THREE, profile) {
@@ -69,7 +70,7 @@ export function createBirdRig(THREE, profile) {
     add(sph,i%2?plumage:secondary,tail,[i*.155,-.02,.32],[.13,.045,.68],[0,i*.09,0]);
   }
   if(profile.id==='kingfisher')add(sph,new THREE.MeshStandardMaterial({color:0x0c8295}),group,[0,.15,.2],[.22,.20,.65]);
-  const size=profile.visualScale??(isHumming?4:profile.id==='albatross'?13:10);
+  const size=birdRigScale(profile);
   group.scale.setScalar(size);
   group.userData={profile,left,right,tail,legs,fold:0,flap:0,headTurn:0};
   return group;

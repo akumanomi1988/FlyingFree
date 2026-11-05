@@ -97,7 +97,20 @@ try{
   await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1',1440,900);
   await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog',390,844,
     async(page)=>{
-      await page.locator('#enter-btn').click();
+      assert.match(await page.locator('#enter-btn').innerText(),/ENTRAR CON CLIMA LOCAL/);
+      assert.equal(await page.locator('#skip-location-btn').isVisible(),true);
+      // Explicitly granting the browser permission must not override opt-out.
+      await page.context().grantPermissions(['geolocation']);
+      await page.context().setGeolocation({latitude:40.42837,longitude:-3.71252});
+      let unwantedWeatherCalls=0;
+      await page.route('https://api.open-meteo.com/v1/forecast*',async(route)=>{
+        unwantedWeatherCalls++;await route.abort();
+      });
+      await page.locator('#skip-location-btn').click();
+      assert.equal(await page.locator('#intro').evaluate(e=>e.classList.contains('off')),true);
+      await page.waitForTimeout(450);
+      assert.equal(unwantedWeatherCalls,0,'Continuar sin ubicación hizo una consulta meteorológica');
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__?.climate?.live),false);
       await page.waitForFunction(()=>document.querySelector('#audio-btn').classList.contains('active'),null,{timeout:8000});
       assert.equal(await page.locator('#tv-audio').getAttribute('aria-pressed'),'true');
       await page.keyboard.press('m');
@@ -119,18 +132,29 @@ try{
       assert.equal(await page.locator('#tv-overlay').isVisible(),true);
       await page.context().grantPermissions(['geolocation']);
       await page.context().setGeolocation({latitude:40.42837,longitude:-3.71252});
+      let weatherRequests=0;
       await page.route('https://api.open-meteo.com/v1/forecast*',async(route)=>{
+        weatherRequests++;
         const u=new URL(route.request().url());
         assert.equal(u.searchParams.get('latitude'),'40.4');
         assert.equal(u.searchParams.get('longitude'),'-3.7');
         await route.fulfill({status:200,contentType:'application/json',
-          body:JSON.stringify({current:{temperature_2m:14.3,apparent_temperature:11.5,weather_code:61,cloud_cover:91,precipitation:1.0,relative_humidity_2m:78,wind_speed_10m:27}})});
+          body:JSON.stringify({current:{temperature_2m:weatherRequests===1?14.3:19.1,apparent_temperature:11.5,weather_code:61,cloud_cover:91,precipitation:1.0,relative_humidity_2m:78,wind_speed_10m:27}})});
       });
       await page.locator('#tv-consent').click();
       await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.live===true,{timeout:20000});
       assert.equal(await page.locator('#tv-temp').innerText(),'14 °C');
       assert.match(await page.locator('#tv-weather').innerText(),/LLUVIA/i);
       assert.equal(await page.locator('#tv-attribution').isVisible(),true);
+      // Advance wall-clock time without waiting 30 real minutes. The renderer
+      // must fetch a fresh observation and update the TV temperature.
+      await page.evaluate(()=>{
+        const originalNow=Date.now.bind(Date);
+        Date.now=()=>originalNow()+31*60*1000;
+      });
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.temperature===19,{timeout:12000});
+      assert.equal(weatherRequests,2,'El clima no se actualiza tras caducar la caché');
+      assert.equal(await page.locator('#tv-temp').innerText(),'19 °C');
       const body=await page.locator('body').innerText();
       assert.equal(body.includes('40.4'),false,'coordinates leaked into visible UI');
       assert.equal(body.includes('-3.7'),false,'longitude leaked into visible UI');
@@ -139,6 +163,22 @@ try{
       assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),false);
       await page.keyboard.press('t');
       assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),true);
+    });
+  await render('07-location-opt-in','?bird=eagle',1280,800,
+    async(page)=>{
+      await page.context().grantPermissions(['geolocation']);
+      await page.context().setGeolocation({latitude:40.42837,longitude:-3.71252});
+      let requests=0;
+      await page.route('https://api.open-meteo.com/v1/forecast*',async(route)=>{
+        requests++;
+        await route.fulfill({status:200,contentType:'application/json',
+          body:JSON.stringify({current:{temperature_2m:16.4,weather_code:2,cloud_cover:48,wind_speed_10m:14}})});
+      });
+      await page.locator('#enter-btn').click();
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.live===true,{timeout:20000});
+      assert.equal(await page.locator('#temperature').innerText(),'16 °C');
+      assert.ok(requests>=1,'Al entrar no se solicitó la ubicación ni el clima real');
+      assert.equal(await page.locator('#intro').evaluate(e=>e.classList.contains('off')),true);
     });
   assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
   report.result='pass';
