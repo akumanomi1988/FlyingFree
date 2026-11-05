@@ -13,7 +13,8 @@ test('all twelve bird species have curved indexed wings, articulated feathers an
     assert.ok(wing.index.count>=18*4*6, bird.id+' wing segmentation');
     assert.ok(wing.attributes.normal.count>80, bird.id+' smooth vertex normals');
     const group=createBirdRig(THREE,bird);
-    assert.equal(group.userData.geometryVersion,2);
+    assert.equal(group.userData.geometryVersion,3);
+    assert.ok(group.userData.plumageDrawCallsSaved>=40,bird.id+' should batch rigid feathers');
     assert.ok(group.userData.left.tip&&group.userData.right.tip);
     const bounds=new THREE.Box3().setFromObject(group);
     const span=bounds.max.x-bounds.min.x;
@@ -21,7 +22,7 @@ test('all twelve bird species have curved indexed wings, articulated feathers an
       bird.id+' world-scale wingspan '+span+' vs '+bird.wingspan);
     let pieces=0,vertices=0;
     group.traverse(o=>{if(o.isMesh){pieces++;vertices+=o.geometry.attributes.position.count;}});
-    assert.ok(pieces>45,bird.id+' should have layered anatomy');
+    assert.ok(pieces>=20&&pieces<=65,bird.id+' should retain anatomy with batched draw calls');
     assert.ok(vertices>900,bird.id+' near camera has additional geometry');
     animateBirdRig(group,4.5,{energy:.8,bank:.22,state:'landing'},1/60);
     for(const leg of group.userData.legs)assert.ok(Number.isFinite(leg.rotation.x));
