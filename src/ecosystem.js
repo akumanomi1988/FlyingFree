@@ -1,6 +1,6 @@
 import { random,terrainHeight,TAU,clamp } from './core.js';
 import {FAUNA_SCALE} from './worldScale.js';
-import {createFaunaLODFactory,faunaPathAngle,shouldAnimateFauna} from './faunaLOD.js';
+import {createFaunaLODFactory,faunaPathAngle,shouldAnimateFauna,terrainSlopeAngles} from './faunaLOD.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
 export function createEcosystem(THREE,scene,seed=1988,quality=1){
@@ -125,6 +125,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       state.anchorSin=Math.sin(theta0);
       state.anchorCos=Math.cos(theta0*.83);
       state.reactionX=0;state.reactionZ=0;state.lastTime=null;
+      state.lastSlopeAt=-Infinity;state.tiltPitch=0;state.tiltRoll=0;
       g.userData.state=state;
       faunaLOD.attach(g,type,Boolean(g.userData.antlered));
       g.userData.details=[];
@@ -264,6 +265,16 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const phaseStride=t*(s.type==='rabbit'?12:s.type==='fox'?7:4.4)+s.seed;
       const intensity=running?(s.type==='rabbit'?.48:.33):.045;
       if(g.userData.motionDetailed){
+        // Sample actual terrain slopes no more than once per 0.4 seconds.
+        // Reduced-frequency normal estimation avoids four height queries per frame.
+        if(t-s.lastSlopeAt>=.40){
+          const step=s.type==='deer'?1.4:.65;
+          const gradX=(terrainHeight(px+step,pz,seed)-terrainHeight(px-step,pz,seed))/(2*step);
+          const gradZ=(terrainHeight(px,pz+step,seed)-terrainHeight(px,pz-step,seed))/(2*step);
+          const tilt=terrainSlopeAngles(gradX,gradZ,g.rotation.y);
+          s.tiltPitch=tilt.pitch;s.tiltRoll=tilt.roll;
+          s.lastSlopeAt=t;
+        }
         for(let i=0;i<(g.userData.legs?.length||0);i++){
           const leg=g.userData.legs[i];
           const side=leg.userData.leg?.side||1,z=leg.userData.leg?.z||0;
@@ -275,7 +286,10 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
           g.userData.body.scale.y=(s.type==='rabbit'?.34:s.type==='fox'?.35:.53)*(1+.014*Math.sin(t*1.25+s.seed));
         }
         if(g.userData.head)g.userData.head.rotation.x=grazing?.13+Math.sin(t*.58+s.seed)*.11:Math.sin(t*.68+s.seed)*.06;
-        g.rotation.x=s.type==='deer'&&grazing?Math.sin(t*.17+s.seed)*.025:0;
+        const sway=s.type==='deer'&&grazing?Math.sin(t*.17+s.seed)*.025:0;
+        const ease=1-Math.exp(-dt*5.2);
+        g.rotation.x+=(s.tiltPitch+sway-g.rotation.x)*ease;
+        g.rotation.z+=(s.tiltRoll-g.rotation.z)*ease;
       }
       g.visible=!observer||Math.hypot(observer.x-g.position.x,observer.z-g.position.z)<1050;
       // Tiny facial decorations cost draw calls but have no silhouette value at distance.
