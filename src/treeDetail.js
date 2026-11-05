@@ -12,7 +12,7 @@ export function treeDetailWeight(distance,near=TREE_DETAIL_FADE_START,far=TREE_D
   return t*t*(3-2*t);
 }
 
-export function createTreeDetail(THREE,scene,records,quality=1){
+export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
   const maxTrees=Math.max(12,Math.round(TREE_DETAIL_POOL*quality));
   const stemCount=6,clusterCount=7;
   const branches=new THREE.InstancedMesh(
@@ -24,6 +24,10 @@ export function createTreeDetail(THREE,scene,records,quality=1){
   const needles=new THREE.InstancedMesh(
     new THREE.ConeGeometry(1,2.5,12,3),
     new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:false}),maxTrees*clusterCount);
+  if(windField){
+    windField.apply(broad.material,{amplitude:.19,height:2,frequency:.82});
+    windField.apply(needles.material,{amplitude:.13,height:2.4,frequency:.69});
+  }
   const up=new THREE.Vector3(0,1,0),start=new THREE.Vector3(),end=new THREE.Vector3(),direction=new THREE.Vector3();
   const obj=new THREE.Object3D(),c=new THREE.Color();
   for(const mesh of [branches,broad,needles]){
