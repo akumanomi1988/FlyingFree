@@ -39,7 +39,7 @@ export const WEATHER=[
  {id:'storm',name:'Tormenta',cloud:1,rain:1,fog:.56}
 ];
 export function chooseBird(date){
- const weekday=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Madrid',weekday:'short'}).format(date);
+ const weekday=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()];
  const ids={Sun:'kestrel',Mon:'vulture',Tue:'hummingbird',Wed:'swift',Thu:'eagle',Fri:'albatross',Sat:'osprey'};
  return BIRDS.find(b=>b.id===ids[weekday])||BIRDS[0];
 }
@@ -131,5 +131,5 @@ export function readOptions(search){
  const p=new URLSearchParams(search);
  const h=Number(p.get('h'));const bird=BIRDS.find(b=>b.id===p.get('bird'));const weather=WEATHER.find(w=>w.id===p.get('weather'));
  const phase=['dawn','noon','sunset','night'].includes(p.get('phase'))?p.get('phase'):null;
- return {phase,hour:p.has('h')&&Number.isFinite(h)&&h>=0&&h<24?h:null,bird,weather,broadcast:p.get('broadcast')==='1',selftest:p.get('selftest')==='1'};
+ return {phase,tv:p.get('tv')==='1'||p.get('screensaver')==='1',hour:p.has('h')&&Number.isFinite(h)&&h>=0&&h<24?h:null,bird,weather,broadcast:p.get('broadcast')==='1',selftest:p.get('selftest')==='1'};
 }

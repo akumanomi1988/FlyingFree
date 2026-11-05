@@ -101,6 +101,33 @@ try{
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false);
     });
+  await render('06-tv-live-weather','?tv=1&bird=kestrel',1440,900,
+    async(page)=>{
+      assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),true);
+      assert.equal(await page.locator('#tv-overlay').isVisible(),true);
+      await page.context().grantPermissions(['geolocation']);
+      await page.context().setGeolocation({latitude:40.42837,longitude:-3.71252});
+      await page.route('https://api.open-meteo.com/v1/forecast*',async(route)=>{
+        const u=new URL(route.request().url());
+        assert.equal(u.searchParams.get('latitude'),'40.4');
+        assert.equal(u.searchParams.get('longitude'),'-3.7');
+        await route.fulfill({status:200,contentType:'application/json',
+          body:JSON.stringify({current:{temperature_2m:14.3,apparent_temperature:11.5,weather_code:61,cloud_cover:91,precipitation:1.0,relative_humidity_2m:78,wind_speed_10m:27}})});
+      });
+      await page.locator('#tv-consent').click();
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.live===true,{timeout:20000});
+      assert.equal(await page.locator('#tv-temp').innerText(),'14 °C');
+      assert.match(await page.locator('#tv-weather').innerText(),/LLUVIA/i);
+      assert.equal(await page.locator('#tv-attribution').isVisible(),true);
+      const body=await page.locator('body').innerText();
+      assert.equal(body.includes('40.4'),false,'coordinates leaked into visible UI');
+      assert.equal(body.includes('-3.7'),false,'longitude leaked into visible UI');
+      assert.equal(body.includes('37° N'),false,'fixed region leaked into visible UI');
+      await page.keyboard.press('t');
+      assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),false);
+      await page.keyboard.press('t');
+      assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),true);
+    });
   assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
   report.result='pass';
 }catch(e){report.failure=e.stack||String(e);report.result='fail';console.error(e);}

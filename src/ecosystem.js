@@ -123,7 +123,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     root.add(group);
     dolphins.push({group,phase:rng()*TAU,radius:1900+rng()*470,period:11+rng()*12,offset:i});
   }
-  function update(t,daylight=1,wind=0,hero=null,precipitation=0){
+  function update(t,daylight=1,wind=0,hero=null,precipitation=0,observer=null){
+    const foxes=actors.filter(g=>g.userData.state.type==='fox');
+    const rabbits=actors.filter(g=>g.userData.state.type==='rabbit');
     for(const g of actors){
       const s=g.userData.state;
       const cycle=(t+s.seed)/s.cycle,phase=cycle%1;
@@ -135,12 +137,15 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       const y=terrainHeight(x,z,seed);
       const alert=hero&&Math.hypot(hero.x-x,hero.z-z)<(s.type==='deer'?135:s.type==='rabbit'?75:95);
       const sidestep=alert?Math.sin(t*2+s.seed)*7:0;
-      g.position.set(x+sidestep,y+(s.type==='rabbit'&&(move||alert)?Math.abs(Math.sin(t*5+s.seed))*3.6:0),z);
-      g.userData.behaviour=alert?'alert':grazing?'foraging':'travelling';
+      const runX=enemy?(x-enemy.position.x)/Math.max(1,Math.hypot(x-enemy.position.x,z-enemy.position.z))*18:prey?(prey.position.x-x)*.11:0;
+      const runZ=enemy?(z-enemy.position.z)/Math.max(1,Math.hypot(x-enemy.position.x,z-enemy.position.z))*18:prey?(prey.position.z-z)*.11:0;
+      const px=x+sidestep+runX,pz=z+runZ;
+      g.position.set(px,terrainHeight(px,pz)+(s.type==='rabbit'&&(move||alert||enemy)?Math.abs(Math.sin(t*5+s.seed))*3.6:0),pz);
+      g.userData.behaviour=enemy?'flee':prey?'hunt':alert?'alert':grazing?'foraging':'travelling';
       g.rotation.y=-theta+.1*Math.sin(t*.25+s.seed);
       if(g.userData.tail)g.userData.tail.rotation.x=-.35+Math.sin(t*3.1+s.seed)*.2;
       g.rotation.x=grazing&&s.type==='deer'?Math.sin(t*.17+s.seed)*.08:0;
-      g.visible=daylight>.08||s.type==='fox';
+      g.visible=!observer||Math.hypot(observer.x-g.position.x,observer.z-g.position.z)<1050;
     }
     for(const b of butterflies){
       const time=t+b.seed;
