@@ -110,8 +110,12 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
  const legsOut=grounded||activity.state==='landing'||activity.state==='approach';
  for(let i=0;i<legs.length;i++){
    const leg=legs[i];
-   const legTarget=legsOut?.18:-.36;
+   const legTarget=legsOut?.18:-1.12;
    leg.rotation.x+=(legTarget-leg.rotation.x)*k;
+   const legLength=legsOut?1:.18;
+   leg.scale.y+=(legLength-leg.scale.y)*k;
+   const legHeight=legsOut?-.51:-.30;
+   leg.position.y+=(legHeight-leg.position.y)*k;
  }
  group.rotation.z=bank;
  group.rotation.x=grounded?0:clamp(activity.pitch??0,-.34,.34);

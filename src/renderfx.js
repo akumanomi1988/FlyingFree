@@ -91,9 +91,10 @@ export function createOcean(THREE,scene){
       void main(){
         vec3 V=normalize(cameraPosition-vPosition);
         vec3 L=normalize(sunlight);
-        float r1=sin(vPosition.x*.20+time*1.9)*cos(vPosition.z*.24-time*1.32);
-        float r2=sin((vPosition.x+vPosition.z)*.41+time*2.21);
-        vec3 N=normalize(vNormal+vec3(r1*.08,0.0,r2*.07));
+        float r1=sin(vPosition.x*.11+time*1.9)*cos(vPosition.z*.13-time*1.32);
+        float r2=sin((vPosition.x+vPosition.z)*.19+time*2.21);
+        float microFade=1.0-smoothstep(430.0,3200.0,length(cameraPosition-vPosition));
+        vec3 N=normalize(vNormal+vec3(r1*.07,0.0,r2*.05)*microFade);
         float diffuse=max(dot(N,L),0.0);
         float fresnel=pow(1.0-max(dot(V,N),0.0),3.0);
         float sparkle=pow(max(dot(reflect(-L,N),V),0.0),90.0)*day;

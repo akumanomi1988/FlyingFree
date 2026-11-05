@@ -49,6 +49,8 @@ test('bird wings, tail and landing legs animate without rebuilding geometry',()=
  assert.notEqual(flying,landed);
  assert.ok(Number.isFinite(rig.userData.tail.rotation.y));
  assert.ok(rig.userData.legs.length>=2);
+ for(let i=0;i<20;i++)animateBirdRig(rig,6+i*.1,{sleeping:false,grounded:false,energy:.5,state:'patrol'},.08);
+ assert.ok(rig.userData.legs.every(leg=>leg.scale.y<.43),'Patas sin retraer durante vuelo');
 });
 test('wildlife animates leg gait and dolphin tails deterministically',()=>{
  const scene=new THREE.Scene(),eco=createEcosystem(THREE,scene,1988,.45);
