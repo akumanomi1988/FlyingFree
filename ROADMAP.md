@@ -117,3 +117,22 @@ Reproducir un escenario: `?seed=1988&bird=eagle&phase=dawn&weather=clear&broadca
 - Feedback de usuario documentado en las conversaciones sobre cámara, alas, audio, escala, ecosistema y mundo tropical.
 
 **Regla de gestión:** el roadmap cambia con evidencia y valor de producto; no con el número de features añadidas.
+
+## Auditoría documental reproducible (trabajo operativo)
+
+**Workflow manual:** [Documentary experience audit](https://github.com/akumanomi1988/FlyingFree/actions/workflows/documentary-audit.yml) → Run workflow, indicando semilla y duración.
+
+Este workflow hace una auditoría real del código de simulación: reproduce 12 aves durante 30 minutos simulados por especie (valor predeterminado) y guarda el porcentaje de muestras sobre océano, costas, humedales y tierra interior. A continuación produce capturas de **12 aves × 3 encuadres** de la cámara real WebGL (`chase`, `profile`, `high-reveal`) junto con un `index.html` de revisión visual. El reporte se descarga como artefacto de GitHub Actions.
+
+```bash
+npm run check
+npm run audit:habitats -- --seed=1988 --seconds=1800 --strict
+npx playwright install chromium
+npm run audit:visual -- --seed=1988
+# Prueba rápida de un subconjunto:
+npm run audit:visual -- --seed=1988 --birds=eagle,owl --modes=chase,profile
+```
+
+Para que el mismo plano se pueda reproducir, el capturador utiliza `?selftest=1&qaShot=profile` (solo diagnóstico explícito): **no** modifica el director normal del espectador ni los perfiles de vuelo. Una captura de WebGL es evidencia visual revisable; que exista no significa que un artista la haya aprobado.
+
+**Procedencia de un despliegue:** el build genera `public/build-info.json` como recurso desplegable. Tras un push a `main` y un workflow Pages correcto, consultar [build-info.json público](https://akumanomi1988.github.io/FlyingFree/build-info.json) y comparar `revision` con el commit que se quería publicar. Si no coincide, declarar despliegue pendiente, no concluido.
