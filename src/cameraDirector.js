@@ -3,9 +3,16 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const CAMERA_SHOTS=Object.freeze(['chase','shoulder','scenic','profile','high-reveal']);
 
-export function cameraShotAt(seconds,behaviour='patrol'){
-  if(['approach','landing','feed','rest','shelter'].includes(behaviour))return 'close';
-  return CAMERA_SHOTS[Math.floor(Math.max(0,seconds)/37)%CAMERA_SHOTS.length];
+// Documentary framing is driven by the SUBJECT and the landscape, not by
+// blind clock-based cuts. "seconds" is retained for the public API.
+export function cameraShotAt(seconds,behaviour='patrol',context={}){
+  if(['approach','landing','feed','rest','shelter','return'].includes(behaviour))return 'close';
+  if(behaviour==='takeoff')return 'shoulder';
+  if(context.turnRate>.27)return 'profile';
+  if(context.relief>150&&context.groundClearance>105)return 'scenic';
+  if(context.groundClearance>280&&context.speed>35)return 'high-reveal';
+  if(context.water&&context.groundClearance>80)return 'shoulder';
+  return 'chase';
 }
 export function cameraPlanAt(yaw,wingspan,speed,shot='chase'){
   const distance=Math.max(1.55,wingspan*3.65),forwardX=-Math.sin(yaw),forwardZ=-Math.cos(yaw);
@@ -22,41 +29,91 @@ export function cameraPlanAt(yaw,wingspan,speed,shot='chase'){
     y:elevation*d,z:forwardZ*back*d+sideZ*lateral*d,
     leadX:forwardX*lead,leadZ:forwardZ*lead,fov,distance:d};
 }
-export function createCameraDirector(THREE,terrainHeight,seed=1988){
+export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}={}){
+  // Read-only deterministic visual inspection mode. Only supplied by main.js
+  // with ?selftest=1; normal viewers always get the event-based director.
+  const inspectionShot=CAMERA_SHOTS.includes(qaShot)||qaShot==='close'?qaShot:null;
   const desired=new THREE.Vector3(),target=new THREE.Vector3(),birdMotion=new THREE.Vector3();
   const lastBird=new THREE.Vector3(),smoothedTarget=new THREE.Vector3();
-  let hasPrevious=false,currentShot=null;
+  let hasPrevious=false,currentShot=inspectionShot??'chase',shotSince=0,transitions=0;
+  let candidateShot=null,candidateSince=0;
+  let lastTime=-Infinity,lastYaw=0,turnRate=0,contextAt=-Infinity;
+  const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false};
+  let lastReason='initial';
+
   function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt){
-    const shot=cameraShotAt(time,behaviour);
-    const plan=cameraPlanAt(yaw,wingspan,speed,shot);
-    const delta=clamp(dt,0,.1);
+    const delta=clamp(dt,0,.1),clock=Number.isFinite(time)?time:0;
+    if(clock<lastTime){
+      shotSince=clock;contextAt=-Infinity;turnRate=0;
+      candidateShot=null;candidateSince=clock;
+    }
+    lastTime=clock;
+    const change=hasPrevious?Math.atan2(Math.sin(yaw-lastYaw),Math.cos(yaw-lastYaw)):0;
+    const angularSpeed=delta>.001?Math.abs(change)/delta:0;
+    turnRate+=clamp(delta*3,0,1)*(clamp(angularSpeed,0,3)-turnRate);
+    lastYaw=yaw;
+    // Terrain context is inexpensive at ~1 Hz, but the anti-clipping ray is
+    // still evaluated each frame for safety at low flight altitude.
+    if(clock-contextAt>=1.2||contextAt===-Infinity){
+      const ground=terrainHeight(bird.x,bird.z,seed);
+      const horizon=160;
+      const heights=[
+        terrainHeight(bird.x+horizon,bird.z,seed),
+        terrainHeight(bird.x-horizon,bird.z,seed),
+        terrainHeight(bird.x,bird.z+horizon,seed),
+        terrainHeight(bird.x,bird.z-horizon,seed)
+      ];
+      context.groundClearance=Math.max(0,bird.y-Math.max(-9,ground));
+      context.relief=Math.max(0,Math.max(...heights)-Math.min(...heights));
+      context.water=ground< -9;
+      contextAt=clock;
+    }
+    context.speed=speed;context.turnRate=turnRate;
+    const proposed=inspectionShot??cameraShotAt(clock,behaviour,context);
+    const close=['approach','landing','feed','rest','shelter','return'].includes(behaviour);
+    const leavingClose=currentShot==='close'&&!close;
+    // Active behaviours get priority, but ordinary scenery/turn changes must
+    // persist before the director changes the shot (no distracting flicker).
+    const hold=close?2.5:leavingClose?8:22;
+    const stable=close?2.0:leavingClose?3.5:2.5;
+    if(proposed===currentShot||inspectionShot){
+      candidateShot=null;
+    }else{
+      if(candidateShot!==proposed){candidateShot=proposed;candidateSince=clock;}
+      if(clock-shotSince>=hold&&clock-candidateSince>=stable){
+        currentShot=proposed;shotSince=clock;transitions++;
+        lastReason=close?'behaviour':proposed==='profile'?'turn':
+          proposed==='scenic'?'terrain':proposed==='high-reveal'?'altitude':
+          proposed==='shoulder'?'flight':'recovery';
+        candidateShot=null;
+      }
+    }
+    const plan=cameraPlanAt(yaw,wingspan,speed,currentShot);
     if(hasPrevious){
       birdMotion.subVectors(bird,lastBird);
       if(birdMotion.lengthSq()<2500){
         camera.position.add(birdMotion);
         smoothedTarget.add(birdMotion);
+      }else{
+        smoothedTarget.copy(bird);
       }
     }else{smoothedTarget.copy(bird);}
     lastBird.copy(bird);hasPrevious=true;
-    currentShot=shot;
     desired.set(bird.x+plan.x,bird.y+plan.y,bird.z+plan.z);
-    const clearance=shot==='close'?.85:2.6;
-    // Prevent obstruction by sampling the entire line of sight. The camera
-    // rises above ridges rather than penetrating cliffs or under the forest.
+    const clearance=currentShot==='close'?.85:2.6;
     let needed=0;
     for(let i=1;i<=8;i++){
       const f=i/8;
       const sx=bird.x+(desired.x-bird.x)*f,sz=bird.z+(desired.z-bird.z)*f;
       const sightY=bird.y+(desired.y-bird.y)*f;
       const ground=Math.max(-9,terrainHeight(sx,sz,seed));
-      const buffer=clearance+(shot==='scenic'?6:2);
+      const buffer=clearance+(currentShot==='scenic'?6:2);
       needed=Math.max(needed,(ground+buffer-sightY)/f);
     }
     desired.y+=Math.min(140,Math.max(0,needed));
     desired.y=Math.max(desired.y,Math.max(-9,terrainHeight(desired.x,desired.z,seed))+clearance);
-    target.set(bird.x+plan.leadX,bird.y+Math.max(.08,wingspan*.10),
-      bird.z+plan.leadZ);
-    const k=1-Math.exp(-delta*(shot==='scenic'||shot==='high-reveal'?1.35:2.6));
+    target.set(bird.x+plan.leadX,bird.y+Math.max(.08,wingspan*.10),bird.z+plan.leadZ);
+    const k=1-Math.exp(-delta*(currentShot==='scenic'||currentShot==='high-reveal'?1.35:2.6));
     camera.position.lerp(desired,k);
     camera.position.y=Math.max(camera.position.y,
       Math.max(-9,terrainHeight(camera.position.x,camera.position.z,seed))+clearance);
@@ -67,7 +124,14 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988){
     if(Math.abs(newFov-camera.fov)>.0001){
       camera.fov=newFov;camera.updateProjectionMatrix();
     }
-    return {shot,target:smoothedTarget,clearance};
+    return {shot:currentShot,target:smoothedTarget,clearance,reason:lastReason,transitions,
+      groundClearance:context.groundClearance,relief:context.relief};
   }
-  return {update,get shot(){return currentShot;},reset(){hasPrevious=false;}};
+  return {
+    update,
+    get shot(){return currentShot;},
+    get transitions(){return transitions;},
+    get reason(){return lastReason;},
+    reset(){hasPrevious=false;contextAt=-Infinity;turnRate=0;shotSince=lastTime;candidateShot=null;}
+  };
 }

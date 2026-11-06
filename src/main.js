@@ -12,6 +12,7 @@ import {createFrameTelemetry} from './frameTelemetry.js';
 import {createAdaptiveResolution} from './adaptiveResolution.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
+import {createHabitatMonitor} from './habitatMonitor.js';
 import {tropicalTerrainSample,tropicalLandscapeSeed,TROPICAL_WORLD} from './tropicalTerrain.js';
 import {createTropicalRivers} from './tropicalRivers.js';
 import {createCameraDirector} from './cameraDirector.js';
@@ -34,6 +35,7 @@ let weatherOverride=Boolean(opts.weather);
 let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
  opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
 const worldSeed=opts.seed??tropicalLandscapeSeed(new Date(simMs));
+const habitatMonitor=createHabitatMonitor(worldSeed);
 let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
@@ -83,7 +85,8 @@ function init(){
   sunOrb=new THREE.Mesh(sunGeo,new THREE.MeshBasicMaterial({color:0xffe5b7,fog:false}));scene.add(sunOrb);
   moonOrb=new THREE.Mesh(new THREE.SphereGeometry(42,16,12),new THREE.MeshBasicMaterial({color:0xc1d2df,fog:false}));scene.add(moonOrb);
   createLandscape();createForest();createClouds();createStars();createBird();
-  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed);
+  const qaShot=opts.selftest?new URLSearchParams(location.search).get('qaShot'):null;
+  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed,{qaShot});
   const startSun=sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude);
   const startPos=birdBrain.update(0,0,startSun.daylight,0);
   birdModel.position.set(startPos.x,startPos.y,startPos.z);
@@ -101,6 +104,7 @@ function init(){
   status.fauna=ecosystem.stats;
   status.world={seed:worldSeed,extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments};
   status.faunaLOD=ecosystem.lodStats;
+  status.habitatUse=habitatMonitor.snapshot();
   // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
   status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
   status.performance={...frameTelemetry.snapshot(),drawCalls:0,triangles:0,points:0,lines:0};
@@ -325,6 +329,8 @@ function createBird(){
     for(const mat of materials)mat.dispose();
   }
   birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,worldSeed,previousState);
+  habitatMonitor.reset(currentBird.id);
+  cameraDirector?.reset();
   if(previousPosition)birdModel.position.copy(previousPosition);
   scene.add(birdModel);
   status.bird=currentBird.id;
@@ -396,12 +402,16 @@ function fly(date,dt,sun){
  status.behaviour=action.state;status.flightSpeed=Math.round(action.speed);
  status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
  status.landings=action.landings;status.feedings=action.feedings;
+ const occupancy=habitatMonitor.observe(elapsed,currentBird.id,action.x,action.z,action.state);
+ if(occupancy)status.habitatUse=occupancy;
  return birdModel.position;
 }
 function directCamera(bird,dt){
   const frame=cameraDirector.update(camera,bird,birdModel.rotation.y,
     birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,elapsed,dt);
   status.cameraShot=frame.shot;
+  status.camera={shot:frame.shot,reason:frame.reason,transitions:frame.transitions,
+    terrainRelief:Math.round(frame.relief),altitudeAGL:Math.round(frame.groundClearance)};
 }
 function updateSea(t,dt,sun){
   oceanFX.update(t,sun,weatherState,scene.fog.color);

@@ -1,0 +1,60 @@
+name: Documentary experience audit
+on:
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: 'Deterministic tropical island seed'
+        required: true
+        default: '1988'
+        type: string
+      seconds:
+        description: 'Simulated seconds per bird for ecological audit (1800 = 30 min)'
+        required: true
+        default: '1800'
+        type: string
+permissions:
+  contents: read
+jobs:
+  documentary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      VUELO_SEED: ${{ inputs.seed }}
+      VUELO_SECONDS: ${{ inputs.seconds }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate sources and produce release manifest
+        run: npm run check
+      - name: Replay twelve ecological flights
+        id: ecology
+        continue-on-error: true
+        run: npm run audit:habitats -- --seed="$VUELO_SEED" --seconds="$VUELO_SECONDS" --strict
+      - name: Install Chromium
+        if: success()
+        run: npx playwright install --with-deps chromium
+      - name: Photograph twelve species from three angles
+        if: success()
+        run: npm run audit:visual -- --seed="$VUELO_SEED"
+      - name: Preserve contact sheet and ecology evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuelo-documentary-acceptance
+          path: |
+            artifacts/quality/
+            artifacts/visual/avian-matrix/
+          if-no-files-found: warn
+      - name: Enforce ecological acceptance after preserving visual evidence
+        if: always()
+        env:
+          ECOLOGY_OUTCOME: ${{ steps.ecology.outcome }}
+        run: |
+          if [ "$ECOLOGY_OUTCOME" != "success" ]; then
+            echo "Ecological flight thresholds not accepted. Review uploaded reports."
+            exit 1
+          fi
