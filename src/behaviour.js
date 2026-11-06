@@ -64,6 +64,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  }
  let lastPatrolBiome=null;
  function selectPatrol(){
+  roost=null;
   let bestX=x,bestZ=z,best=-Infinity;
   // Marine birds may circle coastal bays or open water, but raptors and forest
   // birds strongly favor terrestrial habitat at every waypoint.
@@ -119,6 +120,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    returnToRest();until=t+40;return;
   }
   if(hunger>.56){
+   roost=null;
    food=resourcePoint(profile,x,z,rng,seed);
    if(!food.unavailable){
      transition('seek_food',t);
@@ -167,7 +169,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   else if(state==='return'&&Math.hypot(tx-x,tz-z)<15){
    landingRest=true;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
   }
-  else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15&&Math.abs(y-clearance(x,z,'land'))<4){
+  else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15&&Math.abs(y-(roost?.y??clearance(x,z,'land')))<4){
    landingRest=true;transition('landing',t);
   }
   else if(state==='rest'&&t>=until){
