@@ -130,3 +130,22 @@ test('small and fast birds remain inside the visible camera frame at 15, 30 and 
    }
  }
 });
+
+test('continuous descending flight does not leave small portrait subject below the frame',()=>{
+ for(const fps of [15,30,60]){
+  const dt=1/fps,seed=1988,camera=new THREE.PerspectiveCamera(55,390/844,.15,5000);
+  const bird=new THREE.Vector3(0,125,0),director=createCameraDirector(THREE,()=>0,seed);
+  camera.position.set(0,129,4);
+  for(let i=0;i<fps*4;i++){
+   bird.z-=13*dt;
+   bird.y-=12*dt;
+   director.update(camera,bird,0,13,'patrol',.11,i*dt,dt);
+   if(i>=fps*3){
+    camera.updateMatrixWorld(true);
+    const projection=bird.clone().project(camera);
+    assert.ok(Math.abs(projection.y)<.92&&Math.abs(projection.x)<.92,
+      'Continuous descent lost portrait bird at '+fps+'fps: '+projection.toArray());
+   }
+  }
+ }
+});
