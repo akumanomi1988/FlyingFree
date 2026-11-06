@@ -1,9 +1,9 @@
 // High-detail tree layer, pooled and updated at low frequency.
 // Original instanced trunks/canopies remain as the stable far LOD.
 // Nearby branches and crown clusters scale in over 30 metres, avoiding hard popping.
-export const TREE_DETAIL_RADIUS=145;
-export const TREE_DETAIL_FADE_START=100;
-export const TREE_DETAIL_POOL=48;
+export const TREE_DETAIL_RADIUS=310;
+export const TREE_DETAIL_FADE_START=195;
+export const TREE_DETAIL_POOL=96;
 
 export function treeDetailWeight(distance,near=TREE_DETAIL_FADE_START,far=TREE_DETAIL_RADIUS){
   if(!Number.isFinite(distance)||distance>=far)return 0;
@@ -13,7 +13,7 @@ export function treeDetailWeight(distance,near=TREE_DETAIL_FADE_START,far=TREE_D
 }
 
 export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
-  const maxTrees=Math.max(12,Math.round(TREE_DETAIL_POOL*quality));
+  const maxTrees=Math.max(22,Math.round(TREE_DETAIL_POOL*quality));
   const stemCount=6,clusterCount=7;
   const branches=new THREE.InstancedMesh(
     new THREE.CylinderGeometry(.13,.24,1,8,2),
@@ -58,7 +58,7 @@ export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
     fadeDistance=visible.length>maxTrees
       ?Math.min(TREE_DETAIL_RADIUS,Math.sqrt(visible[maxTrees-1].d2))
       :TREE_DETAIL_RADIUS;
-    const fadeStart=Math.max(0,fadeDistance-34);
+    const fadeStart=Math.max(0,fadeDistance-118);
     let detailedCount=0;
     for(let index=0;index<limit;index++){
       const {record:r,d2}=visible[index];
