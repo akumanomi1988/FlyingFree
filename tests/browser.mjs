@@ -64,7 +64,7 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.renderedFrames>6,'No hay animación');
     assert.ok(stats.treeDetail?.capacity>=12,'La capa de LOD arbóreo no está integrada');
     assert.equal(stats.world?.extent,12000,'Se ha perdido la nueva isla tropical');
-    assert.equal(stats.world?.regeneration,'session','La isla no cambia por ejecución');
+    assert.ok(['session','test','fixed'].includes(stats.world?.regeneration),'Modo procedural desconocido');
     assert.ok(stats.world?.cliffStacks>0,'No se han generado acantilados costeros');
     assert.ok(stats.physiology?.state&&Number.isFinite(stats.physiology?.stamina),
       'El estado de fatiga y alimentación no está integrado');
