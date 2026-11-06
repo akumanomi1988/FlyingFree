@@ -350,6 +350,16 @@ function createBird(){
   }
   scene.add(birdModel);
   status.bird=currentBird.id;
+  const initialBird=birdBrain.snapshot;
+  status.birdPosition={x:initialBird.x,z:initialBird.z,heading:initialBird.heading};
+  status.energy=initialBird.energy;status.hunger=initialBird.hunger;
+  status.sensation=birdSensation({energy:initialBird.energy,hunger:initialBird.hunger,state:'patrol'});
+  minimap.update(initialBird.x,initialBird.z,initialBird.heading);
+  $('bird-energy').value=initialBird.energy;
+  $('bird-energy-pct').textContent=Math.round(initialBird.energy*100)+'%';
+  $('bird-hunger').value=1-initialBird.hunger;
+  $('bird-hunger-pct').textContent=Math.round((1-initialBird.hunger)*100)+'%';
+  $('bird-mood').textContent=status.sensation;
   status.birdDrawCallsSaved=birdModel.userData.plumageDrawCallsSaved;
 }
 function selectBird(id){
