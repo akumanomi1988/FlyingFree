@@ -42,6 +42,9 @@ test('shot transitions preserve compositional focus and world-space continuity',
  camera.position.set(255,704,325);
  for(let t=0;t<=150;t+=1/12){
   bird.x+=1.2;
+  // The tracked bird itself must remain above the mountain terrain, as it
+  // does in the flight simulation's ground-clearance controller.
+  bird.y=Math.max(bird.y,terrainHeight(bird.x,bird.z,seed)+145);
   const result=director.update(camera,bird,1.0,60,'patrol',1.65,t,1/12);
   assert.ok(camera.position.distanceTo(bird)<250,'shot detached from tracked bird');
   assert.ok(result.target.distanceTo(bird)<20,'target moved away from protagonist');
