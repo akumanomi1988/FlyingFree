@@ -34,8 +34,11 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   // with ?selftest=1; normal viewers always get the event-based director.
   const inspectionShot=CAMERA_SHOTS.includes(qaShot)||qaShot==='close'?qaShot:null;
   const desired=new THREE.Vector3(),target=new THREE.Vector3(),birdMotion=new THREE.Vector3();
+  const lookMatrix=new THREE.Matrix4(),lookRotation=new THREE.Quaternion();
   const lastBird=new THREE.Vector3(),smoothedTarget=new THREE.Vector3();
   let hasPrevious=false,currentShot=inspectionShot??'chase',shotSince=0,transitions=0;
+  let smoothYaw=0,yawVelocity=0,hasSmoothYaw=false,hasLookRotation=false;
+  let lastAngularStep=0;
   let candidateShot=null,candidateSince=0;
   let lastTime=-Infinity,lastYaw=0,turnRate=0,contextAt=-Infinity;
   const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false};
@@ -88,12 +91,27 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
         candidateShot=null;
       }
     }
-    const plan=cameraPlanAt(yaw,wingspan,speed,currentShot);
+    // Bird heading can change by >90 degrees in a moment; using it directly
+    // to construct the offset or lookAt used to whip the TV camera around.
+    // Apply a velocity- and acceleration-limited follower to the heading.
+    if(!hasSmoothYaw){smoothYaw=yaw;yawVelocity=0;hasSmoothYaw=true;}
+    else{
+      const difference=Math.atan2(Math.sin(yaw-smoothYaw),Math.cos(yaw-smoothYaw));
+      const desiredRate=clamp(difference*1.15,-.72,.72);
+      yawVelocity+=clamp(desiredRate-yawVelocity,-1.4*delta,1.4*delta);
+      smoothYaw+=yawVelocity*delta;
+    }
+    const plan=cameraPlanAt(smoothYaw,wingspan,speed,currentShot);
     if(hasPrevious){
       birdMotion.subVectors(bird,lastBird);
       if(birdMotion.lengthSq()<2500){
-        camera.position.add(birdMotion);
-        smoothedTarget.add(birdMotion);
+        // Riding every centimetre of the bird's instantaneous displacement
+        // transfers wing bob, terrain corrections and landing impulses
+        // straight into the TV camera. Carry part of its travel, then let
+        // the damped follower absorb the rest without losing the subject.
+        const ride=(currentShot==='scenic'||currentShot==='high-reveal') ? .42 : .58;
+        camera.position.addScaledVector(birdMotion,ride);
+        smoothedTarget.addScaledVector(birdMotion,.50);
       }else{
         smoothedTarget.copy(bird);
       }
@@ -119,19 +137,41 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       Math.max(-9,terrainHeight(camera.position.x,camera.position.z,seed))+clearance);
     smoothedTarget.lerp(target,1-Math.exp(-delta*3.1));
     camera.up.set(0,1,0);
-    camera.lookAt(smoothedTarget);
+    lookMatrix.lookAt(camera.position,smoothedTarget,camera.up);
+    lookRotation.setFromRotationMatrix(lookMatrix);
+    if(!hasLookRotation){
+      camera.quaternion.copy(lookRotation);
+      hasLookRotation=true;
+      lastAngularStep=0;
+    }else{
+      // Orientation damping is independent of the camera target. Immediate
+      // lookAt cancelled all positional easing on fast avian heading changes.
+      const difference=camera.quaternion.angleTo(lookRotation);
+      const maxRotation=.76*delta; // <=43.5 degrees/sec at any frame rate.
+      const eased=difference*(1-Math.exp(-delta*2.3));
+      const angularStep=Math.min(maxRotation,eased);
+      camera.quaternion.rotateTowards(lookRotation,angularStep);
+      lastAngularStep=delta>0?angularStep/delta:0;
+    }
     const newFov=camera.fov+(plan.fov-camera.fov)*(1-Math.exp(-delta*.95));
     if(Math.abs(newFov-camera.fov)>.0001){
       camera.fov=newFov;camera.updateProjectionMatrix();
     }
     return {shot:currentShot,target:smoothedTarget,clearance,reason:lastReason,transitions,
-      groundClearance:context.groundClearance,relief:context.relief};
+      groundClearance:context.groundClearance,relief:context.relief,
+      cameraHeading:smoothYaw,turnSpeed:lastAngularStep};
   }
   return {
     update,
     get shot(){return currentShot;},
     get transitions(){return transitions;},
     get reason(){return lastReason;},
-    reset(){hasPrevious=false;contextAt=-Infinity;turnRate=0;shotSince=lastTime;candidateShot=null;}
+    reset(){
+      // Preserve the last orientation through bird selection. Snapping the
+      // quaternion on reset produced one-frame whip cuts between species.
+      hasPrevious=false;hasSmoothYaw=false;
+      yawVelocity=0;lastAngularStep=0;
+      contextAt=-Infinity;turnRate=0;shotSince=lastTime;candidateShot=null;
+    }
   };
 }

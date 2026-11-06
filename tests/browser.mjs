@@ -47,7 +47,7 @@ async function render(name,query,width,height,runChecks){
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
-        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,habitatUse:s.habitatUse,
+        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
         species:document.querySelectorAll('[data-bird]').length};
     });
@@ -75,6 +75,10 @@ async function render(name,query,width,height,runChecks){
       'Falta telemetría del director de cámara');
     assert.ok(Number.isFinite(stats.cameraDirector.altitudeAGL),
       'El director desconoce la altura sobre el suelo');
+    assert.ok(Number.isFinite(stats.cameraDirector.turnSpeed)&&stats.cameraDirector.turnSpeed<=.761,
+      'La cámara supera el límite de giro cinematográfico');
+    assert.equal(typeof stats.floating,'boolean',
+      'Falta estado de flotación de aves acuáticas');
     assert.equal(stats.habitatUse?.species,stats.bird,
       'La telemetría ecológica debe corresponder al ave visible');
     assert.ok(stats.habitatUse.samples>=1,'El muestreo ecológico no funciona');
