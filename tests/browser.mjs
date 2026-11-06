@@ -52,7 +52,8 @@ async function render(name,query,width,height,runChecks){
         metrics:{energy:document.querySelector('#bird-energy')?.value,
           hunger:document.querySelector('#bird-hunger')?.value,
           mood:document.querySelector('#bird-mood')?.textContent,
-          mapVisible:getComputedStyle(document.querySelector('#mini-map')).display!=='none'},
+          mapVisible:getComputedStyle(document.querySelector('#mini-map')).display!=='none',
+          mapExpected:!document.body.classList.contains('tv-mode')&&!document.body.classList.contains('no-ui')},
         particles:s.motion?.motes,
         species:document.querySelectorAll('[data-bird]').length};
     });
@@ -64,7 +65,8 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.metrics?.hunger>=0&&stats.metrics?.hunger<=1,
       'Satiety indicator not initialized');
     assert.ok(stats.metrics?.mood,'Missing bird state indicator');
-    assert.equal(stats.metrics?.mapVisible,true,'Minimap must be visible by default');
+    assert.equal(stats.metrics?.mapVisible,stats.metrics?.mapExpected,
+      'Minimap should be visible in standard UI, hidden for clean TV/broadcast');
     assert.equal(stats.particles,0,'Useless airborne point particles have returned');
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.birdDrawCallsSaved>=40,'El plumaje cercano no está agrupado por materiales');
