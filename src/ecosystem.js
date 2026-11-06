@@ -28,10 +28,20 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   const actors=[];
   const faunaLOD=createFaunaLODFactory(THREE,{brown,cream,dark,foxCoat,white});
   const legRig=createQuadrupedLegRig(THREE,{create,legGeo,sphere,terrainHeight,seed});
-  function habitatPos(maxRadius,minElevation=22,maxElevation=250){
-    for(let i=0;i<100;i++){
+  function habitatPos(maxRadius,minElevation=22,maxElevation=250,maxSlope=Infinity){
+    for(let i=0;i<160;i++){
       const x=(rng()-.5)*maxRadius*2,z=(rng()-.5)*maxRadius*2;
-      const y=terrainHeight(x,z,seed);if(y>=minElevation&&y<=maxElevation)return [x,y,z];
+      const y=terrainHeight(x,z,seed);
+      if(y<minElevation||y>maxElevation)continue;
+      // Large mammals need a stance-compatible patch: steep cliff spawns make
+      // the ankle IK physically unreachable when one hoof is downhill.
+      if(Number.isFinite(maxSlope)){
+        const delta=2;
+        const sx=(terrainHeight(x+delta,z,seed)-terrainHeight(x-delta,z,seed))/(2*delta);
+        const sz=(terrainHeight(x,z+delta,seed)-terrainHeight(x,z-delta,seed))/(2*delta);
+        if(Math.hypot(sx,sz)>maxSlope)continue;
+      }
+      return [x,y,z];
     }
     return [250,terrainHeight(250,80,seed),80];
   }
@@ -114,7 +124,8 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   function addActor(type,count,range){
     for(let i=0;i<count;i++){
       const g=type==='deer'?deer():type==='fox'?fox():rabbit();
-      const [x,y,z]=habitatPos(range,type==='rabbit'?13:28,type==='fox'?235:180);
+      const [x,y,z]=habitatPos(range,type==='rabbit'?13:28,type==='fox'?235:180,
+        type==='rabbit'?Infinity:.20);
       g.position.set(x,y,z);g.rotation.y=rng()*TAU;
       const state={type,originX:x,originZ:z,seed:rng()*100,phase:rng()*TAU,speed:type==='fox'?.8:type==='rabbit'?.6:.24,cycle:13+rng()*19};
       const theta0=faunaPathAngle(0,state);
