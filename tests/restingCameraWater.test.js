@@ -93,6 +93,7 @@ test('seabirds genuinely float with folded wings and gentle wave response',()=>{
      if(!action.floating)continue;
      afloat++;
      assert.equal(action.grounded,false,id+' cannot stand on ocean');
+     assert.equal(action.resting,true,'floating seabirds are resting, not flying');
      assert.equal(action.wingsFolded,true,'floating bird should fold wings');
      const surface=oceanSurfaceHeight(action.x,action.z,time,0);
      assert.ok(action.y>=surface+.04-1e-5,
