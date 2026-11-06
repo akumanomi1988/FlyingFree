@@ -33,7 +33,7 @@ test('ground vegetation and atmospheric LOD use bounded shared geometry',()=>{
    if(object.isInstancedMesh)assert.ok(object.geometry?.attributes.position,'Invalid instanced geometry');
  }
  assert.ok(wind.materials>=3);
- assert.ok(fx.activeCount>0);
+ assert.equal(fx.activeCount,0,'decorative pollen clouds must remain disabled');
  detail.update(4,{position:{x,y:y+900,z}},{x,y:y+900,z},.9,0,20);
  fx.update(4,{position:{x,y:y+900,z}},{x,y:y+900,z},.9,{rain:0,cloud:0});
  assert.equal(detail.active,false);
