@@ -1,5 +1,6 @@
 import {terrainHeight,random,clamp,TAU} from './core.js';
 import {resourcePoint,foodType,habitatAt,birdHabitatScore} from './ecology.js';
+import {oceanSurfaceHeight,oceanFloatPose} from './oceanMotion.js';
 
 // Deterministic, species-aware utility AI. The bird has physiological drives and
 // explicit take-off, approach, landing, foraging, resting and sheltered states.
@@ -32,9 +33,15 @@ export function createBirdBrain(profile,seed=1988,initial=null){
  let state='patrol',until=0,tx=x,tz=z,ty=y,
  energy=clamp(finite(initial?.energy,.76)),hunger=clamp(finite(initial?.hunger,.79));
  let food=null,activityChangedAt=0,landings=0,feedings=0,landingRest=false;
+ let currentTime=0,currentRain=0;
+ const buoyancy={};
  function clearance(px,pz,kind){
   const ground=terrainHeight(px,pz,seed);
-  if(marine)return ground> -7?ground+45:kind==='land'?-7:kind==='hunt'?10:40;
+  if(marine){
+   if(ground>-7)return ground+45;
+   return kind==='land'?oceanSurfaceHeight(px,pz,currentTime,currentRain)+
+     Math.max(.045,profile.wingspan*.042):kind==='hunt'?10:40;
+  }
   if(swift)return Math.max(ground+70,95);
   if(kind==='land')return ground+Math.max(.18,profile.wingspan*.32);
   if(kind==='hunt')return ground+(profile.id==='hummingbird'?11:profile.id==='kingfisher'?10:profile.id==='heron'?8:14);
@@ -96,6 +103,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
  return {
  update(t,dt,day=1,rain=0){
   dt=clamp(dt,0,.10);day=clamp(day);rain=clamp(rain);
+  currentTime=t;currentRain=rain;
   const resting=['rest','shelter'].includes(state),feeding=state==='feed';
   energy=clamp(energy+(resting?.022:feeding?.008:-.0029)*dt);
   hunger=clamp(hunger+(feeding?-.105:.0017)*dt);
@@ -119,7 +127,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
    }
   }
   else if(state==='landing'){
-   if(Math.hypot(tx-x,tz-z)<10&&Math.abs(y-ty)<3.4){
+   if(Math.hypot(tx-x,tz-z)<10&&Math.abs(y-clearance(x,z,'land'))<3.4){
     transition(landingRest?'rest':'feed',t);until=t+(landingRest?20+rng()*14:5+rng()*6);landings++;if(!landingRest)feedings++;
    }
   }
@@ -127,7 +135,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   else if(state==='return'&&Math.hypot(tx-x,tz-z)<15){
    landingRest=true;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
   }
-  else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15&&Math.abs(y-ty)<4){
+  else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15&&Math.abs(y-clearance(x,z,'land'))<4){
    landingRest=true;transition('landing',t);
   }
   else if(state==='rest'&&t>=until){
@@ -142,6 +150,8 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   const diff=dist<2?0:Math.atan2(Math.sin(destinationAngle-heading),Math.cos(destinationAngle-heading));
   heading+=clamp(diff,-maxTurn*dt,maxTurn*dt);
   const onGround=state==='rest'||(state==='feed'&&food?.kind!=='fish');
+  const overOcean=marine&&terrainHeight(x,z,seed)<-12;
+  const floating=overOcean&&state==='rest';
   const slowing=state==='approach'||state==='landing'||state==='return'||state==='shelter';
   let wanted=onGround?0:cruise*(state==='seek_food'?1.08:state==='patrol'?1:state==='takeoff'?.9:slowing?.62:.78);
   if(slowing&&dist<80)wanted*=clamp(dist/80,.12,1);
@@ -151,15 +161,32 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   x-=Math.sin(heading)*step;z-=Math.cos(heading)*step;
   const floor=clearance(x,z,onGround||state==='landing'||state==='rest'||state==='shelter'?'land':'hunt');
   let goal=Math.max(floor,ty);
+  if(overOcean&&(state==='landing'||state==='rest'||state==='shelter')){
+    // A marine bird must track the *rendered* wave height rather than a
+    // constant -7 m rest altitude or an earlier crest from another frame.
+    goal=floor;
+  }
   if(state==='patrol'||state==='takeoff'||state==='seek_food'){
    goal=Math.max(goal,clearance(x,z,'cruise'));
   }
   const dy=clamp(goal-y,-(state==='landing'?22:15)*dt,20*dt);
   y+=dy;y=Math.max(y,floor);
-  const grounded=onGround&&velocity<.8;
+  let waterPitch=0,waterRoll=0;
+  if(floating){
+    // Slow drifting gives life to resting seabirds. It does not move the
+    // destination or consume an extra AI navigation step.
+    x+=Math.sin(t*.17+seed*.001)*dt*.055;
+    z+=Math.cos(t*.13+seed*.002)*dt*.045;
+    const wave=oceanFloatPose(x,z,t,rain,profile.wingspan,buoyancy);
+    y=Math.max(wave.y,y-(2.6*dt));
+    if(y>wave.y+.02)y=Math.max(wave.y,y-2.6*dt);
+    waterPitch=wave.pitch;waterRoll=wave.roll;
+  }
+  const grounded=onGround&&velocity<.8&&!floating;
   return {x,y,z,heading,bank:clamp(diff*.22,-.48,.48),pitch:clamp(dy*1.4,-.30,.30),
+   floating,waterPitch,waterRoll,
    state,mode:state,speed:velocity,velocity,resting:grounded,grounded,
-   wingsFolded:grounded||state==='landing',flapping:state==='takeoff'||flight==='hover',
+   wingsFolded:grounded||floating||state==='rest'||state==='landing',flapping:state==='takeoff'||flight==='hover',
    hunger,energy,food:food?.kind||null,feedingHabitat:food?.biome||null,landings,feedings};
  },
  get state(){return state;},
