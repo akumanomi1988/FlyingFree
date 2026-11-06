@@ -33,7 +33,10 @@ class FakeAudioContext{
  createBiquadFilter(){return new FakeNode();}
  createStereoPanner(){return new FakeNode();}
  createBufferSource(){return new FakeNode();}
- createBuffer(channels,length){return {getChannelData:()=>new Float32Array(length)};}
+ createBuffer(channels,length){
+  const data=Array.from({length:channels},()=>new Float32Array(length));
+  return {getChannelData:(channel)=>data[channel]};
+ }
  async resume(){this.state='running';}
  async close(){this.state='closed';}
 }
