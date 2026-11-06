@@ -87,7 +87,8 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  }
  function selectRoost(){
   roost=null;
-  if(!ecology.canPerch||ecology.rest==='water'||ecology.rest==='cliff')return null;
+  // Cliff-resting raptors also use tall tree perches when available.
+  if(!ecology.canPerch||ecology.rest==='water')return null;
   let best=null,cost=Infinity;
   // Actual instanced tree records ensure that perching birds finish near a
   // particular canopy, not at a random floating point above empty terrain.
