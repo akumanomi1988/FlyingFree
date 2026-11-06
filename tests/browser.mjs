@@ -231,6 +231,9 @@ try{
       await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.climate?.live===true,{timeout:20000});
       assert.equal(await page.locator('#tv-temp').innerText(),'14 °C');
       assert.match(await page.locator('#tv-weather').innerText(),/LLUVIA/i);
+       await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.starOpacity<.02,{timeout:12000});
+       assert.ok(await page.evaluate(()=>window.__FLYINGFREE_STATUS__?.starOpacity)<.02,
+         'Night stars remain visible under rainy 91% cloud cover');
       assert.equal(await page.locator('#tv-attribution').isVisible(),true);
       // Advance wall-clock time without waiting 30 real minutes. The renderer
       // must fetch a fresh observation and update the TV temperature.
