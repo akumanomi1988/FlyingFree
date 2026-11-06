@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {terrainHeight,BIRDS,readOptions} from '../src/core.js';
-import {tropicalTerrainSample,tropicalRiverPoint,TROPICAL_WORLD} from '../src/tropicalTerrain.js';
+import {tropicalTerrainSample,tropicalRiverPoint,tropicalRiverLength,TROPICAL_WORLD} from '../src/tropicalTerrain.js';
 import {createTropicalRivers} from '../src/tropicalRivers.js';
 import {birdHabitatScore,habitatAt,resourcePoint} from '../src/ecology.js';
 import {createBirdBrain} from '../src/behaviour.js';
@@ -91,4 +91,21 @@ test('secondary seabirds and dolphins now occupy real ocean off the enlarged tro
  assert.ok(oceanGulls>=eco.birds.length*.45,'coastal gulls should not circle the volcanic summit');
  const landMammals=eco.actors.filter(a=>terrainHeight(a.position.x,a.position.z,seed)>0).length;
  assert.equal(landMammals,eco.actors.length,'terrestrial fauna must spawn on dry land');
+});
+
+test('all three rivers reach actual water for varied island outlines',()=>{
+  for(const seed of [1988,20261106,777713,4721,10452]){
+    for(let i=0;i<TROPICAL_WORLD.riverCount;i++){
+      const length=tropicalRiverLength(i,seed);
+      assert.ok(length>=2000&&length<=6250,'river mouth length outside expected world scale');
+      const end=tropicalRiverPoint(i,1,seed);
+      const mouth=tropicalTerrainSample(end.x,end.z,seed);
+      assert.ok(mouth.height<TROPICAL_WORLD.seaLevel,
+        'river '+i+' seed '+seed+' must reach real sea (height='+mouth.height+')');
+      const middle=tropicalRiverPoint(i,.49,seed);
+      assert.ok(tropicalTerrainSample(middle.x,middle.z,seed).river>.5,
+        'river channel must remain carved along its route');
+    }
+  }
+  assert.throws(()=>tropicalRiverLength(12,1988),RangeError);
 });

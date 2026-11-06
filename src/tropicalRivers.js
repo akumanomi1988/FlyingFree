@@ -7,20 +7,22 @@ export function createTropicalRivers(THREE,scene,seed=1988){
   let visibleSegments=0;
   const left={};const right={};const center={};
   for(let channel=0;channel<TROPICAL_WORLD.riverCount;channel++){
-    const count=116;
+    const count=156;
     let last=null;
     for(let i=0;i<=count;i++){
-      const t=.085+i/count*.88;
+      const t=.085+i/count*.947;
       tropicalRiverPoint(channel,t,seed,center);
       const surface=tropicalTerrainHeight(center.x,center.z,seed);
-      if(surface<TROPICAL_WORLD.seaLevel-1){last=null;continue;}
+      // Stop water surface exactly as it reaches the ocean; the ocean mesh
+      // takes over at the coastline. t is seed-specific and extends offshore.
+      if(surface<TROPICAL_WORLD.seaLevel){last=null;continue;}
       tropicalRiverPoint(channel,Math.min(.99,t+.002),seed,right);
       tropicalRiverPoint(channel,Math.max(.01,t-.002),seed,left);
       const dx=right.x-left.x,dz=right.z-left.z;
       const size=Math.hypot(dx,dz)||1;
       const nx=-dz/size,nz=dx/size;
       const width=9+20*t+Math.sin(t*19+channel)*2;
-      const y=surface+2.2;
+      const y=surface+.45;
       const base=positions.length/3;
       positions.push(center.x-nx*width,y,center.z-nz*width,
         center.x+nx*width,y,center.z+nz*width);

@@ -65,6 +65,9 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.treeDetail?.capacity>=12,'La capa de LOD arbóreo no está integrada');
     assert.equal(stats.world?.extent,12000,'Se ha perdido la nueva isla tropical');
     assert.equal(stats.world?.riverChannels,3,'No se han generado tres ríos');
+    assert.equal(stats.world?.coastSeed,stats.world.seed,
+      'Océano y relieve usan semillas diferentes: arrecifes y espuma no coincidirían con la costa');
+    assert.ok(stats.world?.coastResolution>=256,'Costa oceánica excesivamente poco detallada');
     assert.ok(stats.world.riverSegments>130,'Los cauces son demasiado cortos');
     assert.ok(['chase','shoulder','scenic','profile','high-reveal','close'].includes(stats.cameraShot),
       'Cámara cinematográfica sin director activo');

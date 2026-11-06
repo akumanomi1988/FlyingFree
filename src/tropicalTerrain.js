@@ -29,13 +29,36 @@ function islandShape(x,z,seed){
     .07*Math.sin(9*theta+.4+phase)+valueNoise(cx*.00052+8,cz*.00052-6,seed+71)*.11;
   return {radial:radial/coastline,cx,cz};
 }
+const lengthCache=new Map();
+function riverLengths(seed){
+  let lengths=lengthCache.get(seed);
+  if(lengths)return lengths;
+  const phase=(seed%811)*.008;
+  lengths=directions.map((bearing,channel)=>{
+    const angle=bearing+Math.sin(phase+channel)*.085;
+    // Trace the actual irregular seeded shoreline outward, rather than using
+    // three hardcoded radii (which left inland rivers ending inside forest).
+    for(let along=2100;along<=6100;along+=70){
+      const x=Math.cos(angle)*along+140,z=Math.sin(angle)*along-110;
+      if(islandShape(x,z,seed).radial>=1.105)return along;
+    }
+    return 6250; // world beyond the last coastal sample is deep open ocean.
+  });
+  if(lengthCache.size>=16)lengthCache.delete(lengthCache.keys().next().value);
+  lengthCache.set(seed,lengths);
+  return lengths;
+}
+export function tropicalRiverLength(channel,seed=1988){
+  if(!Number.isInteger(channel)||channel<0||channel>=directions.length)
+    throw new RangeError('Unknown river channel');
+  return riverLengths(seed)[channel];
+}
 export function tropicalRiverPoint(channel,t,seed=1988,out={}){
   const bearing=directions[channel];
   if(bearing===undefined)throw new RangeError('Unknown river channel');
-  const phase=(seed%811)*.008;
-  const length=channel===2?3050:4100;
+  const phase=(seed%811)*.008,length=tropicalRiverLength(channel,seed);
   const angle=bearing+Math.sin(phase+channel)*.085;
-  const along=length*clamp(t),bend=Math.sin(t*9+phase+channel*1.7)*125*Math.sin(Math.PI*t);
+  const along=length*clamp(t,0,1.05),bend=Math.sin(t*9+phase+channel*1.7)*125*Math.sin(Math.PI*t);
   out.x=Math.cos(angle)*along-Math.sin(angle)*bend+140;
   out.z=Math.sin(angle)*along+Math.cos(angle)*bend-110;
   return out;
@@ -44,15 +67,15 @@ function riverField(x,z,seed){
   let influence=0,water=0,riverIndex=-1;
   const phase=(seed%811)*.008;
   for(let i=0;i<3;i++){
-    const length=i===2?3050:4100,angle=directions[i]+Math.sin(phase+i)*.085;
+    const length=riverLengths(seed)[i],angle=directions[i]+Math.sin(phase+i)*.085;
     const px=x-140,pz=z+110;
     const along=px*Math.cos(angle)+pz*Math.sin(angle);
     const t=along/length;
-    if(t<.08||t>.97)continue;
+    if(t<.08||t>1.035)continue;
     const lateral=-px*Math.sin(angle)+pz*Math.cos(angle)-
       Math.sin(t*9+phase+i*1.7)*125*Math.sin(Math.PI*t);
     const valleyWidth=80+(1-t)*72;
-    const valley=Math.exp(-Math.pow(lateral/valleyWidth,2))*smooth(.08,.19,t)* (1-smooth(.87,.97,t));
+    const valley=Math.exp(-Math.pow(lateral/valleyWidth,2))*smooth(.08,.19,t)*(1-smooth(.94,1.035,t));
     if(valley>influence){influence=valley;riverIndex=i;}
     const flowWidth=15+13*t;
     const channelInfluence=1-smooth(flowWidth,flowWidth+7,Math.abs(lateral));
