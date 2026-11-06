@@ -49,7 +49,7 @@ async function render(name,query,width,height,runChecks){
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
-        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,habitatUse:s.habitatUse,floating:s.floating,
+        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
         metrics:{energy:document.querySelector('#bird-energy')?.value,
           hunger:document.querySelector('#bird-hunger')?.value,
@@ -104,7 +104,7 @@ async function render(name,query,width,height,runChecks){
       'Resolución adaptativa por debajo de su presupuesto');
     assert.ok(stats.adaptiveQuality.scale<=stats.adaptiveQuality.maxScale,
       'Resolución adaptativa sobrepasa el límite del dispositivo');
-    assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),`Fallo visual: ${name}, colores=${stats.colors}, brillo=${stats.brightness}, plano=${stats.cameraShot}`);
+    assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),`Fallo visual: ${name}, colores=${stats.colors}, brillo=${stats.brightness}, plano=${stats.cameraShot}, framing=${JSON.stringify(stats.framing)}`);
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);
     await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
