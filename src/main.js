@@ -12,6 +12,9 @@ import {createFrameTelemetry} from './frameTelemetry.js';
 import {createAdaptiveResolution} from './adaptiveResolution.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
+import {tropicalTerrainSample,tropicalLandscapeSeed,TROPICAL_WORLD} from './tropicalTerrain.js';
+import {createTropicalRivers} from './tropicalRivers.js';
+import {createCameraDirector} from './cameraDirector.js';
 import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
 import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from './localClimate.js';
 import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,localDateLabel} from './localTime.js';
@@ -20,7 +23,7 @@ const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
-let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail;
+let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cameraDirector;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
@@ -30,6 +33,7 @@ let timeOverride=opts.hour!=null||Boolean(opts.phase);
 let weatherOverride=Boolean(opts.weather);
 let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
  opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
+const worldSeed=opts.seed??tropicalLandscapeSeed(new Date(simMs));
 let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
@@ -78,6 +82,7 @@ function init(){
   sunOrb=new THREE.Mesh(sunGeo,new THREE.MeshBasicMaterial({color:0xffe5b7,fog:false}));scene.add(sunOrb);
   moonOrb=new THREE.Mesh(new THREE.SphereGeometry(42,16,12),new THREE.MeshBasicMaterial({color:0xc1d2df,fog:false}));scene.add(moonOrb);
   createLandscape();createForest();createClouds();createStars();createBird();
+  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed);
   const startSun=sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude);
   const startPos=birdBrain.update(0,0,startSun.daylight,0);
   birdModel.position.set(startPos.x,startPos.y,startPos.z);
@@ -87,12 +92,13 @@ function init(){
   lastCameraBird.copy(birdModel.position);cameraBirdTracked=true;
   cameraLook.set(startPos.x,startPos.y,startPos.z);
   camera.lookAt(cameraLook);
-  ecosystem=createEcosystem(THREE,scene,1988,innerWidth<720?.65:1);
-  groundDetail=createGroundDetail(THREE,scene,innerWidth<720?.5:1,windField);
+  ecosystem=createEcosystem(THREE,scene,worldSeed,innerWidth<720?.65:1);
+  groundDetail=createGroundDetail(THREE,scene,innerWidth<720?.5:1,windField,worldSeed);
   atmospherics=createAtmospherics(THREE,scene,innerWidth<720?.56:1);
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
+  status.world={seed:worldSeed,extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments};
   status.faunaLOD=ecosystem.lodStats;
   // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
   status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
@@ -109,33 +115,37 @@ function init(){
   requestAnimationFrame(animate);
 }
 function createLandscape(){
-  const g=new THREE.PlaneGeometry(4300,4300,180,180);g.rotateX(-Math.PI/2);
-  const p=g.getAttribute('position'),cols=[];
-  const month=new Date(simMs).getUTCMonth();
+  // The former 4.3 km radial patch was a small repeated pancake. A single
+  // larger mesh now holds a deterministic volcanic island for each day/seed.
+  const g=new THREE.PlaneGeometry(TROPICAL_WORLD.extent,TROPICAL_WORLD.extent,250,250);
+  g.rotateX(-Math.PI/2);
+  const p=g.getAttribute('position'),colors=new Float32Array(p.count*3);
+  const tint=new THREE.Color(),rng=random(worldSeed^0x78eb21);
   for(let i=0;i<p.count;i++){
-    const x=p.getX(i),z=p.getZ(i),y=terrainHeight(x,z),detail=fbm(x*.003,z*.003);
+    const x=p.getX(i),z=p.getZ(i),land=tropicalTerrainSample(x,z,worldSeed);
+    const y=land.height;
     p.setY(i,y);
-    let col;
-    if(y< -9)col=new THREE.Color('#5f9e9b');
-    else if(y<16)col=new THREE.Color('#d1bf93');
-    else if(y<95)col=new THREE.Color(month>=9||month<=1?'#739f64':'#70a86c');
-    else if(y<235)col=new THREE.Color('#618c5e');
-    else if(y<325)col=new THREE.Color('#76946d');
-    else if(y<402)col=new THREE.Color('#8b9982');
-    else col=new THREE.Color(month>=10||month<=2?'#d4dcd2':'#87938b');
-    col.multiplyScalar(.96+detail*.13+(fbm(x*.07,z*.07)+1)*.04);
-    cols.push(col.r,col.g,col.b);
+    if(y<TROPICAL_WORLD.seaLevel)tint.set('#367b87');
+    else if(y<23)tint.set('#d8c996');
+    else if(land.river>.32||land.valley>.5)tint.set('#347c57');
+    else if(y<160)tint.set('#397c51');
+    else if(y<370)tint.set('#2f7950');
+    else if(y<580)tint.set('#497c54');
+    else if(y<760)tint.set('#66806a');
+    else tint.set('#7f817c');
+    const shade=.84+rng()*.21+land.mountain*.09;
+    colors[i*3]=tint.r*shade;colors[i*3+1]=tint.g*shade;colors[i*3+2]=tint.b*shade;
   }
-  p.needsUpdate=true;g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));g.computeVertexNormals();
-  terrain=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0,side:THREE.DoubleSide,flatShading:false}));
+  p.needsUpdate=true;
+  g.setAttribute('color',new THREE.BufferAttribute(colors,3));
+  g.computeVertexNormals();
+  terrain=new THREE.Mesh(g,new THREE.MeshStandardMaterial({
+    vertexColors:true,roughness:1,metalness:0,side:THREE.DoubleSide,flatShading:false
+  }));
+  terrain.name='seeded-tropical-volcanic-terrain';
   scene.add(terrain);
   oceanFX=createOcean(THREE,scene);water=oceanFX.mesh;
-  const beachMat=new THREE.MeshBasicMaterial({color:0xf1d6a0,transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false});
-  for(let j=0;j<4;j++){
-    const ring=new THREE.Mesh(new THREE.RingGeometry(1490+j*16,1499+j*16,120),beachMat);
-    ring.rotation.x=-Math.PI/2;ring.scale.y=.89;ring.position.y=-8.1+j*.12;
-    scene.add(ring);
-  }
+  rivers=createTropicalRivers(THREE,scene,worldSeed);
 }
 function createForest(){
   const rng=random(1988);
@@ -281,7 +291,7 @@ function createBird(){
     for(const geo of geometries)geo.dispose();
     for(const mat of materials)mat.dispose();
   }
-  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,1988,previousState);
+  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,worldSeed,previousState);
   if(previousPosition)birdModel.position.copy(previousPosition);
   scene.add(birdModel);
   status.bird=currentBird.id;
