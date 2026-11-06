@@ -61,7 +61,7 @@ URLs: `?phase=dawn`, `?phase=sunset`, `?h=6.4`, `?bird=owl`, `?weather=storm`, `
 ## Testing
 `npm test` exercises the deterministic math, solar clock and bird paths.
 `npm run test:browser` runs Playwright against the built website, checking WebGL scenes, fauna, species selection, keyboard controls and major day/weather scenarios. Evidence is written to `artifacts/visual`. Install Chromium once using `npx playwright install chromium`.
-Every PR and feature-branch push runs this in GitHub Actions. The `main` workflow deploys GitHub Pages.
+Every pull request runs Node, Vite and browser QA once in GitHub Actions. Feature branches without a PR can run the quality workflow manually via `workflow_dispatch`; outdated runs are cancelled when a PR is updated. Pushes to `main` use the separate build/test/deploy workflow for GitHub Pages.
 
 ## Engineering limitations
 This is a stylized, procedural ecosystem, not photorealistic animal footage or an ecological simulator. Animal shape/behaviour is representative rather than anatomically and biomechanically exhaustive. It does **not** contain an OBS/RTMP supervisor, nor has 72-hour continuous-operation testing been completed. GitHub Pages hosts the WebGL app; live video emission is a separate Windows/OBS undertaking.
