@@ -29,10 +29,13 @@ export function cameraPlanAt(yaw,wingspan,speed,shot='chase'){
     y:elevation*d,z:forwardZ*back*d+sideZ*lateral*d,
     leadX:forwardX*lead,leadZ:forwardZ*lead,fov,distance:d};
 }
-export function createCameraDirector(THREE,terrainHeight,seed=1988){
+export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}={}){
+  // Read-only deterministic visual inspection mode. Only supplied by main.js
+  // with ?selftest=1; normal viewers always get the event-based director.
+  const inspectionShot=CAMERA_SHOTS.includes(qaShot)||qaShot==='close'?qaShot:null;
   const desired=new THREE.Vector3(),target=new THREE.Vector3(),birdMotion=new THREE.Vector3();
   const lastBird=new THREE.Vector3(),smoothedTarget=new THREE.Vector3();
-  let hasPrevious=false,currentShot='chase',shotSince=0,transitions=0;
+  let hasPrevious=false,currentShot=inspectionShot??'chase',shotSince=0,transitions=0;
   let candidateShot=null,candidateSince=0;
   let lastTime=-Infinity,lastYaw=0,turnRate=0,contextAt=-Infinity;
   const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false};
@@ -66,14 +69,14 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988){
       contextAt=clock;
     }
     context.speed=speed;context.turnRate=turnRate;
-    const proposed=cameraShotAt(clock,behaviour,context);
+    const proposed=inspectionShot??cameraShotAt(clock,behaviour,context);
     const close=['approach','landing','feed','rest','shelter','return'].includes(behaviour);
     const leavingClose=currentShot==='close'&&!close;
     // Active behaviours get priority, but ordinary scenery/turn changes must
     // persist before the director changes the shot (no distracting flicker).
     const hold=close?2.5:leavingClose?8:22;
     const stable=close?2.0:leavingClose?3.5:2.5;
-    if(proposed===currentShot){
+    if(proposed===currentShot||inspectionShot){
       candidateShot=null;
     }else{
       if(candidateShot!==proposed){candidateShot=proposed;candidateSince=clock;}
