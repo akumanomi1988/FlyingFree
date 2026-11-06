@@ -150,29 +150,39 @@ export function createBirdRig(THREE,profile) {
     // Rounded leading-edge bones and covert rows define wing thickness and curvature.
     add(sph,plumage,base,[.57*profile.wings,.035,-.10],
       [.63*profile.wings,.09,.19],[0,-.08,0]);
+    // Two covert layers share ONE wing planform. The old feather rows stuck
+    // far past the trailing edge, creating a second apparent wing per side.
     for(let row=0;row<2;row++)for(let j=0;j<12;j++){
       const t=(j+.35)/12,span=(.19+t*1.57)*profile.wings;
       const taper=Math.pow(1-t*.83,.55);
-      const chord=plan.chord*taper;
-      const f=add(feather,row===0?plumage:(j%3===0?light:dark),base,
-        [span,-.015-row*.013,plan.sweep*t*t+.13+row*.11],
-        [.20*profile.wings*taper,.065,.30+chord*.50],
-        [0,.10+t*.20,0]);
-      f.rotation.y=.10+t*.20;
+      const chord=plan.chord*taper*(.78+.22*Math.sin(t*Math.PI));
+      const trailing=-.08+plan.sweep*t*t+chord*.60;
+      const length=(row===0?.20:.11)+chord*(row===0?.24:.10);
+      const z=trailing-(row===0?length*.84:length*1.55);
+      const f=add(feather,row===0?plumage:(j%3===0?light:wingMat),base,
+        [span,-.004-row*.003,z],
+        [.18*profile.wings*taper,.038,length],
+        [0,-.025+t*.045,0]);
+      f.name=row===0?'secondary-covert':'upper-covert';
     }
     const tip=new THREE.Group();tip.position.set(1.35*profile.wings,.03,-.03);base.add(tip);
     for(let j=0;j<plan.primaries;j++){
       const t=j/Math.max(1,plan.primaries-1);
-      const x=(.18+t*.54)*profile.wings;
-      const f=add(feather,j%2?dark:wingMat,tip,[x,-.025,.08+(t-.5)*.15],
-        [.19*profile.wings,.08,.35-t*.14],[0,-.12+t*.42,0]);
-      f.rotation.y=-.12+t*.42;
+      const x=(.12+t*.60)*profile.wings;
+      // Primaries continue the same wingtip, never a detached fan underneath.
+      const f=add(feather,j%2?dark:wingMat,tip,
+        [x,-.008,.035+plan.sweep*.72+t*.08],
+        [.15*profile.wings,.040,.19-t*.035],
+        [0,-.04+t*.12,0]);
+      f.name='primary-feather';
     }
     // A feather slot is a small extra tip projection, not a separate wing mesh.
     for(let j=0;j<plan.slots;j++){
       const t=j/Math.max(1,plan.slots-1);
-      add(feather,dark,tip,[.46*profile.wings+t*.18*profile.wings,-.02,.14+t*.08],
-        [.12*profile.wings,.04,.21],[0,.35+t*.20,0]);
+      const slot=add(feather,dark,tip,
+        [(.46+t*.18)*profile.wings,-.005,.045+plan.sweep*.65+t*.06],
+        [.085*profile.wings,.025,.12],[0,.04+t*.09,0]);
+      slot.name='tip-slot';
     }
     const baseBatch=batchStaticMeshes(THREE,base);
     const tipBatch=batchStaticMeshes(THREE,tip);
@@ -188,7 +198,7 @@ export function createBirdRig(THREE,profile) {
   if(profile.id==='kingfisher')add(sph,material(0x0d8fa6),root,[0,.20,.24],[.29,.22,.63]);
   if(profile.id==='swallow')add(sph,material(0x9a493c),root,[0,-.15,-.59],[.24,.12,.30]);
   root.scale.setScalar(birdRigScale(profile));
-  root.userData={profile,left,right,tail,legs,fold:0,flap:0,headTurn:0,geometryVersion:3,
+  root.userData={profile,left,right,tail,legs,fold:0,flap:0,headTurn:0,geometryVersion:4,wingSilhouette:'single-continuous',
     plumageDrawCallsSaved:left.drawCallsSaved+right.drawCallsSaved};
   return root;
 }
