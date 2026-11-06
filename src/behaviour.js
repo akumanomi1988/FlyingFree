@@ -97,7 +97,8 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    if(d2<cost){cost=d2;best=tree;}
   }
   if(best&&cost<2000*2000){
-   roost={x:best.x,z:best.z,y:best.y+best.height*.70};
+   roost={x:best.x,z:best.z,y:Math.max(best.y+best.height*.70,
+     clearance(best.x,best.z,'land')+1.5)};
    return roost;
   }
   return null;
@@ -162,7 +163,9 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    }
   }
   else if(state==='landing'){
-   if(Math.hypot(tx-x,tz-z)<10&&Math.abs(y-(roost?.y??clearance(x,z,'land')))<3.4){
+   const perchFloor=clearance(x,z,'land');
+   const perchContact=Math.max(roost?.y??perchFloor,perchFloor);
+   if(Math.hypot(tx-x,tz-z)<12&&Math.abs(y-perchContact)<3.4){
     transition(landingRest?'rest':'feed',t);until=t+(landingRest?20+rng()*14:5+rng()*6);landings++;if(!landingRest)feedings++;
    }
   }
