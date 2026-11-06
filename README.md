@@ -8,10 +8,14 @@ npm install
 npm run dev
 npm test
 npm run build
-npm run audit:habitats  # auditoría reproducible de distribución de aves por bioma\nnpm run audit:visual    # screenshots de doce aves, requiere Playwright Chromium
+npm run audit:habitats  # auditoría reproducible de distribución de aves por bioma
+npm run audit:visual    # screenshots de doce aves, requiere Playwright Chromium
 ```
 
 **Public website:** https://akumanomi1988.github.io/FlyingFree/
+
+**Contrato de ingeniería actual:** [Arquitectura](./docs/ARCHITECTURE.md) · [Puertas de calidad](./docs/QUALITY_GATES.md) · [Etología y límites](./docs/BIRD_BEHAVIOR.md). Un cambio en una PR aún abierta no está necesariamente en `main`. Los valores de FPS de CI con SwiftShader no representan hardware físico. `?seed=1988` permite reproducir escenas defectuosas; las nuevas visitas sin semilla pueden generar una isla distinta.
+
 
 ## Dirección estratégica del proyecto (noviembre de 2026)
 
