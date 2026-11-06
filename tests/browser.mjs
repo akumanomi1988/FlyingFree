@@ -49,11 +49,23 @@ async function render(name,query,width,height,runChecks){
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
         world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
+        metrics:{energy:document.querySelector('#bird-energy')?.value,
+          hunger:document.querySelector('#bird-hunger')?.value,
+          mood:document.querySelector('#bird-mood')?.textContent,
+          mapVisible:getComputedStyle(document.querySelector('#mini-map')).display!=='none'},
+        particles:s.motion?.motes,
         species:document.querySelectorAll('[data-bird]').length};
     });
     assert.equal(stats.canvas,true,'Canvas ausente');
     assert.equal(stats.error,null,'Excepción del motor');
     assert.equal(stats.species,12,'Selector incompleto');
+    assert.ok(stats.metrics?.energy>=0&&stats.metrics?.energy<=1,
+      'Energy indicator not initialized');
+    assert.ok(stats.metrics?.hunger>=0&&stats.metrics?.hunger<=1,
+      'Satiety indicator not initialized');
+    assert.ok(stats.metrics?.mood,'Missing bird state indicator');
+    assert.equal(stats.metrics?.mapVisible,true,'Minimap must be visible by default');
+    assert.equal(stats.particles,0,'Useless airborne point particles have returned');
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.birdDrawCallsSaved>=40,'El plumaje cercano no está agrupado por materiales');
     assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
@@ -166,9 +178,20 @@ try{
       await page.waitForFunction(()=>document.querySelector('#audio-btn').classList.contains('active'));
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false,'El selector no abre');
+      const originalPosition=await page.evaluate(()=>({...window.__FLYINGFREE_STATUS__.birdPosition}));
       await page.locator('[data-bird="owl"]').click();
       await page.waitForTimeout(150);
       assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.bird),'owl','No cambia el ave');
+      const selected=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.birdPosition);
+      assert.ok(Math.hypot(selected.x-originalPosition.x,selected.z-originalPosition.z)>80,
+        'Changing bird must relocate to species-specific habitat');
+      await page.locator('#map-btn').click();
+      assert.equal(await page.locator('#mini-map').isVisible(),false,'Minimap does not hide');
+      await page.locator('#map-btn').click();
+      assert.equal(await page.locator('#mini-map').isVisible(),true,'Minimap cannot be restored');
+      await page.locator('#hud-btn').click();
+      assert.equal(await page.locator('#hud').isVisible(),false,'Bird indicators cannot hide');
+      await page.locator('#hud-btn').click();
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false);
     });
