@@ -67,3 +67,28 @@ transition:transform 12s ease-out,opacity .6s;transform:translate(var(--tv-shift
   .tv-condition span{font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){.tv-overlay{transition:none}.bird-picker{animation:none}}
+
+/* Live bird state without a dashboard-like overlay. All optional and
+   excluded from kiosk/TV or keyboard hide mode. */
+.bird-vitals{border-top:1px solid var(--line);padding-top:6px;margin-top:13px}
+.bird-vitals .stat{margin:10px 0}
+.vital-label{font-size:9px;letter-spacing:.16em;color:#d4e2dc;margin:10px 0 5px}
+.vital-track{width:100%;height:3px;background:#a6bdac40;border-radius:20px;overflow:hidden}
+.vital-track i{display:block;width:0;height:100%;background:#d0eddc;border-radius:20px;
+  transition:width .9s ease}
+.vital-track.hunger i{background:#f0c28b}
+.minimap-panel{position:absolute;z-index:3;bottom:74px;right:40px;width:120px;padding:8px;
+  border:1px solid #ffffff2a;border-radius:10px;background:#0d292bb0;
+  backdrop-filter:blur(10px);text-align:center;box-shadow:0 7px 24px #0002}
+.minimap-panel canvas{display:block;width:104px;height:104px;border-radius:6px}
+.minimap-panel span{display:block;font-size:9px;letter-spacing:.2em;color:#d0ded6;margin-top:7px}
+body.hide-information .bird-vitals,body.hide-information .minimap-panel{display:none}
+body.tv-mode .bird-vitals,body.tv-mode .minimap-panel,
+body.no-ui .bird-vitals,body.no-ui .minimap-panel{display:none}
+@media(max-width:720px){
+ .minimap-panel{bottom:62px;right:16px;width:91px;padding:5px}
+ .minimap-panel canvas{width:79px;height:79px}
+ .minimap-panel span{font-size:8px}
+ .bird-vitals{margin-top:8px;padding-top:2px}
+ .bird-vitals .stat{margin:7px 0}
+}
