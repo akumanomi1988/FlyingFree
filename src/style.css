@@ -85,3 +85,5 @@ transition:transform 12s ease-out,opacity .6s;transform:translate(var(--tv-shift
 .map-caption{text-align:center;font-size:8px;letter-spacing:.18em;color:#d8e7db;margin-top:5px}
 .no-ui .mini-map,.tv-mode .mini-map{display:none!important}
 @media(max-width:700px){.mini-map{right:16px;bottom:75px;width:91px;padding:5px}.mini-map canvas{width:79px;height:79px}.hud{width:172px}.vital{grid-template-columns:57px 1fr 30px;gap:5px}.right-tools{gap:5px}.circle{width:31px;height:31px;font-size:15px}}
+
+.hide-bird-hud .hud{opacity:0;pointer-events:none}
