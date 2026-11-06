@@ -74,7 +74,7 @@ async function render(name,query,width,height,runChecks){
       'Resolución adaptativa por debajo de su presupuesto');
     assert.ok(stats.adaptiveQuality.scale<=stats.adaptiveQuality.maxScale,
       'Resolución adaptativa sobrepasa el límite del dispositivo');
-    assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),'Fallo visual: escena excesivamente uniforme / completamente negra');
+    assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),`Fallo visual: ${name}, colores=${stats.colors}, brillo=${stats.brightness}, plano=${stats.cameraShot}`);
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);
     await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
