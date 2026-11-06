@@ -399,10 +399,12 @@ function fly(date,dt,sun){
  birdModel.rotation.y=action.heading;
  animateBirdRig(birdModel,elapsed,{energy:action.flapping?.89:.40,sleeping:action.wingsFolded,
   bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
+  floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
   state:action.state},dt);
  status.behaviour=action.state;status.flightSpeed=Math.round(action.speed);
  status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
  status.landings=action.landings;status.feedings=action.feedings;
+ status.floating=Boolean(action.floating);
  const occupancy=habitatMonitor.observe(elapsed,currentBird.id,action.x,action.z,action.state);
  if(occupancy)status.habitatUse=occupancy;
  return birdModel.position;
@@ -412,7 +414,8 @@ function directCamera(bird,dt){
     birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,elapsed,dt);
   status.cameraShot=frame.shot;
   status.camera={shot:frame.shot,reason:frame.reason,transitions:frame.transitions,
-    terrainRelief:Math.round(frame.relief),altitudeAGL:Math.round(frame.groundClearance)};
+    terrainRelief:Math.round(frame.relief),altitudeAGL:Math.round(frame.groundClearance),
+    turnSpeed:Math.round(frame.turnSpeed*1000)/1000};
 }
 function updateSea(t,dt,sun){
   oceanFX.update(t,sun,weatherState,scene.fog.color);
