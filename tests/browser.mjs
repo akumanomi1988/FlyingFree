@@ -28,6 +28,8 @@ async function render(name,query,width,height,runChecks){
     assert.equal(r?.status(),200,'Respuesta HTTP');
     await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,null,{timeout:60000});
     await page.waitForTimeout(1100);
+    await page.waitForFunction(()=>typeof window.__FLYINGFREE_STATUS__?.motion?.motes==='number',
+      null,{timeout:12000});
     const stats=await page.evaluate(()=>{
       const c=document.querySelector('#viewport canvas'),s=window.__FLYINGFREE_STATUS__;
       if(!c)return {canvas:false,error:s.error};
