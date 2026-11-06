@@ -6,6 +6,7 @@ import {tropicalTerrainSample,tropicalRiverPoint,TROPICAL_WORLD} from '../src/tr
 import {createTropicalRivers} from '../src/tropicalRivers.js';
 import {birdHabitatScore,habitatAt,resourcePoint} from '../src/ecology.js';
 import {createBirdBrain} from '../src/behaviour.js';
+import {createEcosystem} from '../src/ecosystem.js';
 const bird=id=>BIRDS.find(b=>b.id===id);
 
 test('different seeds yield deterministic large volcanic relief instead of a fixed small radial island',()=>{
@@ -79,4 +80,15 @@ test('foraging destinations favor freshwater for kingfishers and terrestrial sit
  assert.ok(eagle.kind==='small-prey');
  assert.ok(kingfisher.kind==='fish');
  assert.notEqual(eagle.biome,'ocean');
+});
+
+test('secondary seabirds and dolphins now occupy real ocean off the enlarged tropical coastline',()=>{
+ const seed=20261106,scene=new THREE.Scene(),eco=createEcosystem(THREE,scene,seed,.7);
+ eco.update(0,1,0,null,0,null);
+ assert.ok(eco.dolphins.every(d=>terrainHeight(d.group.position.x,d.group.position.z,seed)<-9),
+   'dolphins must not surface in the tropical forest');
+ const oceanGulls=eco.birds.filter(b=>terrainHeight(b.g.position.x,b.g.position.z,seed)<-9).length;
+ assert.ok(oceanGulls>=eco.birds.length*.45,'coastal gulls should not circle the volcanic summit');
+ const landMammals=eco.actors.filter(a=>terrainHeight(a.position.x,a.position.z,seed)>0).length;
+ assert.equal(landMammals,eco.actors.length,'terrestrial fauna must spawn on dry land');
 });
