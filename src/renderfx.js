@@ -53,7 +53,7 @@ export function createSky(THREE,scene) {
         float bankZone=smoothstep(-.28,.08,y)*(1.0-smoothstep(.60,.95,y));
         float clouds=cloud*bankZone*smoothstep(-.55,.57,haze);
         c=mix(c,vec3(.59,.67,.67)*(.80+.20*day),clouds*.44);
-        c-=vec3(.047,.062,.066)*cloud*bankZone*smoothstep(.30,-.42,haze);
+        c-=vec3(.047,.062,.066)*cloud*bankZone*(1.0-smoothstep(-.42,.30,haze));
         gl_FragColor=vec4(c,1.0);
       }`
   });
