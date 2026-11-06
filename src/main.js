@@ -85,7 +85,8 @@ function init(){
   sunOrb=new THREE.Mesh(sunGeo,new THREE.MeshBasicMaterial({color:0xffe5b7,fog:false}));scene.add(sunOrb);
   moonOrb=new THREE.Mesh(new THREE.SphereGeometry(42,16,12),new THREE.MeshBasicMaterial({color:0xc1d2df,fog:false}));scene.add(moonOrb);
   createLandscape();createForest();createClouds();createStars();createBird();
-  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed);
+  const qaShot=opts.selftest?new URLSearchParams(location.search).get('qaShot'):null;
+  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed,{qaShot});
   const startSun=sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude);
   const startPos=birdBrain.update(0,0,startSun.daylight,0);
   birdModel.position.set(startPos.x,startPos.y,startPos.z);
