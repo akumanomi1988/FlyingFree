@@ -249,12 +249,14 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
     activity.state==='approach'&&!activity.floating;
   for(const leg of legs){
     const legTarget=legsOut?.18:-1.12;
-    leg.rotation.x+=(legTarget-leg.rotation.x)*k;
+    const feedingStep=grounded&&activity.state==='feed'?.055*Math.sin(elapsed*7+legs.indexOf(leg)*Math.PI):0;
+    leg.rotation.x+=(legTarget+feedingStep-leg.rotation.x)*k;
     leg.scale.y+=((legsOut?leg.userData.restScaleY:leg.userData.restScaleY*.18)-leg.scale.y)*k;
     leg.position.y+=((legsOut?-.48:-.30)-leg.position.y)*k;
   }
   group.rotation.z=bank+(activity.floating?clamp(activity.waterRoll??0,-.09,.09):
     resting?.008*Math.sin(elapsed*.94):0);
-  group.rotation.x=activity.floating?clamp(activity.waterPitch??0,-.09,.09):
-    resting?.012*Math.sin(elapsed*1.13):clamp(activity.pitch??0,-.34,.34);
+  const feeding=activity.state==='feed'&&!activity.floating?.095*Math.sin(elapsed*7.2):0;
+  group.rotation.x=(activity.floating?clamp(activity.waterPitch??0,-.09,.09):
+    resting?.012*Math.sin(elapsed*1.13):clamp(activity.pitch??0,-.34,.34))+feeding;
 }
