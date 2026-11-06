@@ -23,8 +23,9 @@ export function birdEcology(profile){
 export function flightAltitude(profile,habitat,ground){
  const behavior=birdEcology(profile);
  const canopy=habitat.type==='forest'?24:habitat.type==='wetland'?12:habitat.type==='shore'?7:0;
+ const canopyFraction=behavior.cruiseAboveCanopy<20?.55:1;
  return Math.max(ground+behavior.forageHeight,
-   ground+canopy+behavior.cruiseAboveCanopy);
+   ground+canopy*canopyFraction+behavior.cruiseAboveCanopy);
 }
 export function birdSensation({energy,hunger,state,floating=false,weather=0}){
  if(floating)return 'Flotando';
