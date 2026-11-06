@@ -63,13 +63,15 @@ export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
     for(let index=0;index<limit;index++){
       const {record:r,d2}=visible[index];
       const weight=treeDetailWeight(Math.sqrt(d2),fadeStart,fadeDistance);
-      if(weight<=.001)continue;
+      // Palm fronds already use their own instanced crown; a second spherical
+      // LOD layer would make tropical palms look like broadleaf trees.
+      if(weight<=.001||r.kind==='palm')continue;
       detailedCount++;
       const evergreen=['pine','cypress'].includes(r.kind);
       const crownY=r.kind==='cypress'?.55:r.kind==='pine'?.63:r.kind==='olive'?.67:.70;
       const spread=r.kind==='cypress'?.12:r.kind==='pine'?.23:r.kind==='olive'?.34:.31;
       const palette=r.kind==='pine'?0x557c56:r.kind==='cypress'?0x376d50:
-        r.kind==='olive'?0x929f74:r.kind==='birch'?0x8eae84:0x8baa70;
+        r.kind==='olive'?0x929f74:r.kind==='mangrove'?0x3b7750:r.kind==='birch'?0x539b66:0x418a55;
       // Radial branch spokes, anchored on the trunk and ending in crown volumes.
       for(let j=0;j<stemCount;j++){
         const az=r.angle+j*Math.PI*2/stemCount;
