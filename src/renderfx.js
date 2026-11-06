@@ -1,4 +1,6 @@
 import { random, clamp } from './core.js';
+import {createCoastHeightData,COAST_HEIGHT_MIN,COAST_HEIGHT_MAX} from './coastalBathymetry.js';
+import {TROPICAL_WORLD} from './tropicalTerrain.js';
 
 export function createSky(THREE,scene) {
   const uniforms={
@@ -55,8 +57,21 @@ export function createSky(THREE,scene) {
   }};
 }
 
-export function createOcean(THREE,scene){
+export function createOcean(THREE,scene,seed=1988){
+  const heightmap=createCoastHeightData(seed);
+  const coastTexture=new THREE.DataTexture(heightmap.data,heightmap.size,heightmap.size,
+    THREE.RGBAFormat,THREE.UnsignedByteType);
+  coastTexture.magFilter=THREE.LinearFilter;
+  coastTexture.minFilter=THREE.LinearFilter;
+  coastTexture.wrapS=THREE.ClampToEdgeWrapping;
+  coastTexture.wrapT=THREE.ClampToEdgeWrapping;
+  coastTexture.generateMipmaps=false;
+  coastTexture.needsUpdate=true;
   const uniforms={
+    coastHeightmap:{value:coastTexture},
+    coastExtent:{value:TROPICAL_WORLD.extent},
+    coastHeightRange:{value:new THREE.Vector2(COAST_HEIGHT_MIN,COAST_HEIGHT_MAX)},
+    coastSeaLevel:{value:TROPICAL_WORLD.seaLevel},
     time:{value:0},day:{value:1},storm:{value:0},
     sunlight:{value:new THREE.Vector3(0,1,0)},
     skyColor:{value:new THREE.Color('#8ac1c4')},
@@ -88,6 +103,9 @@ export function createOcean(THREE,scene){
       }`,
     fragmentShader:`
       uniform float day,storm,fogDensity,time;
+      uniform float coastExtent,coastSeaLevel;
+      uniform vec2 coastHeightRange;
+      uniform sampler2D coastHeightmap;
       uniform vec3 sunlight,skyColor;
       varying vec3 vPosition,vNormal;
       varying float vWave;
@@ -104,23 +122,32 @@ export function createOcean(THREE,scene){
         float sunTrail=pow(max(dot(normalize(V.xz),normalize(L.xz)),0.0),20.0)
           *pow(1.0-abs(N.y-.94),2.0)*day;
         float coarse=sin(vPosition.x*.017+time*.7)*cos(vPosition.z*.019-time*.52)*.5+.5;
-        float theta=atan(vPosition.z+110.0,vPosition.x-140.0);
-        float phase=0.5;
-        float edge=1.0+.13*sin(3.0*theta+phase)+.095*sin(5.0*theta-2.0*phase)
-          +.07*sin(9.0*theta+.4+phase);
-        float shoreDistance=length(vec2((vPosition.x-140.0)/4050.0,
-          (vPosition.z+110.0)/3200.0))/edge;
-        float shoal=1.0-smoothstep(.83,1.19,shoreDistance);
+        // A heightmap built from exactly the same world seed as collision
+        // heights and vegetation. No fake radial island shoreline approximation.
+        vec2 coastUv=clamp(vPosition.xz/coastExtent+vec2(.5),vec2(0.001),vec2(.999));
+        float terrainHeight=mix(coastHeightRange.x,coastHeightRange.y,
+          texture2D(coastHeightmap,coastUv).r);
+        float depth=coastSeaLevel-terrainHeight;
+        float shoal=1.0-smoothstep(7.0,68.0,depth);
+        float nearShore=smoothstep(-6.0,1.0,depth)*
+          (1.0-smoothstep(2.5,17.0,depth));
+        float coralBand=smoothstep(3.0,7.0,depth)*
+          (1.0-smoothstep(23.0,55.0,depth));
         vec3 deep=mix(vec3(.014,.045,.094),vec3(.016,.155,.204),day);
         vec3 turquoise=mix(vec3(.044,.135,.16),vec3(.12,.38,.36),day);
-        vec3 color=mix(deep,turquoise,shoal*.55);
+        vec3 color=mix(deep,turquoise,shoal*.72);
+        // Turquoise lagoons and subdued reef patches, governed by depth,
+        // rather than decorative markings over the open ocean.
+        float reefNoise=sin(vPosition.x*.064+sin(vPosition.z*.028))*
+          cos(vPosition.z*.056-vPosition.x*.019);
+        float reefMask=smoothstep(.22,.72,reefNoise)*coralBand;
+        color=mix(color,vec3(.035,.18,.17),reefMask*.38*day);
         color+=vec3(.07,.17,.18)*(coarse*.32+diffuse*.25)*day;
         color=mix(color,skyColor,fresnel*.47);
         color+=mix(vec3(.65,.76,.81),vec3(1.0,.78,.46),.65)*
           (sparkle*.84+sunTrail*.11);
         float crest=smoothstep(3.6,5.9,abs(vWave));
-        float coast=1.0-smoothstep(.012,.080,abs(shoreDistance-1.04));
-        float foam=clamp(coast*(.21+.22*coarse)+crest*storm*.23,0.0,.67);
+        float foam=clamp(nearShore*(.19+.25*coarse)+crest*storm*.23,0.0,.67);
         color=mix(color,vec3(.77,.88,.82),foam);
         float dist=length(cameraPosition-vPosition);
         float fog=1.0-exp(-fogDensity*fogDensity*dist*dist);
@@ -131,7 +158,9 @@ export function createOcean(THREE,scene){
   const g=new THREE.PlaneGeometry(17000,17000,190,190);g.rotateX(-Math.PI/2);
   const water=new THREE.Mesh(g,material);water.position.y=-9;water.renderOrder=1;
   scene.add(water);
-  return {mesh:water,uniforms,update(t,sun,weather,fogColor){
+  return {mesh:water,uniforms,bathymetry:{seed,resolution:heightmap.size,extent:heightmap.extent},
+    dispose(){scene.remove(water);g.dispose();material.dispose();coastTexture.dispose();},
+    update(t,sun,weather,fogColor){
     uniforms.time.value=t;
     uniforms.day.value=sun.daylight;
     uniforms.storm.value=weather.rain;
