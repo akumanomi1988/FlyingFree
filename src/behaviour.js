@@ -23,7 +23,8 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   const angle=i===0?startA:rng()*TAU;
   const dist=marine?3850+rng()*1250:330+rng()*2400;
   const px=Math.cos(angle)*dist,pz=Math.sin(angle)*dist;
-  const score=birdHabitatScore(profile,habitatAt(px,pz,seed))+rng()*.12;
+  const biome=habitatAt(px,pz,seed);
+  const score=birdHabitatScore(profile,biome)+(marine&&biome.type==='ocean'?.60:0)+rng()*.12;
   if(score>spawnScore){spawnScore=score;spawnX=px;spawnZ=pz;}
  }
  const homeX=spawnX,homeZ=spawnZ;
@@ -75,7 +76,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    const preference=birdHabitatScore(profile,habitat);
    // Keep regional routes bounded. Marine birds circle the island, not infinity.
    const outside=Math.max(0,Math.hypot(px/5100,pz/4400)-1);
-   const score=preference+rng()*.13-outside*1.2;
+   const score=preference+(marine&&habitat.type==='ocean'?.42:0)+rng()*.13-outside*1.2;
    if(score>best){best=score;bestX=px;bestZ=pz;lastPatrolBiome=habitat.type;}
   }
   // Land birds that have crossed the sea seek a definite inland target.
@@ -169,7 +170,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   else if(state==='return'&&Math.hypot(tx-x,tz-z)<15){
    landingRest=true;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
   }
-  else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15&&Math.abs(y-(roost?.y??clearance(x,z,'land')))<4){
+  else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15){
    landingRest=true;transition('landing',t);
   }
   else if(state==='rest'&&t>=until){
