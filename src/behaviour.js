@@ -1,6 +1,7 @@
 import {terrainHeight,random,clamp,TAU} from './core.js';
 import {resourcePoint,foodType,habitatAt,birdHabitatScore} from './ecology.js';
 import {oceanSurfaceHeight,oceanFloatPose} from './oceanMotion.js';
+import {BIRD_ETHOLOGY,birdFlightClearance} from './speciesEthology.js';
 
 // Deterministic, species-aware utility AI. The bird has physiological drives and
 // explicit take-off, approach, landing, foraging, resting and sheltered states.
@@ -43,9 +44,17 @@ export function createBirdBrain(profile,seed=1988,initial=null){
      Math.max(.045,profile.wingspan*.042):kind==='hunt'?10:40;
   }
   if(swift)return Math.max(ground+70,95);
-  if(kind==='land')return ground+Math.max(.18,profile.wingspan*.32);
+  if(kind==='land'){
+    // Forest birds perch in canopy/branches instead of always standing at
+    // terrainHeight; raptors prefer larger trees and exposed lookout sites.
+    const perching=new Set(['hummingbird','owl','swallow','kestrel','eagle','osprey','kingfisher']);
+    if(perching.has(profile.id))
+      return ground+Math.max(profile.id==='eagle'?19:profile.id==='kestrel'?12:8,
+        birdFlightClearance(profile.id,'cruise')*.45);
+    return ground+Math.max(.18,profile.wingspan*.32);
+  }
   if(kind==='hunt')return ground+(profile.id==='hummingbird'?11:profile.id==='kingfisher'?10:profile.id==='heron'?8:14);
-  return ground+(flight==='soar'?112:flight==='dash'?90:58);
+  return ground+birdFlightClearance(profile.id,'cruise');
  }
  function target(px,pz,height){
   tx=px;tz=pz;ty=height;
@@ -105,7 +114,11 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   dt=clamp(dt,0,.10);day=clamp(day);rain=clamp(rain);
   currentTime=t;currentRain=rain;
   const resting=['rest','shelter'].includes(state),feeding=state==='feed';
-  energy=clamp(energy+(resting?.022:feeding?.008:-.0029)*dt);
+  // The metabolic drive is deliberately slower for thermalling and faster
+  // for sustained high-frequency wingbeats, with genuine rest recovery.
+  const cost=flight==='hover'?.0055:flight==='dash'?.0044:
+    flight==='soar'||marine?.0019:.0033;
+  energy=clamp(energy+(resting?.027:feeding?.008:-cost)*dt);
   hunger=clamp(hunger+(feeding?-.105:.0017)*dt);
   if(state==='patrol'&&(t>=until||Math.hypot(tx-x,tz-z)<30))chooseAction(t,day,rain);
   else if(state==='seek_food'&&t-activityChangedAt>0){
@@ -140,7 +153,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   }
   else if(state==='rest'&&t>=until){
    const mustSleep=owl?day>.68:day<.1;
-   if(!mustSleep&&rain<.65){transition('takeoff',t);selectPatrol();until=t+4;}
+   if(!mustSleep&&rain<.65&&energy>.62){transition('takeoff',t);selectPatrol();until=t+4;}
    else until=t+15;
   }
   else if(state==='takeoff'&&t>=until){chooseAction(t,day,rain);}
@@ -190,6 +203,6 @@ export function createBirdBrain(profile,seed=1988,initial=null){
  },
  get state(){return state;},
  get snapshot(){return {x,y,z,heading,velocity,energy,hunger};},
- get diagnostics(){return {state,energy,hunger,landings,feedings,lastPatrolBiome,home:{x:homeX,z:homeZ}};}
+ get diagnostics(){return {state,energy,hunger,landings,feedings,lastPatrolBiome,home:{x:homeX,z:homeZ},ethology:BIRD_ETHOLOGY[profile.id]};}
  };
 }
