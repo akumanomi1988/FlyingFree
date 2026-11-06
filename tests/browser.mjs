@@ -104,6 +104,12 @@ async function render(name,query,width,height,runChecks){
       'Resolución adaptativa por debajo de su presupuesto');
     assert.ok(stats.adaptiveQuality.scale<=stats.adaptiveQuality.maxScale,
       'Resolución adaptativa sobrepasa el límite del dispositivo');
+    if(name==='05-mobile-selector'){
+      assert.ok(stats.framing&&Math.abs(stats.framing.y)<.95&&Math.abs(stats.framing.x)<.95,
+        'Subject fell outside mobile portrait framing: '+JSON.stringify(stats.framing));
+      assert.ok(stats.framing.fov>=65&&stats.framing.fov<=81,
+        'Portrait lens did not adapt to narrow screen: '+JSON.stringify(stats.framing));
+    }
     assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),`Fallo visual: ${name}, colores=${stats.colors}, brillo=${stats.brightness}, plano=${stats.cameraShot}, framing=${JSON.stringify(stats.framing)}`);
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);
