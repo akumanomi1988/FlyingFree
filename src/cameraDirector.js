@@ -33,6 +33,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988){
   const desired=new THREE.Vector3(),target=new THREE.Vector3(),birdMotion=new THREE.Vector3();
   const lastBird=new THREE.Vector3(),smoothedTarget=new THREE.Vector3();
   let hasPrevious=false,currentShot='chase',shotSince=0,transitions=0;
+  let candidateShot=null,candidateSince=0;
   let lastTime=-Infinity,lastYaw=0,turnRate=0,contextAt=-Infinity;
   const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false};
   let lastReason='initial';
@@ -41,6 +42,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988){
     const delta=clamp(dt,0,.1),clock=Number.isFinite(time)?time:0;
     if(clock<lastTime){
       shotSince=clock;contextAt=-Infinity;turnRate=0;
+      candidateShot=null;candidateSince=clock;
     }
     lastTime=clock;
     const change=hasPrevious?Math.atan2(Math.sin(yaw-lastYaw),Math.cos(yaw-lastYaw)):0;
@@ -70,11 +72,18 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988){
     // Active behaviours get priority, but ordinary scenery/turn changes must
     // persist before the director changes the shot (no distracting flicker).
     const hold=close?2.5:leavingClose?8:22;
-    if(proposed!==currentShot&&clock-shotSince>=hold){
-      currentShot=proposed;shotSince=clock;transitions++;
-      lastReason=close?'behaviour':proposed==='profile'?'turn':
-        proposed==='scenic'?'terrain':proposed==='high-reveal'?'altitude':
-        proposed==='shoulder'?'flight':'recovery';
+    const stable=close?2.0:leavingClose?3.5:2.5;
+    if(proposed===currentShot){
+      candidateShot=null;
+    }else{
+      if(candidateShot!==proposed){candidateShot=proposed;candidateSince=clock;}
+      if(clock-shotSince>=hold&&clock-candidateSince>=stable){
+        currentShot=proposed;shotSince=clock;transitions++;
+        lastReason=close?'behaviour':proposed==='profile'?'turn':
+          proposed==='scenic'?'terrain':proposed==='high-reveal'?'altitude':
+          proposed==='shoulder'?'flight':'recovery';
+        candidateShot=null;
+      }
     }
     const plan=cameraPlanAt(yaw,wingspan,speed,currentShot);
     if(hasPrevious){
@@ -120,6 +129,6 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988){
     get shot(){return currentShot;},
     get transitions(){return transitions;},
     get reason(){return lastReason;},
-    reset(){hasPrevious=false;contextAt=-Infinity;turnRate=0;shotSince=lastTime;}
+    reset(){hasPrevious=false;contextAt=-Infinity;turnRate=0;shotSince=lastTime;candidateShot=null;}
   };
 }
