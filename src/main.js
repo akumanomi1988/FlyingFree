@@ -46,6 +46,7 @@ let currentBird=opts.bird||chooseBird(new Date(simMs));
 let currentWeather=opts.weather||chooseWeather(new Date(simMs));
 let speed=1,flapBoost=0,lastFrame=performance.now(),elapsed=0,cameraLook=new THREE.Vector3(0,150,0),sleepFactor=0;
 const lastCameraBird=new THREE.Vector3();let cameraBirdTracked=false;
+const framingProbe=new THREE.Vector3();
 let weatherState={cloud:currentWeather.cloud,rain:currentWeather.rain,fog:currentWeather.fog},renderFrames=0,fpsTimer=0,lastClimatePoll=0;
 const sound=new Soundscape();
 const canvasParent=$('viewport');
@@ -507,6 +508,12 @@ function animate(now){
     $('bird-hunger').value=1-status.hunger;
     $('bird-hunger-pct').textContent=Math.round((1-status.hunger)*100)+'%';
     minimap.update(position.x,position.z,birdModel.rotation.y);
+    // Real camera-space framing, not an inferred "bird is nearby" proxy.
+    // Available to deterministic WebGL QA and runtime diagnostics.
+    framingProbe.copy(birdModel.position).project(camera);
+    status.framing={x:+framingProbe.x.toFixed(3),y:+framingProbe.y.toFixed(3),
+      depth:+framingProbe.z.toFixed(3),distance:+camera.position.distanceTo(birdModel.position).toFixed(2),
+      cameraY:+camera.position.y.toFixed(2),birdY:+birdModel.position.y.toFixed(2)};
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
