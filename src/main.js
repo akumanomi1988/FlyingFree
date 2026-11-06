@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,BIRDS,WEATHER,chooseBird,chooseWeather,sunPosition,readOptions} from './core.js';
+import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,setWorldSeed,BIRDS,WEATHER,chooseBird,chooseWeather,sunPosition,readOptions} from './core.js';
 import {Soundscape} from './audio.js';
 import {createBirdRig,animateBirdRig} from './flight.js';
 import {createEcosystem} from './ecosystem.js';
@@ -17,7 +17,10 @@ import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from '
 import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,localDateLabel} from './localTime.js';
 
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
-const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
+// Stable throughout a visit; shareable through ?seed=NUMBER. New day, new island.
+const worldSeed=opts.seed??Math.floor(Date.now()/86400000);
+setWorldSeed(worldSeed);
+const status={version:'0.5.0',worldSeed,ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail;
@@ -87,7 +90,7 @@ function init(){
   lastCameraBird.copy(birdModel.position);cameraBirdTracked=true;
   cameraLook.set(startPos.x,startPos.y,startPos.z);
   camera.lookAt(cameraLook);
-  ecosystem=createEcosystem(THREE,scene,1988,innerWidth<720?.65:1);
+  ecosystem=createEcosystem(THREE,scene,worldSeed,innerWidth<720?.65:1);
   groundDetail=createGroundDetail(THREE,scene,innerWidth<720?.5:1,windField);
   atmospherics=createAtmospherics(THREE,scene,innerWidth<720?.56:1);
   skyFX=createSky(THREE,scene);
@@ -109,36 +112,44 @@ function init(){
   requestAnimationFrame(animate);
 }
 function createLandscape(){
-  const g=new THREE.PlaneGeometry(4300,4300,180,180);g.rotateX(-Math.PI/2);
+  const segments=innerWidth<720?156:242;
+  const g=new THREE.PlaneGeometry(4300,4300,segments,segments);
+  g.rotateX(-Math.PI/2);
   const p=g.getAttribute('position'),cols=[];
   const month=new Date(simMs).getUTCMonth();
   for(let i=0;i<p.count;i++){
-    const x=p.getX(i),z=p.getZ(i),y=terrainHeight(x,z),detail=fbm(x*.003,z*.003);
-    p.setY(i,y);
+    p.setY(i,terrainHeight(p.getX(i),p.getZ(i)));
+  }
+  p.needsUpdate=true;
+  g.computeVertexNormals();
+  const normals=g.getAttribute('normal');
+  // Surface material selection uses slope and altitude, rather than altitude-only bands.
+  // Computing normals once avoids extra heightfield queries at every vertex.
+  for(let i=0;i<p.count;i++){
+    const x=p.getX(i),z=p.getZ(i),y=p.getY(i);
+    const detail=fbm(x*.003,z*.003,worldSeed),slope=1-clamp(normals.getY(i),0,1);
     let col;
-    if(y< -9)col=new THREE.Color('#5f9e9b');
-    else if(y<16)col=new THREE.Color('#d1bf93');
-    else if(y<95)col=new THREE.Color(month>=9||month<=1?'#739f64':'#70a86c');
-    else if(y<235)col=new THREE.Color('#618c5e');
-    else if(y<325)col=new THREE.Color('#76946d');
-    else if(y<402)col=new THREE.Color('#8b9982');
-    else col=new THREE.Color(month>=10||month<=2?'#d4dcd2':'#87938b');
-    col.multiplyScalar(.96+detail*.13+(fbm(x*.07,z*.07)+1)*.04);
+    if(y< -9)col=new THREE.Color('#548c8b');
+    else if(y<18)col=new THREE.Color('#e8ca94');
+    else if(slope>.35&&y>45)col=new THREE.Color('#7b8474');
+    else if(y<105)col=new THREE.Color('#75a970');
+    else if(y<235)col=new THREE.Color('#4b8b62');
+    else if(y<360)col=new THREE.Color('#678b69');
+    else col=new THREE.Color('#92998a');
+    col.multiplyScalar(.96+detail*.13+(fbm(x*.07,z*.07,worldSeed)+1)*.04);
+    // Subtle seasonal hue while keeping a tropical, year-round green canopy.
+    if(month>=10||month<=1)col.lerp(new THREE.Color('#8ca77d'),.07);
     cols.push(col.r,col.g,col.b);
   }
-  p.needsUpdate=true;g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));g.computeVertexNormals();
-  terrain=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0,side:THREE.DoubleSide,flatShading:false}));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));
+  terrain=new THREE.Mesh(g,new THREE.MeshStandardMaterial({
+    vertexColors:true,roughness:1,metalness:0,side:THREE.DoubleSide,flatShading:false
+  }));
   scene.add(terrain);
   oceanFX=createOcean(THREE,scene);water=oceanFX.mesh;
-  const beachMat=new THREE.MeshBasicMaterial({color:0xf1d6a0,transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false});
-  for(let j=0;j<4;j++){
-    const ring=new THREE.Mesh(new THREE.RingGeometry(1490+j*16,1499+j*16,120),beachMat);
-    ring.rotation.x=-Math.PI/2;ring.scale.y=.89;ring.position.y=-8.1+j*.12;
-    scene.add(ring);
-  }
 }
 function createForest(){
-  const rng=random(1988);
+  const rng=random(worldSeed);
   const n=innerWidth<720?1500:2450;
   const treeRecords=[];
   const foliage=(color,animate=false,amplitude=.8,height=19)=>{
@@ -281,7 +292,7 @@ function createBird(){
     for(const geo of geometries)geo.dispose();
     for(const mat of materials)mat.dispose();
   }
-  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,1988,previousState);
+  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,worldSeed,previousState);
   if(previousPosition)birdModel.position.copy(previousPosition);
   scene.add(birdModel);
   status.bird=currentBird.id;
