@@ -105,3 +105,28 @@ test('camera QA angles are deterministic and cannot be requested accidentally',(
  const invalid=createCameraDirector(THREE,()=>0,1988,{qaShot:'not-a-shot'});
  assert.equal(invalid.update(camera,bird,0,42,'patrol',1.5,0,.1).shot,'chase');
 });
+
+
+test('small and fast birds remain inside the visible camera frame at 15, 30 and 60 fps',()=>{
+ for(const fps of [15,30,60]){
+   const dt=1/fps;
+   const director=createCameraDirector(THREE,()=>0,1988);
+   const camera=new THREE.PerspectiveCamera(55,390/844,.15,5000);
+   const bird=new THREE.Vector3(0,100,0);
+   camera.position.set(0,101,3);
+   for(let i=0;i<fps*12;i++){
+     // 13 m/s is a representative stylized hummingbird cruise speed.
+     // The old .58 camera ride loses >2 m and focuses empty scenery.
+     bird.z-=13*dt;
+     director.update(camera,bird,0,13,'patrol',.11,i*dt,dt);
+     if(i>fps*3){
+       camera.updateMatrixWorld(true);
+       const screen=bird.clone().project(camera);
+       assert.ok(Number.isFinite(screen.x)&&Number.isFinite(screen.y),
+         'Non-finite projection at '+fps+' fps');
+       assert.ok(Math.abs(screen.x)<.72&&Math.abs(screen.y)<.72&&screen.z<1,
+         'Tracked hummingbird escaped frame at '+fps+' fps: '+JSON.stringify(screen.toArray()));
+     }
+   }
+ }
+});
