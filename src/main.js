@@ -34,7 +34,15 @@ let timeOverride=opts.hour!=null||Boolean(opts.phase);
 let weatherOverride=Boolean(opts.weather);
 let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
  opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
-const worldSeed=opts.seed??tropicalLandscapeSeed(new Date(simMs));
+// Normal sessions create a different geography. Explicit ?seed= and CI
+// selftest preserve reproducibility for QA and sharing.
+const sessionRandomSeed=()=>{
+ const values=new Uint32Array(1);
+ if(globalThis.crypto?.getRandomValues)crypto.getRandomValues(values);
+ else values[0]=Math.floor(Math.random()*2147483646)+1;
+ return 1+(values[0]%2147483646);
+};
+const worldSeed=opts.seed??(opts.selftest?1988:sessionRandomSeed());
 const habitatMonitor=createHabitatMonitor(worldSeed);
 let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
@@ -315,8 +323,8 @@ function createStars(){
   stars=new THREE.Points(g,starMat);scene.add(stars);
 }
 function createBird(){
-  const previousState=birdBrain?.snapshot;
-  const previousPosition=birdModel?.position.clone();
+  // Every bird is introduced in its own habitat, not teleported into the
+  // previous species' location (e.g. colibri above offshore water).
   if(birdModel){
     scene.remove(birdModel);
     // Repeated species changes must not leak GPU buffers and materials.
@@ -329,10 +337,11 @@ function createBird(){
     for(const geo of geometries)geo.dispose();
     for(const mat of materials)mat.dispose();
   }
-  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,worldSeed,previousState);
+  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,worldSeed);
   habitatMonitor.reset(currentBird.id);
   cameraDirector?.reset();
-  if(previousPosition)birdModel.position.copy(previousPosition);
+  const spawn=birdBrain.snapshot;
+  birdModel.position.set(spawn.x,spawn.y,spawn.z);
   scene.add(birdModel);
   status.bird=currentBird.id;
   status.birdDrawCallsSaved=birdModel.userData.plumageDrawCallsSaved;
