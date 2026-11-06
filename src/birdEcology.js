@@ -30,6 +30,7 @@ export function flightAltitude(profile,habitat,ground){
 export function birdSensation({energy,hunger,state,floating=false,weather=0}){
  if(floating)return 'Flotando';
  if(state==='rest')return 'Descansando';
+ if(state==='aerial_rest')return 'Planeando para recuperar energía';
  if(state==='shelter')return 'Resguardándose';
  if(state==='landing'||state==='approach')return 'Aterrizando';
  if(state==='takeoff')return 'Despegando';
