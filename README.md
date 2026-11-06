@@ -106,3 +106,11 @@ La música se sintetiza íntegramente en el navegador con Web Audio API, sin des
 - Los osciladores de fondo se reutilizan; las notas temporales se desconectan al terminar. El motor puede liberarse con el método dispose().
 
 Pruebas: tests/audio.test.js comprueba perfiles meteorológicos, transiciones, gestión de silencio, planificador y reutilización de osciladores.
+
+## Generación procedural reproducible (primera fase)
+
+- El terreno ahora incorpora ruido simplex con semilla, contorno costero deformado, macizos montañosos, crestas y valles fluviales. Las pendientes influyen en el color del sustrato.
+- Por defecto se obtiene una nueva isla cada día UTC. La URL `?seed=12345` permite repetir exactamente el mismo relieve; `window.__FLYINGFREE_STATUS__.worldSeed` expone la semilla activa.
+- Los animales, el terreno y los hábitats consultan la misma función de alturas. Se ha mantenido el mundo de ~4,3 km para no elevar descontroladamente el coste de renderizado.
+- Esta fase **no** añade todavía ríos con agua en movimiento ni generación infinita por chunks, reproducción animal o dirección cinematográfica basada en eventos. Son hitos posteriores.
+- Dependencia añadida: `simplex-noise@4.0.3` (MIT); no se ha copiado código ni recursos de los repositorios de referencia.
