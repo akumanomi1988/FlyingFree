@@ -93,3 +93,15 @@ test('director suppresses forced shot cuts on long static scenic sessions',()=>{
  assert.equal(director.shot,'chase');
  assert.equal(director.transitions,0);
 });
+
+test('camera QA angles are deterministic and cannot be requested accidentally',()=>{
+ const forced=createCameraDirector(THREE,()=>0,1988,{qaShot:'profile'});
+ const camera=new THREE.PerspectiveCamera(),bird=new THREE.Vector3(0,140,0);
+ for(let i=0;i<350;i++){
+   const result=forced.update(camera,bird,0,42,i>70?'landing':'patrol',1.5,i*.1,.1);
+   assert.equal(result.shot,'profile');
+ }
+ assert.equal(forced.transitions,0);
+ const invalid=createCameraDirector(THREE,()=>0,1988,{qaShot:'not-a-shot'});
+ assert.equal(invalid.update(camera,bird,0,42,'patrol',1.5,0,.1).shot,'chase');
+});
