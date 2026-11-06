@@ -1,14 +1,16 @@
 import {clamp} from './core.js';
 
 // Original generative harmonies. No samples, copyrighted recordings or network assets.
+// Keep the pad's lowest fundamentals above 130 Hz: sub-bass drones resemble a motor
+// on televisions and speakers with boosted low frequencies.
 const HARMONIES={
- clear:{notes:[73.42,146.83,185.00,220.00,293.66],root:293.66,scale:[0,2,4,7,9,12]},
- cloudy:{notes:[73.42,146.83,164.81,220.00,293.66],root:293.66,scale:[0,2,5,7,9,12]},
- drizzle:{notes:[61.74,123.47,146.83,185.00,246.94],root:246.94,scale:[0,3,5,7,10,12]},
- rain:{notes:[61.74,123.47,146.83,185.00,246.94],root:246.94,scale:[0,3,5,7,10,12]},
- storm:{notes:[82.41,164.81,196.00,246.94,329.63],root:329.63,scale:[0,3,5,7,10,12]},
- fog:{notes:[55.00,110.00,130.81,164.81,246.94],root:220.00,scale:[0,3,5,7,10,12]},
- snow:{notes:[49.00,98.00,123.47,146.83,220.00],root:392.00,scale:[0,2,4,7,9,12]}
+ clear:{notes:[146.83,185.00,220.00,293.66,369.99],root:293.66,scale:[0,2,4,7,9,12]},
+ cloudy:{notes:[146.83,164.81,220.00,293.66,329.63],root:293.66,scale:[0,2,5,7,9,12]},
+ drizzle:{notes:[146.83,185.00,246.94,293.66,369.99],root:246.94,scale:[0,3,5,7,10,12]},
+ rain:{notes:[146.83,185.00,246.94,293.66,369.99],root:246.94,scale:[0,3,5,7,10,12]},
+ storm:{notes:[164.81,196.00,246.94,329.63,392.00],root:329.63,scale:[0,3,5,7,10,12]},
+ fog:{notes:[130.81,164.81,220.00,261.63,329.63],root:220.00,scale:[0,3,5,7,10,12]},
+ snow:{notes:[146.83,196.00,246.94,293.66,392.00],root:392.00,scale:[0,2,4,7,9,12]}
 };
 const safeUnit=(value,fallback=0)=>Number.isFinite(value)?clamp(value):fallback;
 
@@ -34,7 +36,7 @@ export function deriveMusicProfile(weather={},solar={},weatherId=weather?.id){
   padCutoff:650+brightness*3200,
   bellCutoff:1300+brightness*6400,
   bellLevel:.076+brightness*.064-(night?.014:0),
-  windLevel:.026+cloud*.054,
-  rainLevel:rain*.14
+  windLevel:.010+cloud*.023,
+  rainLevel:rain*.080
  };
 }

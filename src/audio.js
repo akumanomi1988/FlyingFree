@@ -3,7 +3,8 @@ import {deriveMusicProfile} from './musicDirector.js';
 
 // Procedural weather-aware soundtrack: two crossfading chord banks, sparse bell
 // phrases and filtered environmental noise. Nothing is fetched or recorded.
-const VOICE_LEVELS=[.042,.055,.052,.044,.030];
+// Make the sparse melody audible without an organ-like continuous chord.
+const VOICE_LEVELS=[.015,.017,.013,.010,.007];
 const MELODY_PATTERN=[0,2,4,1,3,5,4,2,1,0,3,2,5,1,4,0];
 
 function createPadBank(ctx,notes,destination){
@@ -12,7 +13,7 @@ function createPadBank(ctx,notes,destination){
  bus.connect(destination);
  const voices=notes.map((frequency,i)=>{
   const oscillator=ctx.createOscillator();
-  oscillator.type=i===0?'sine':'triangle';
+  oscillator.type=i<2?'sine':'triangle';
   oscillator.frequency.value=frequency;
   const level=ctx.createGain();
   level.gain.value=VOICE_LEVELS[i];
@@ -28,7 +29,8 @@ export class Soundscape {
   this.AudioContextClass=AudioContextClass;
   this.ctx=null;this.master=null;this.music=null;
   this.wind=null;this.rain=null;this.noise=null;
-  this.padTone=null;this.bellTone=null;
+  this.padTone=null;this.padHighpass=null;this.bellTone=null;
+  this.windHighpass=null;this.windLowpass=null;this.rainHighpass=null;
   this.padBanks=[];this.activeBank=0;this.harmonyId=null;
   this.enabled=false;this.mood=deriveMusicProfile();
   this.lastAutomation=-Infinity;this.nextNoteAt=0;this.noteCount=0;
@@ -68,7 +70,12 @@ export class Soundscape {
   padTone.type='lowpass';
   padTone.frequency.value=this.mood.padCutoff;
   padTone.Q.value=.55;
-  padTone.connect(music);
+  // High-pass the pad to prevent a persistent sub-bass rumble on televisions.
+  const padHighpass=this.padHighpass=ctx.createBiquadFilter();
+  padHighpass.type='highpass';
+  padHighpass.frequency.value=130;
+  padHighpass.Q.value=.71;
+  padTone.connect(padHighpass).connect(music);
   const bellTone=this.bellTone=ctx.createBiquadFilter();
   bellTone.type='lowpass';
   bellTone.frequency.value=this.mood.bellCutoff;
@@ -83,28 +90,44 @@ export class Soundscape {
   this.activeBank=0;
   this.harmonyId=this.mood.key;
 
-  const buffer=ctx.createBuffer(1,ctx.sampleRate*4,ctx.sampleRate);
+  // Wideband noise avoids the previous repetitive 4-second bass-heavy loop.
+  const buffer=ctx.createBuffer(1,ctx.sampleRate*11,ctx.sampleRate);
   const samples=buffer.getChannelData(0),rng=random(6821);
-  let filtered=0;
+  let slow=0;
   for(let i=0;i<samples.length;i++){
-   filtered=(rng()*2-1)*.09+filtered*.91;
-   samples[i]=filtered;
+   const white=rng()*2-1;
+   slow=slow*.994+white*.006;
+   samples[i]=white*.14+slow*.016;
+  }
+  // The looping wind/rain buffer must meet at zero amplitude: otherwise
+  // the wrap creates an audible click every eleven seconds.
+  const edge=Math.max(8,Math.floor(ctx.sampleRate*.012));
+  for(let i=0;i<edge;i++){
+   const fade=.5-.5*Math.cos(Math.PI*i/(edge-1));
+   samples[i]*=fade;
+   samples[samples.length-1-i]*=fade;
   }
   const noise=this.noise=ctx.createBufferSource();
   noise.buffer=buffer;
   noise.loop=true;
-  const low=ctx.createBiquadFilter();
-  low.type='lowpass';
-  low.frequency.value=540;
+  const windHighpass=this.windHighpass=ctx.createBiquadFilter();
+  windHighpass.type='highpass';
+  windHighpass.frequency.value=250;
+  windHighpass.Q.value=.70;
+  const windLowpass=this.windLowpass=ctx.createBiquadFilter();
+  windLowpass.type='lowpass';
+  windLowpass.frequency.value=1600;
+  windLowpass.Q.value=.70;
   const wind=this.wind=ctx.createGain();
   wind.gain.value=0;
-  noise.connect(low).connect(wind).connect(master);
-  const high=ctx.createBiquadFilter();
-  high.type='highpass';
-  high.frequency.value=1200;
+  noise.connect(windHighpass).connect(windLowpass).connect(wind).connect(master);
+  const rainHighpass=this.rainHighpass=ctx.createBiquadFilter();
+  rainHighpass.type='highpass';
+  rainHighpass.frequency.value=1100;
+  rainHighpass.Q.value=.7;
   const rain=this.rain=ctx.createGain();
   rain.gain.value=0;
-  noise.connect(high).connect(rain).connect(master);
+  noise.connect(rainHighpass).connect(rain).connect(master);
   noise.start();
 
   await ctx.resume();
@@ -186,9 +209,9 @@ export class Soundscape {
   fundamental.connect(envelope);
   const harmonic=ctx.createOscillator();
   harmonic.type='sine';
-  harmonic.frequency.value=frequency*2.005;
+  harmonic.frequency.value=frequency*2;
   const harmonicLevel=ctx.createGain();
-  harmonicLevel.gain.value=.15+mood.brightness*.46;
+  harmonicLevel.gain.value=.10+mood.brightness*.24;
   harmonic.connect(harmonicLevel).connect(envelope);
   fundamental.onended=()=>{
    fundamental.disconnect();
@@ -211,7 +234,8 @@ export class Soundscape {
   await this.ctx.close();
   this.ctx=null;this.master=null;this.music=null;
   this.wind=null;this.rain=null;this.noise=null;
-  this.padTone=null;this.bellTone=null;
+  this.padTone=null;this.padHighpass=null;this.bellTone=null;
+  this.windHighpass=null;this.windLowpass=null;this.rainHighpass=null;
   this.padBanks=[];this.harmonyId=null;
   this.enabled=false;this.lastAutomation=-Infinity;
  }
