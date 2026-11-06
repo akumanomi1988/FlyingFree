@@ -167,7 +167,9 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     get transitions(){return transitions;},
     get reason(){return lastReason;},
     reset(){
-      hasPrevious=false;hasSmoothYaw=false;hasLookRotation=false;
+      // Preserve the last orientation through bird selection. Snapping the
+      // quaternion on reset produced one-frame whip cuts between species.
+      hasPrevious=false;hasSmoothYaw=false;
       yawVelocity=0;lastAngularStep=0;
       contextAt=-Infinity;turnRate=0;shotSince=lastTime;candidateShot=null;
     }
