@@ -270,7 +270,8 @@ function createForest(){
     inst.frustumCulled=false;
     scene.add(inst);
   }
-  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches,palms};
+  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches,palms,
+    perches:treeRecords};
   treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1,windField);
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
@@ -334,7 +335,7 @@ function createBird(){
   birdModel=createBirdRig(THREE,currentBird);
   // Species start in their own suitable biome, never inherit the previous
   // bird's coordinates or its energy/hunger. This is a new wildlife subject.
-  birdBrain=createBirdBrain(currentBird,worldSeed);
+  birdBrain=createBirdBrain(currentBird,worldSeed,null,{perches:forest?.perches});
   habitatMonitor.reset(currentBird.id);
   cameraDirector?.reset();
   if(previousPosition){
