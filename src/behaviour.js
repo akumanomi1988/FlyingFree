@@ -184,7 +184,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   const grounded=onGround&&velocity<.8&&!floating;
   return {x,y,z,heading,bank:clamp(diff*.22,-.48,.48),pitch:clamp(dy*1.4,-.30,.30),
    floating,waterPitch,waterRoll,
-   state,mode:state,speed:velocity,velocity,resting:grounded,grounded,
+   state,mode:state,speed:velocity,velocity,resting:grounded||floating,grounded,
    wingsFolded:grounded||floating||state==='rest'||state==='landing',flapping:state==='takeoff'||flight==='hover',
    hunger,energy,food:food?.kind||null,feedingHabitat:food?.biome||null,landings,feedings};
  },
