@@ -8,9 +8,21 @@ npm install
 npm run dev
 npm test
 npm run build
+npm run audit:habitats  # auditoría reproducible de distribución de aves por bioma
 ```
 
 **Public website:** https://akumanomi1988.github.io/FlyingFree/
+
+## Dirección estratégica del proyecto (noviembre de 2026)
+
+VUELO debe convertirse en **un documental autónomo de naturaleza tropical**, no en un juego ni en una acumulación de objetos. El criterio de calidad principal es una secuencia atractiva y coherente de cuatro minutos sin intervención, seguida de pruebas de resistencia para TV.
+
+- **[Roadmap vivo de desarrollo](./ROADMAP.md)**: prioridades P0/P1, dependencias, aceptación y evidencias.
+- **[Atlas estratégico interactivo original](./public/roadmap/index.html)**: historia, decisiones, rutas y distancia estimada hasta la visión.
+- **[Atlas accesible en GitHub Pages](https://akumanomi1988.github.io/FlyingFree/roadmap/)** después del despliegue del commit correspondiente.
+- **[Handoff y registro de PR](./docs/NEXT_SESSION.md)**: historia técnica y QA.
+
+Regla: no dar por completada una mejora visual por haber pasado los tests; se requiere validación perceptiva y rendimiento en dispositivo objetivo.
 
 ## Características fundamentales
 - Twelve selectable bird species, each with an individual flight profile and articulated 3D silhouette.
