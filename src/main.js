@@ -406,6 +406,7 @@ function ambient(date,dt){
    starMat.opacity=starOpacityAt(alt,
      Math.max(cloud,currentWeather.cloud),
      Math.max(wet,currentWeather.rain));
+   status.starOpacity=starMat.opacity;
   const cloudTint=new THREE.Color(0xdde4e6).lerp(new THREE.Color(0xffc29a),sun.golden*.52*day);
   for(const c of clouds){
     c.mat.opacity=clamp(.16+cloud*.67+(c.weight-.4)*.09,0,.89);
