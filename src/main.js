@@ -513,7 +513,7 @@ function animate(now){
     framingProbe.copy(birdModel.position).project(camera);
     status.framing={x:+framingProbe.x.toFixed(3),y:+framingProbe.y.toFixed(3),
       depth:+framingProbe.z.toFixed(3),distance:+camera.position.distanceTo(birdModel.position).toFixed(2),
-      cameraY:+camera.position.y.toFixed(2),birdY:+birdModel.position.y.toFixed(2)};
+      cameraY:+camera.position.y.toFixed(2),birdY:+birdModel.position.y.toFixed(2),fov:+camera.fov.toFixed(1)};
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
