@@ -154,10 +154,10 @@ try{
       await page.waitForTimeout(1200);
       assert.equal(await page.locator('#weather-name').innerText(),'Soleado','Cambio de clima');
     });
-  await render('02-sunset-vulture','?phase=sunset&bird=vulture&weather=cloudy&broadcast=1',1440,900);
-  await render('03-night-owl','?h=23&bird=owl&weather=clear&broadcast=1',1440,900);
-  await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1',1440,900);
-  await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog',390,844,
+  await render('02-sunset-vulture','?phase=sunset&bird=vulture&weather=cloudy&broadcast=1&seed=1988',1440,900);
+  await render('03-night-owl','?h=23&bird=owl&weather=clear&broadcast=1&seed=1988',1440,900);
+  await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1&seed=1988',1440,900);
+  await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog&seed=1988',390,844,
     async(page)=>{
       assert.match(await page.locator('#enter-btn').innerText(),/ENTRAR CON CLIMA LOCAL/);
       assert.equal(await page.locator('#skip-location-btn').isVisible(),true);
@@ -199,7 +199,7 @@ try{
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false);
     });
-  await render('06-tv-live-weather','?tv=1&bird=kestrel',1440,900,
+  await render('06-tv-live-weather','?tv=1&bird=kestrel&seed=1988',1440,900,
     async(page)=>{
       assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),true);
       assert.equal(await page.locator('#tv-overlay').isVisible(),true);
