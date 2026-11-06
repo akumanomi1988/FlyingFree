@@ -90,6 +90,14 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   if(rain>.70&&!marine&&state!=='shelter'&&state!=='rest'){
    transition('shelter',t);target(homeX,homeZ,clearance(homeX,homeZ,'land'));until=t+25;return;
   }
+  // Swifts rest and forage in the air; unlike raptors they should never
+  // be forced to land on open terrain solely because energy is depleted.
+  if(swift&&energy<.23){
+    transition('aerial_rest',t);
+    const angle=heading+(rng()-.5)*.32;
+    const px=x-Math.sin(angle)*460,pz=z-Math.cos(angle)*460;
+    target(px,pz,Math.max(y,clearance(px,pz,'cruise')));until=t+35;return;
+  }
   if((energy<.27||shouldSleep)&&!swift){
    transition('return',t);
    const px=marine?x:homeX,pz=marine?z:homeZ;
@@ -113,7 +121,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
  update(t,dt,day=1,rain=0){
   dt=clamp(dt,0,.10);day=clamp(day);rain=clamp(rain);
   currentTime=t;currentRain=rain;
-  const resting=['rest','shelter'].includes(state),feeding=state==='feed';
+  const resting=['rest','shelter','aerial_rest'].includes(state),feeding=state==='feed';
   // The metabolic drive is deliberately slower for thermalling and faster
   // for sustained high-frequency wingbeats, with genuine rest recovery.
   const cost=flight==='hover'?.0055:flight==='dash'?.0044:
@@ -156,6 +164,13 @@ export function createBirdBrain(profile,seed=1988,initial=null){
    if(!mustSleep&&rain<.65&&energy>.62){transition('takeoff',t);selectPatrol();until=t+4;}
    else until=t+15;
   }
+  else if(state==='aerial_rest'){
+    if(energy>.64){transition('patrol',t);selectPatrol();until=t+10;}
+    else if(t>=until){
+      const px=x-Math.sin(heading)*350,pz=z-Math.cos(heading)*350;
+      target(px,pz,Math.max(y,clearance(px,pz,'cruise')));until=t+26;
+    }
+  }
   else if(state==='takeoff'&&t>=until){chooseAction(t,day,rain);}
   if(t>=until&&state==='approach'&&Math.hypot(tx-x,tz-z)>350){chooseAction(t,day,rain);}
   const dx=tx-x,dz=tz-z,dist=Math.hypot(dx,dz);
@@ -166,7 +181,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   const overOcean=marine&&terrainHeight(x,z,seed)<-12;
   const floating=overOcean&&state==='rest';
   const slowing=state==='approach'||state==='landing'||state==='return'||state==='shelter';
-  let wanted=onGround?0:cruise*(state==='seek_food'?1.08:state==='patrol'?1:state==='takeoff'?.9:slowing?.62:.78);
+  let wanted=onGround?0:cruise*(state==='aerial_rest'?.42:state==='seek_food'?1.08:state==='patrol'?1:state==='takeoff'?.9:slowing?.62:.78);
   if(slowing&&dist<80)wanted*=clamp(dist/80,.12,1);
   const acceleration=onGround?65:profile.flight==='dash'?38:29;
   velocity+=clamp(wanted-velocity,-acceleration*dt,acceleration*dt);
