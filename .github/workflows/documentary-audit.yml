@@ -31,6 +31,8 @@ jobs:
       - name: Validate sources and produce release manifest
         run: npm run check
       - name: Replay twelve ecological flights
+        id: ecology
+        continue-on-error: true
         run: npm run audit:habitats -- --seed="$VUELO_SEED" --seconds="$VUELO_SECONDS" --strict
       - name: Install Chromium
         if: success()
@@ -47,3 +49,12 @@ jobs:
             artifacts/quality/
             artifacts/visual/avian-matrix/
           if-no-files-found: warn
+      - name: Enforce ecological acceptance after preserving visual evidence
+        if: always()
+        env:
+          ECOLOGY_OUTCOME: ${{ steps.ecology.outcome }}
+        run: |
+          if [ "$ECOLOGY_OUTCOME" != "success" ]; then
+            echo "Ecological flight thresholds not accepted. Review uploaded reports."
+            exit 1
+          fi
