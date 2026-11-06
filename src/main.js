@@ -102,7 +102,8 @@ function init(){
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
-  status.world={seed:worldSeed,extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments};
+  status.world={seed:worldSeed,extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments,
+    coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution};
   status.faunaLOD=ecosystem.lodStats;
   status.habitatUse=habitatMonitor.snapshot();
   // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
@@ -149,7 +150,7 @@ function createLandscape(){
   }));
   terrain.name='seeded-tropical-volcanic-terrain';
   scene.add(terrain);
-  oceanFX=createOcean(THREE,scene);water=oceanFX.mesh;
+  oceanFX=createOcean(THREE,scene,worldSeed);water=oceanFX.mesh;
   rivers=createTropicalRivers(THREE,scene,worldSeed);
 }
 function createForest(){
