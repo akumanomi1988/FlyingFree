@@ -105,8 +105,13 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     if(hasPrevious){
       birdMotion.subVectors(bird,lastBird);
       if(birdMotion.lengthSq()<2500){
-        camera.position.add(birdMotion);
-        smoothedTarget.add(birdMotion);
+        // Riding every centimetre of the bird's instantaneous displacement
+        // transfers wing bob, terrain corrections and landing impulses
+        // straight into the TV camera. Carry part of its travel, then let
+        // the damped follower absorb the rest without losing the subject.
+        const ride=currentShot==='scenic'||currentShot==='high-reveal'?.42:.58;
+        camera.position.addScaledVector(birdMotion,ride);
+        smoothedTarget.addScaledVector(birdMotion,.50);
       }else{
         smoothedTarget.copy(bird);
       }
