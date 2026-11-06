@@ -114,8 +114,15 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
         // lose a small bird outside a narrow TV/mobile field of view.
         // Damping below still smooths the *relative camera offset* and the
         // quaternion; movement of the subject is never discarded.
-        camera.position.add(birdMotion);
-        smoothedTarget.add(birdMotion);
+        // Keep horizontal travel in lockstep but reject the high-frequency
+        // vertical impulse of landing or ocean buoyancy. Relative position
+        // easing below catches up smoothly without losing the animal.
+        camera.position.x+=birdMotion.x;
+        camera.position.z+=birdMotion.z;
+        camera.position.y+=birdMotion.y*.55;
+        smoothedTarget.x+=birdMotion.x;
+        smoothedTarget.z+=birdMotion.z;
+        smoothedTarget.y+=birdMotion.y*.55;
       }else{
         smoothedTarget.copy(bird);
       }
