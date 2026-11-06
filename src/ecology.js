@@ -1,5 +1,5 @@
 import {terrainHeight,fbm,random,clamp,TAU} from './core.js';
-import {tropicalTerrainSample,TROPICAL_WORLD} from './tropicalTerrain.js';
+import {tropicalTerrainSample,TROPICAL_WORLD,tropicalRiverPoint} from './tropicalTerrain.js';
 
 // Coarse habitat classification is only evaluated at population/LOD refresh, never per draw call.
 export function habitatAt(x,z,seed=1988){
@@ -47,25 +47,71 @@ export function animalPreferredHabitat(profile){
  const f=foodType(profile);
  return f==='fish'?'shore':f==='nectar'?'meadow':f==='carrion'?'highland':'meadow';
 }
+// Feeding at an actual water body is a harder ecological constraint than
+// casual overflight. A kingfisher can cross a forest; it cannot fish in one.
+const FISH_WATER=Object.freeze({
+  kingfisher:{wetland:1,shore:.45},
+  heron:{wetland:1,shore:.82},
+  osprey:{wetland:1,shore:.91,ocean:.72},
+  albatross:{ocean:1,shore:.46},
+  gull:{ocean:1,shore:1,wetland:.66}
+});
+export function aquaticForageScore(profile,habitat){
+  return FISH_WATER[profile.id]?.[habitat.type]??0;
+}
+
 export function resourcePoint(profile,originX,originZ,rng,seed=1988){
- const kind=foodType(profile);
+ const kind=foodType(profile),fish=kind==='fish';
  let best=null,bestScore=-Infinity;
- for(let i=0;i<44;i++){
-  const angle=rng()*TAU,radius=65+rng()*(profile.flight==='marine'?550:530);
-  const x=originX+Math.cos(angle)*radius,z=originZ+Math.sin(angle)*radius;
-  const h=habitatAt(x,z,seed);
-  let preference=birdHabitatScore(profile,h);
-  // Food and habitat agree: fish-eaters use coast, streams and near-shore water.
-  if(kind==='fish'&&['wetland','shore','ocean'].includes(h.type))preference+=.22;
-  if(kind==='nectar'&&['forest','meadow'].includes(h.type))preference+=.17;
-  if(kind==='carrion'&&['highland','rock','meadow'].includes(h.type))preference+=.14;
-  // Favor plausible targets without making the path overly deterministic.
-  const score=preference+rng()*.20;
-  if(score>bestScore){bestScore=score;best={x,y:h.height,z,kind,biome:h.type};}
+ function consider(x,z){
+   const h=habitatAt(x,z,seed);
+   const distance=Math.hypot(x-originX,z-originZ);
+   let preference=birdHabitatScore(profile,h);
+   if(fish){
+     const water=aquaticForageScore(profile,h);
+     if(water<=0)return;
+     // Water is mandatory for prey type 'fish', but the specific water
+     // (sea, tide pool or river) must still suit the species.
+     preference=water*1.30+preference*.15;
+   }
+   if(kind==='nectar'&&['forest','meadow'].includes(h.type))preference+=.17;
+   if(kind==='carrion'&&['highland','rock','meadow'].includes(h.type))preference+=.14;
+   const score=preference+rng()*.14-Math.min(.45,distance/12000);
+   if(score>bestScore){bestScore=score;best={x,y:h.height,z,kind,biome:h.type};}
  }
- if(best&&bestScore>.28)return best;
+ for(let i=0;i<44;i++){
+   const angle=rng()*TAU,radius=65+rng()*(profile.flight==='marine'?850:630);
+   consider(originX+Math.cos(angle)*radius,originZ+Math.sin(angle)*radius);
+ }
+ if(fish){
+   // Source-to-coast river corridors are always derived from the exact same
+   // seed as the bird's world. These candidates ensure freshwater fishers
+   // find real water even when they start some distance from the river.
+   if(['kingfisher','heron','osprey'].includes(profile.id)){
+     for(let channel=0;channel<TROPICAL_WORLD.riverCount;channel++){
+       for(let i=0;i<16;i++){
+         const t=.23+i*.043;
+         const site=tropicalRiverPoint(channel,t,seed);
+         const elevation=terrainHeight(site.x,site.z,seed);
+         if(elevation>(profile.id==='heron'?200:profile.id==='kingfisher'?270:800))continue;
+         consider(site.x,site.z);
+       }
+     }
+   }
+   // Marine birds (and ospreys on the coast) must have fallback sea grounds
+   // instead of consuming a fictitious fish over inland forest.
+   if(!best||['albatross','gull','osprey'].includes(profile.id)){
+     for(let i=0;i<26;i++){
+       const angle=rng()*TAU,dist=4600+rng()*1250;
+       consider(Math.cos(angle)*dist,Math.sin(angle)*dist);
+     }
+   }
+ }
+ if(best)return best;
  const h=habitatAt(originX,originZ,seed);
- return {x:originX,y:h.height,z:originZ,kind,biome:h.type};
+ // Missing resources must be explicit. Behaviour will patrol to find them,
+ // rather than showing a feeding event on an arbitrary dry inland site.
+ return {x:originX,y:h.height,z:originZ,kind,biome:h.type,unavailable:true};
 }
 export function insectActivity(day,rain,temperature=18){
  return clamp((day-.1)*1.25)*clamp((30-Math.abs(temperature-20))/30)*clamp(1-rain*1.5);
