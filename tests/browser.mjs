@@ -118,6 +118,13 @@ async function render(name,query,width,height,runChecks){
     await page.close();
   }catch(error){
     report.scenarios.push({name,success:false,error:String(error)});
+    // Preserve raw WebGL pixels without the welcome overlay obscuring the
+    // scene. This distinguishes a genuine render occlusion from UI tint.
+    try{
+      const raw=await page.evaluate(()=>document.querySelector('#viewport canvas')?.toDataURL('image/png'));
+      if(raw?.startsWith('data:image/png;base64,'))
+        await fs.writeFile(directory+'/'+name+'-CANVAS.png',Buffer.from(raw.split(',')[1],'base64'));
+    }catch{}
     try{await page.screenshot({path:directory+'/'+name+'-ERROR.png'})}catch{}
     await page.close();
     throw error;
