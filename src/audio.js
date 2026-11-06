@@ -99,6 +99,14 @@ export class Soundscape {
    slow=slow*.994+white*.006;
    samples[i]=white*.14+slow*.016;
   }
+  // The looping wind/rain buffer must meet at zero amplitude: otherwise
+  // the wrap creates an audible click every eleven seconds.
+  const edge=Math.max(8,Math.floor(ctx.sampleRate*.012));
+  for(let i=0;i<edge;i++){
+   const fade=.5-.5*Math.cos(Math.PI*i/(edge-1));
+   samples[i]*=fade;
+   samples[samples.length-1-i]*=fade;
+  }
   const noise=this.noise=ctx.createBufferSource();
   noise.buffer=buffer;
   noise.loop=true;
