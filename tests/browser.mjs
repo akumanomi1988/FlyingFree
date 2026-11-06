@@ -47,7 +47,7 @@ async function render(name,query,width,height,runChecks){
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
-        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,habitatUse:s.habitatUse,floating:s.floating,
+        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,habitatUse:s.habitatUse,floating:s.floating,physiology:s.physiology,ethology:s.ethology,position:s.position,
         camera:!!document.querySelector('#viewport canvas'),
         species:document.querySelectorAll('[data-bird]').length};
     });
@@ -64,6 +64,16 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.renderedFrames>6,'No hay animación');
     assert.ok(stats.treeDetail?.capacity>=12,'La capa de LOD arbóreo no está integrada');
     assert.equal(stats.world?.extent,12000,'Se ha perdido la nueva isla tropical');
+    assert.equal(stats.world?.regeneration,'session','La isla no cambia por ejecución');
+    assert.ok(stats.world?.cliffStacks>0,'No se han generado acantilados costeros');
+    assert.ok(stats.physiology?.state&&Number.isFinite(stats.physiology?.stamina),
+      'El estado de fatiga y alimentación no está integrado');
+    assert.ok(stats.ethology?.food&&stats.ethology?.nest,
+      'Falta la información ecológica por especie');
+    assert.ok(Number.isFinite(stats.position?.x)&&Number.isFinite(stats.position?.z),
+      'El ave no expone posición para el minimapa');
+    assert.equal(await page.locator('#bird-minimap').count(),1,'Minimapa no disponible');
+    assert.equal(await page.locator('#bird-vitals').count(),1,'Indicadores del ave no disponibles');
     assert.equal(stats.world?.riverChannels,3,'No se han generado tres ríos');
     assert.equal(stats.world?.coastSeed,stats.world.seed,
       'Océano y relieve usan semillas diferentes: arrecifes y espuma no coincidirían con la costa');
@@ -164,6 +174,11 @@ try{
       assert.equal(await page.locator('#tv-audio').getAttribute('aria-pressed'),'false');
       await page.keyboard.press('m');
       await page.waitForFunction(()=>document.querySelector('#audio-btn').classList.contains('active'));
+      await page.locator('#info-btn').click();
+      assert.equal(await page.locator('body').evaluate(b=>b.classList.contains('hide-information')),true,
+        'No se ocultan los indicadores y el minimapa');
+      await page.locator('#info-btn').click();
+      assert.equal(await page.locator('body').evaluate(b=>b.classList.contains('hide-information')),false);
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false,'El selector no abre');
       await page.locator('[data-bird="owl"]').click();
