@@ -121,7 +121,7 @@ try{
       assert.equal(meta.status(),200,'Falta manifiesto de versión desplegable');
       const build=await meta.json();
       assert.equal(build.application,'VUELO');
-      assert.match(build.buildTime,/^\\d{4}-\\d\\d-\\d\\dT/);
+      assert.ok(Number.isFinite(Date.parse(build.buildTime)),'Fecha de build inválida');
       if(process.env.GITHUB_SHA)
         assert.match(build.revision,/^[a-f0-9]{40}$/,'Build sin commit verificable');
       await page.keyboard.press('4');
