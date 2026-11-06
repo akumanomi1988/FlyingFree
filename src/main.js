@@ -413,7 +413,7 @@ function fly(date,dt,sun){
   bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
   floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
   state:action.state},dt);
- status.behaviour=action.state;status.flightSpeed=Math.round(action.speed);
+ status.behaviour=action.state;status.flightSpeed=Math.round(action.speed*3.6);
  status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
  status.landings=action.landings;status.feedings=action.feedings;
  status.floating=Boolean(action.floating);
@@ -486,7 +486,7 @@ function animate(now){
     const biomeName={ocean:'Mar',shore:'Costa',wetland:'Humedal',forest:'Bosque',
       meadow:'Pradera',highland:'Montaña',rock:'Cumbre'}[habitat.type]||habitat.type;
     $('scene-caption').textContent=biomeName;
-    $('phase').textContent=currentBird.name.toUpperCase()+' · '+status.behaviour.toUpperCase();
+    $('phase').textContent=currentBird.name.toUpperCase()+' · '+status.sensation.toUpperCase();
     $('bird-mood').textContent=status.sensation;
     $('bird-activity').textContent=Math.round(status.flightSpeed)+' km/h';
     $('bird-energy').value=status.energy;
