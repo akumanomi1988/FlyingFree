@@ -225,8 +225,8 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   const glidePulse=soaring&&!takingOff&&!feeding?
     Math.pow(Math.max(0,Math.sin(elapsed*.34+profile.id.length)),5):1;
   const wingPhase=elapsed*visibleHz*Math.PI*2+profile.id.length*.73;
-  const targetFlap=Math.sin(wingPhase)*(power+energy*.12)*
-    glidePulse*(takingOff?1.4:1);
+  const targetFlap=activity.state==='aerial_rest'?0:
+     Math.sin(wingPhase)*(power+energy*.12)*glidePulse*(takingOff?1.4:1);
   const response=flight==='hover'?.88:.43+.45*k;
   group.userData.flap+=(targetFlap-group.userData.flap)*response;
   const wingbeat=group.userData.flap*(1-fold);
@@ -259,6 +259,8 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   }
   group.rotation.z=bank+(activity.floating?clamp(activity.waterRoll??0,-.09,.09):
     resting?.008*Math.sin(elapsed*.94):0);
-  group.rotation.x=activity.floating?clamp(activity.waterPitch??0,-.09,.09):
-    resting?.012*Math.sin(elapsed*1.13):clamp(activity.pitch??0,-.34,.34);
+  // Feeding poses are visible; floating fishers do not peck at solid ground.
+  const forageBend=feeding&&grounded?.065+.065*Math.sin(elapsed*6.8):0;
+  group.rotation.x=(activity.floating?clamp(activity.waterPitch??0,-.09,.09):
+    resting?.012*Math.sin(elapsed*1.13):clamp(activity.pitch??0,-.34,.34))+forageBend;
 }
