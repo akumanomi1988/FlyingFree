@@ -167,3 +167,22 @@
 - **Aves acuáticas:** `src/oceanMotion.js` implementa en CPU las mismas cuatro funciones de ola que el shader, con interpolación sobre los triángulos físicos de `PlaneGeometry(17000,17000,190,190)`, evitando que la altura analítica no coincida con la malla GPU. `src/behaviour.js` hace flotar gaviotas y albatros durante el estado `rest`, corrige la aproximación a altura dinámica del agua y añade deriva suave y pitch/roll limitado a ±0.085 rad. El estado `floating=true,resting=true,grounded=false` diferencia flotar de posarse en tierra; `main.js` lo propaga a animación y telemetría.
 - **Validación:** 100 pruebas Node, 0 fallos, `npm run build` y 7/7 escenarios WebGL/Playwright, [Actions #42214762136](https://github.com/akumanomi1988/FlyingFree/actions/runs/42214762136). Nuevas regresiones `tests/restingCameraWater.test.js`: giro repentino de 160°, cruce ±π, cambio de especie, amortiguación de impulso vertical, alas plegadas de cinco especies, interpolación exacta GPU/CPU y flotación en replay de 15 minutos de gaviota y albatros. `tests/browser.mjs` verifica límite de cámara y estado de flotación.
 - **Pendiente:** no hay aceptación visual en televisor ni benchmark físico. Se mantiene el shader oceánico de cuatro olas y malla finita, no simulación de fluidos hidrodinámica. La garza es zancuda: no debe flotar; se representa vadeando humedal. Revisar mano/aleteo con contact sheets y secuencias de reposo. Comprobar `build-info.json` público para asegurar el despliegue del SHA correcto, sin confundir CI verde con producción publicada.
+
+
+## Sesión: encuadre móvil, descanso aéreo y contratos (2026-11-06)
+
+**Base:** `main@954c2048a184d1a8140cb1343870c4f282b9dbe1`. Trabajo en PR [#22](https://github.com/akumanomi1988/FlyingFree/pull/22); **rama pendiente de fusión** y parcialmente solapada con PR #21. No describir como integrado o publicado.
+
+**Fallo reproducido:** [Actions #42260524030](https://github.com/akumanomi1988/FlyingFree/actions/runs/42260524030) falló `05-mobile-selector` (390×844, `?h=8&bird=hummingbird&weather=fog&seed=1988`) por imagen WebGL casi monocromática (2 colores cuantizados). La proyección real después obtenida fue `x=-0.593, y=-1.271, depth=0.885, distance=3.17m` ([Actions #42296980817](https://github.com/akumanomi1988/FlyingFree/actions/runs/42296980817)): `y<-1` confirma protagonista fuera del encuadre vertical. No bajar umbrales para aprobar sin reparar.
+
+**Código desarrollado en esta rama:**
+- `src/cameraDirector.js`: seguimiento X/Z completo para evitar retraso acumulativo; movimiento vertical continuo sigue al sujeto y los impulsos bruscos se amortiguan. FOV vertical adaptable hasta 80° en pantallas estrechas.
+- `tests/cameraDirector.test.js`: regresiones proyectadas para colibrí a 15/30/60 FPS, incluidas trayectorias descendentes, conservando límites de giro y pruebas previas de suavizado vertical.
+- `src/behaviour.js`, `src/flight.js`, `src/birdEcology.js`: el vencejo agotado pasa a `aerial_rest` y recupera energía planeando sin posarse incluso con lluvia; alimentación terrestre con movimiento de postura.
+- `tests/aerialRecovery.test.js`: pruebas nuevas de reposo aéreo, animación sin aleteo, ausencia de aterrizaje y postura de alimentación.
+- `src/main.js` expone `status.framing` (coordenadas proyectadas NDC, distancia, FOV y alturas; ninguna coordenada de localización del visitante). `tests/browser.mjs` mantiene la aserción de diversidad visual y añade comprobación explícita de encuadre móvil.
+- `docs/ARCHITECTURE.md`, `docs/QUALITY_GATES.md`: contratos y validación. `README.md` corrige comandos; `ROADMAP.md` actualiza integración y bloqueo.
+
+**Validación verificada intermedia:** 116 pruebas Node superadas y build Vite correcto en Actions #42296780091; fallo WebGL móvil persistente antes de los últimos ajustes de cámara. La CI del **último HEAD** debe comprobarse otra vez. No hay benchmarking GPU físico ni evaluación perceptiva ni despliegue público acreditado por estos cambios.
+
+**Siguiente acción:** comprobar screenshot/telemetría móvil en el último SHA, solucionar cualquier fallo sin debilitar tests, comparar aportaciones únicas de PR21/22, fusionar solo con CI íntegra verde y SHA previsto, verificar Pages mediante `build-info.json`; después revisar audio y 4 minutos de documental.
