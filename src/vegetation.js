@@ -46,7 +46,7 @@ function shrubGeometry(THREE){
  for(const g of clusters)g.dispose();
  return result;
 }
-export function createGroundDetail(THREE,scene,quality=1,windField=null){
+export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=1988){
  const dummy=new THREE.Object3D();
  const spec=[
   {name:'grass',geo:grassBladeGeometry(THREE),color:0x80aa69,n:Math.round(2800*quality),kind:11},
@@ -71,11 +71,11 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null){
  const bugs=[],flowers=[];
  const scratch=new THREE.Vector3();
  function populate(item,cx,cz){
-  const rng=makeCellRandom(cx,cz,item.kind);
+  const rng=makeCellRandom(cx,cz,item.kind^seed);
   let count=0;
   for(let i=0;i<item.n*7&&count<item.n;i++){
    const x=cx+(rng()-.5)*350,z=cz+(rng()-.5)*350;
-   const h=habitatAt(x,z),density=foliageDensity(h,item.name);
+   const h=habitatAt(x,z,seed),density=foliageDensity(h,item.name);
    if(rng()>density)continue;
    const scale=(.55+rng()*1.55)*GROUND_DETAIL_SCALE[item.name];
    dummy.position.set(x,h.height+.025,z);
@@ -92,12 +92,12 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null){
   if(item.mesh.instanceColor)item.mesh.instanceColor.needsUpdate=true;
  }
  function populateInsects(cx,cz){
-  bugs.length=0;const rng=makeCellRandom(cx,cz,44);
+  bugs.length=0;const rng=makeCellRandom(cx,cz,44^seed);
   for(let i=0;i<nBugs;i++){
    const flower=flowers.length?flowers[Math.floor(rng()*flowers.length)]:null;
    const x=flower?flower.x+(rng()-.5)*1.5:cx+(rng()-.5)*280;
    const z=flower?flower.z+(rng()-.5)*1.5:cz+(rng()-.5)*280;
-   const biome=habitatAt(x,z);
+   const biome=habitatAt(x,z,seed);
    if(biome.type==='ocean'||biome.type==='rock')continue;
    bugs.push({x,z,y:flower?flower.y+.1+rng()*.35:biome.height+.25+rng()*.9,phase:rng()*6.283,speed:1+rng()*2.2});
   }
@@ -116,9 +116,9 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null){
  function update(t,camera,bird,day=1,rain=0,temperature=18){
   if(t-last<.24)return;
   last=t;
-  const birdAltitude=bird.y-terrainHeight(bird.x,bird.z);
+  const birdAltitude=bird.y-terrainHeight(bird.x,bird.z,seed);
   const focus=birdAltitude<120?bird:camera.position;
-  const altitude=focus.y-terrainHeight(focus.x,focus.z);
+  const altitude=focus.y-terrainHeight(focus.x,focus.z,seed);
   if(altitude>(active?190:135)){active=false;meshes.forEach(m=>m.mesh.visible=false);insects.visible=false;return;}
   const cx=Math.round(focus.x/140)*140,cz=Math.round(focus.z/140)*140;
   if(cx!==cellX||cz!==cellZ){

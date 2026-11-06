@@ -21,8 +21,8 @@ export function createSky(THREE,scene) {
       void main(){
         float y=clamp(vRay.y,-1.0,1.0);
         float zenith=smoothstep(-.12,.90,y);
-        vec3 nightZenith=vec3(.008,.024,.055);
-        vec3 nightHorizon=vec3(.035,.071,.104);
+        vec3 nightZenith=vec3(.025,.057,.095);
+        vec3 nightHorizon=vec3(.068,.111,.155);
         vec3 dayZenith=vec3(.17,.37,.57);
         vec3 dayHorizon=vec3(.64,.76,.73);
         vec3 c=mix(mix(nightHorizon,nightZenith,zenith),
@@ -33,6 +33,9 @@ export function createSky(THREE,scene) {
         float sunsetBand=exp(-pow((y-.06)*6.2,2.0));
         c=mix(c,vec3(.90,.45,.28),sunsetBand*golden*.53*(1.0-cloud*.45));
         c+=vec3(.93,.66,.39)*pow(towardSun,280.0)*day*.28;
+        float moonFacing=max(dot(normalize(vRay),-normalize(sunDirection)),0.0);
+        float moonGlow=pow(moonFacing,5.0)*(1.0-day)*(1.0-cloud*.65);
+        c+=vec3(.10,.16,.24)*moonGlow;
         float horizonLight=exp(-pow((y-.11)*5.5,2.0))*
           pow(max(dot(normalize(vRay.xz),normalize(sunDirection.xz)),0.0),3.0);
         c+=vec3(.68,.31,.16)*horizonLight*golden*.28;
@@ -101,8 +104,13 @@ export function createOcean(THREE,scene){
         float sunTrail=pow(max(dot(normalize(V.xz),normalize(L.xz)),0.0),20.0)
           *pow(1.0-abs(N.y-.94),2.0)*day;
         float coarse=sin(vPosition.x*.017+time*.7)*cos(vPosition.z*.019-time*.52)*.5+.5;
-        float shoreDistance=length(vec2(vPosition.x/1650.0,vPosition.z/1500.0));
-        float shoal=1.0-smoothstep(.92,1.24,shoreDistance);
+        float theta=atan(vPosition.z+110.0,vPosition.x-140.0);
+        float phase=0.5;
+        float edge=1.0+.13*sin(3.0*theta+phase)+.095*sin(5.0*theta-2.0*phase)
+          +.07*sin(9.0*theta+.4+phase);
+        float shoreDistance=length(vec2((vPosition.x-140.0)/4050.0,
+          (vPosition.z+110.0)/3200.0))/edge;
+        float shoal=1.0-smoothstep(.83,1.19,shoreDistance);
         vec3 deep=mix(vec3(.014,.045,.094),vec3(.016,.155,.204),day);
         vec3 turquoise=mix(vec3(.044,.135,.16),vec3(.12,.38,.36),day);
         vec3 color=mix(deep,turquoise,shoal*.55);
@@ -111,7 +119,7 @@ export function createOcean(THREE,scene){
         color+=mix(vec3(.65,.76,.81),vec3(1.0,.78,.46),.65)*
           (sparkle*.84+sunTrail*.11);
         float crest=smoothstep(3.6,5.9,abs(vWave));
-        float coast=1.0-smoothstep(.025,.11,abs(shoreDistance-.99));
+        float coast=1.0-smoothstep(.012,.080,abs(shoreDistance-1.04));
         float foam=clamp(coast*(.21+.22*coarse)+crest*storm*.23,0.0,.67);
         color=mix(color,vec3(.77,.88,.82),foam);
         float dist=length(cameraPosition-vPosition);

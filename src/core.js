@@ -1,4 +1,5 @@
 // Pure deterministic world/time functions: no browser or renderer dependencies.
+import {tropicalTerrainHeight} from './tropicalTerrain.js';
 export const TAU = Math.PI*2;
 export const clamp = (v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 export const lerp = (a,b,t)=>a+(b-a)*t;
@@ -7,14 +8,7 @@ export function random(seed){let state=(seed|0)||1;return ()=>{state^=state<<13;
 function hash(x,z,seed=1988){let n=Math.imul(x,374761393)+Math.imul(z,668265263)+Math.imul(seed,1442695041);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295}
 export function noise(x,z,seed=1988){const a=Math.floor(x),b=Math.floor(z),u=smooth(0,1,x-a),v=smooth(0,1,z-b);return lerp(lerp(hash(a,b,seed),hash(a+1,b,seed),u),lerp(hash(a,b+1,seed),hash(a+1,b+1,seed),u),v)*2-1}
 export function fbm(x,z,seed=1988){let f=1,a=.5,n=0;for(let i=0;i<5;i++){n+=noise(x*f,z*f,seed)*a;f*=2.06;a*=.5}return n}
-export function terrainHeight(x,z,seed=1988){
-  const radius=Math.hypot(x/1650,z/1500);
-  const outline=1+fbm(x*.0019+7,z*.0019-9,seed)*.15;
-  const shore=1-smooth(.67,1.045,radius/outline);
-  const ridge=Math.pow(clamp(1-radius/1.09),1.8)*214;
-  const hills=67+fbm(x*.0017+4,z*.0017+15,seed)*71+Math.abs(fbm(x*.004,z*.004,seed))*42;
-  return -32+Math.max(0,shore)*(ridge+hills);
-}
+export function terrainHeight(x,z,seed=1988){return tropicalTerrainHeight(x,z,seed);}
 export const BIRDS=[
  {id:'kestrel',name:'Cernícalo',color:0xc6a075,wings:1.04,alt:205,radius:380,speed:1,flight:'hover',flapRate:5.4,wingspan:0.75,habitat:'Laderas y praderas',detail:'Vigila el terreno y se mantiene suspendido ante posibles presas.'},
  {id:'hummingbird',name:'Colibrí',color:0x3cb9a0,wings:.42,alt:64,radius:138,speed:2.0,flight:'hover',flapRate:18,wingspan:0.11,habitat:'Flores del bosque',detail:'Cernido rápido, maniobras cortas y búsqueda de néctar.'},
@@ -67,5 +61,8 @@ export function readOptions(search){
  const p=new URLSearchParams(search);
  const h=Number(p.get('h'));const bird=BIRDS.find(b=>b.id===p.get('bird'));const weather=WEATHER.find(w=>w.id===p.get('weather'));
  const phase=['dawn','noon','sunset','night'].includes(p.get('phase'))?p.get('phase'):null;
- return {phase,tv:p.get('tv')==='1'||p.get('screensaver')==='1',hour:p.has('h')&&Number.isFinite(h)&&h>=0&&h<24?h:null,bird,weather,broadcast:p.get('broadcast')==='1',selftest:p.get('selftest')==='1'};
+ const seedText=p.get('seed');
+ const seed=seedText!==null&&/^[0-9]{1,10}$/.test(seedText)&&
+   Number(seedText)>=1&&Number(seedText)<=2147483647?Number(seedText):null;
+ return {seed,phase,tv:p.get('tv')==='1'||p.get('screensaver')==='1',hour:p.has('h')&&Number.isFinite(h)&&h>=0&&h<24?h:null,bird,weather,broadcast:p.get('broadcast')==='1',selftest:p.get('selftest')==='1'};
 }
