@@ -22,7 +22,7 @@ import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,loc
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
-let renderer,scene,camera,sunLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
+let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cameraDirector;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
@@ -44,7 +44,7 @@ let weatherState={cloud:currentWeather.cloud,rain:currentWeather.rain,fog:curren
 const sound=new Soundscape();
 const canvasParent=$('viewport');
 const temp=new THREE.Object3D();
-const skyDay=new THREE.Color('#78b2c7'),skyEvening=new THREE.Color('#c48c75'),skyNight=new THREE.Color('#081320');
+const skyDay=new THREE.Color('#78b2c7'),skyEvening=new THREE.Color('#c48c75'),skyNight=new THREE.Color('#142c46');
 const waterDay=new THREE.Color('#286e7c'),waterNight=new THREE.Color('#102d47');
 const createMaterial=(color,roughness=1)=>new THREE.MeshStandardMaterial({color,roughness,flatShading:true});
 
@@ -65,6 +65,7 @@ function init(){
   camera.position.set(250,450,820);
   hemi=new THREE.HemisphereLight(0xd7efff,0x394337,1.7);scene.add(hemi);
   sunLight=new THREE.DirectionalLight('#ffead0',2.5);sunLight.position.set(500,950,-350);scene.add(sunLight);
+  moonLight=new THREE.DirectionalLight(0x85b1dd,.65);scene.add(moonLight);
   const glowCanvas=document.createElement('canvas');glowCanvas.width=glowCanvas.height=128;
   const glowCtx=glowCanvas.getContext('2d');
   const glow=glowCtx.createRadialGradient(64,64,3,64,64,64);
@@ -300,12 +301,12 @@ function createClouds(){
 }
 function createStars(){
   const rand=random(773),pts=[];
-  for(let i=0;i<1800;i++){
+  for(let i=0;i<2500;i++){
     const u=rand()*TAU,v=rand()*Math.PI*.48;
     const r=7900;pts.push(Math.sin(u)*Math.cos(v)*r,Math.sin(v)*r+370,Math.cos(u)*Math.cos(v)*r);
   }
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
-  starMat=new THREE.PointsMaterial({color:0xebf0f1,size:2.5,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false,fog:false});
+  starMat=new THREE.PointsMaterial({color:0xebf0f1,size:3.1,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false,fog:false});
   stars=new THREE.Points(g,starMat);scene.add(stars);
 }
 function createBird(){
@@ -354,7 +355,9 @@ function ambient(date,dt){
   scene.fog.density=.00008+weatherState.fog*.00036+cloud*.000038;
   renderer.toneMappingExposure=1.14+day*.28;
   sunLight.intensity=Math.max(0,.68+day*(2.30-cloud*1.35)+lightning);
-  hemi.intensity=.87+day*(1.45-cloud*.50)+lightning*.2;
+  hemi.intensity=1.05+day*(1.27-cloud*.50)+lightning*.2;
+  moonLight.intensity=(1-day)*(.65-cloud*.30);
+  moonLight.position.set(-Math.sin(sun.azimuth)*2000,Math.max(350,-Math.sin(alt)*2000),Math.cos(sun.azimuth)*2000);
   const warm=sun.golden*day;
   sunLight.color.setRGB(.69+day*.31,.77+day*.16-warm*.18,.89+day*.03-warm*.33);
   const sunVec=new THREE.Vector3(Math.sin(sun.azimuth)*Math.cos(alt),Math.sin(alt),-Math.cos(sun.azimuth)*Math.cos(alt));
