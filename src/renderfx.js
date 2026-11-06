@@ -21,8 +21,8 @@ export function createSky(THREE,scene) {
       void main(){
         float y=clamp(vRay.y,-1.0,1.0);
         float zenith=smoothstep(-.12,.90,y);
-        vec3 nightZenith=vec3(.008,.024,.055);
-        vec3 nightHorizon=vec3(.035,.071,.104);
+        vec3 nightZenith=vec3(.025,.057,.095);
+        vec3 nightHorizon=vec3(.068,.111,.155);
         vec3 dayZenith=vec3(.17,.37,.57);
         vec3 dayHorizon=vec3(.64,.76,.73);
         vec3 c=mix(mix(nightHorizon,nightZenith,zenith),
@@ -33,6 +33,9 @@ export function createSky(THREE,scene) {
         float sunsetBand=exp(-pow((y-.06)*6.2,2.0));
         c=mix(c,vec3(.90,.45,.28),sunsetBand*golden*.53*(1.0-cloud*.45));
         c+=vec3(.93,.66,.39)*pow(towardSun,280.0)*day*.28;
+        float moonFacing=max(dot(normalize(vRay),-normalize(sunDirection)),0.0);
+        float moonGlow=pow(moonFacing,5.0)*(1.0-day)*(1.0-cloud*.65);
+        c+=vec3(.10,.16,.24)*moonGlow;
         float horizonLight=exp(-pow((y-.11)*5.5,2.0))*
           pow(max(dot(normalize(vRay.xz),normalize(sunDirection.xz)),0.0),3.0);
         c+=vec3(.68,.31,.16)*horizonLight*golden*.28;
