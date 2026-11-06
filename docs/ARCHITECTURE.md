@@ -1,0 +1,47 @@
+# VUELO — Arquitectura de la simulación (estado 2026-11-06)
+
+## Objetivo
+
+Un simulador audiovisual **autónomo** de naturaleza estilizada en el navegador. Three.js se ocupa del render; los agentes toman decisiones por reglas y necesidades sin servicios LLM ni backend por individuo. La pantalla funciona en modo observación o TV; los controles son opcionales.
+
+## Módulos existentes
+
+| Responsabilidad | Módulos | Contrato vigente / deuda |
+| --- | --- | --- |
+| Orquestación, reloj, UI y estado | `src/main.js`, `src/localTime.js`, `index.html` | `main.js` centraliza demasiadas responsabilidades; extraer por etapas, manteniendo diagnóstico público |
+| Geografía y hábitat | `src/tropicalTerrain.js`, `src/core.js`, `src/ecology.js` | Compartir semilla y función de altura entre malla, IA, agua y colisiones. Terreno sigue siendo una única malla de 250×250 celdas |
+| Agua y relieve costero | `src/renderfx.js`, `src/oceanMotion.js`, `src/coastalBathymetry.js`, `src/tropicalRivers.js`, `src/coastalCliffs.js` | Espuma/costa derivadas del relieve sembrado; shader y flotación CPU han de seguir sincronizados |
+| Agentes de aves | `src/behaviour.js`, `src/birdEcology.js`, `src/flight.js`, `src/speciesAppearance.js` | Agente determinista con hambre, energía y rutas. Reglas por arquetipo, no zoología exacta. El HUD no gobierna la IA |
+| Fauna secundaria | `src/ecosystem.js`, `src/faunaLOD.js`, `src/faunaLegRig.js` | Animaciones y LOD; aún faltan relaciones persistentes y consumos reales de recursos |
+| Cámara documental | `src/cameraDirector.js` | Planes basados en eventos + continuidad angular, sujeto visible y despeje del terreno; medir encuadre y oclusiones |
+| Vegetación y detalle | `src/vegetation.js`, `src/treeDetail.js`, `src/worldMotion.js` | Instancing y material de viento. Evitar sobrecoste de transparencias y pop-in de detalle |
+| Audio, clima y meteorología | `src/audio.js`, `src/musicDirector.js`, `src/localClimate.js` | El sonido se activa tras gesto, ubicación opcional; proveedor sujeto a licencia comercial |
+| QA | `tests/*.test.js`, `tests/browser.mjs`, `scripts/audit-*.mjs` | Node + Vite + WebGL, habitats y hojas de contacto; sin equivalencia a validación perceptiva |
+
+## Reglas de diseño para la próxima iteración
+
+**Determinismo por semilla.** El modo normal puede usar una nueva semilla por sesión; `?seed=1988` obliga a repetir topografía, navegación y fauna. Se registra la semilla en el diagnóstico. No se elige la semilla que pase un test: se repara la cámara o el mundo para que pasen las semillas problemáticas.
+
+**Timestep.** La actualización actual limita `dt` a 100 ms para amortiguar pausas del navegador. No es todavía un motor de timestep fijo con acumulador; antes de introducirlo deben verificarse invariancia a 15/30/60/120 Hz y colisiones/animaciones, sin romper relojes y meteorología real.
+
+**Rendimiento.** Mantener `InstancedMesh`, geometrías/materiales compartidos, detalle según relevancia y controles de resolución con recuperación. Antes de más teselación, medir impacto real P95/P99 y memoria de GPU. Una malla enorme permanente no equivale a streaming.
+
+**Agentes.** Preferir reglas locales de utilidad, recursos y estado; no un LLM por animal. La complejidad ecológica debe manifestarse como eventos que una cámara pueda mostrar. Introducir alimentación persistente/presas antes de añadir más especies.
+
+**Cámara.** Separar traslación del sujeto (seguir XY horizontal sin retraso acumulativo), correcciones verticales, orientación y selección de planos. No usar saltos arbitrarios ni sustituir problemas de visibilidad por borrar una aserción. El indicador `window.__FLYINGFREE_STATUS__.framing` permite comprobar proyección efectiva del protagonista.
+
+**Privacidad y operación.** La geolocalización requiere acción explícita y no aparece en pantalla; el clima simulado debe identificarse. GitHub Pages no ejecuta OBS ni supervisores; una futura emisión 24/7 requiere proceso externo y ensayo de resiliencia.
+
+## Vertical slice recomendado
+
+Una secuencia de cuatro minutos sin intervención: colibrí en sotobosque → costa/río con martín pescador → planeo sobre cordillera → fauna visible con desenlace de interacción. Debe funcionar con semilla fija antes de ampliar catálogo. Evaluar con contacto visual y audio real. La secuencia es un criterio futuro, **no contenido ya implementado**.
+
+## Riesgos técnicos conocidos
+
+1. La malla de terreno usa 250 segmentos por eje: la altura analítica puede diferir de la triangulación visible local, generando contacto/oclusión falsos. Antes de chunks, considerar muestreo de altura de malla interpolada donde deba existir colisión exacta.
+2. Las ramas de PR #21 y #22 modifican simultáneamente comportamiento, HUD, terreno y sonido. No fusionar ambas a ciegas; rescatar cambios únicos con tests y marcar lo obsoleto.
+3. El selector cambia el sujeto y reinicia su estado/posición: es una decisión de producto distinta de seguir al mismo individuo; se comunica como cambio de protagonista.
+4. El catálogo mezcla aves que no constituyen una comunidad tropical biogeográficamente coherente. Tratarlo como catálogo de arquetipos hasta fijar una región y especies compatibles.
+5. Los FPS de GitHub Actions con SwiftShader no demuestran rendimiento en hardware físico; las pruebas TV aún no están certificadas.
+
+Este documento explica el estado actual y sus límites; la fuente de verdad para integrar cambios es la CI del último commit, no una descripción aspiracional.
