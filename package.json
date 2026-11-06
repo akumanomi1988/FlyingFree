@@ -10,7 +10,8 @@
     "test": "node --test tests/*.test.js",
     "check": "npm run test && npm run build",
     "test:browser": "node tests/browser.mjs",
-    "audit:habitats": "node scripts/audit-habitats.mjs"
+    "audit:habitats": "node scripts/audit-habitats.mjs",
+    "audit:visual": "node scripts/capture-birds.mjs"
   },
   "dependencies": {
     "three": "0.180.0"
