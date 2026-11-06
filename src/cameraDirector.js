@@ -117,12 +117,17 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
         // Keep horizontal travel in lockstep but reject the high-frequency
         // vertical impulse of landing or ocean buoyancy. Relative position
         // easing below catches up smoothly without losing the animal.
+        // Ordinary continuous climbs/descents are real subject travel; do
+        // not convert them into permanent lag (especially at 1–3 m camera
+        // distance for small birds). Only damp discontinuous vertical jumps.
+        const smoothVertical=Math.abs(birdMotion.y)<=Math.max(.5,30*delta);
+        const verticalRide=smoothVertical?1:.55;
         camera.position.x+=birdMotion.x;
         camera.position.z+=birdMotion.z;
-        camera.position.y+=birdMotion.y*.55;
+        camera.position.y+=birdMotion.y*verticalRide;
         smoothedTarget.x+=birdMotion.x;
         smoothedTarget.z+=birdMotion.z;
-        smoothedTarget.y+=birdMotion.y*.55;
+        smoothedTarget.y+=birdMotion.y*verticalRide;
       }else{
         smoothedTarget.copy(bird);
       }
