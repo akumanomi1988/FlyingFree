@@ -20,5 +20,5 @@ export function astronomicalPhase(date,phase,lat,lon){
  }
  return phase==='dawn'?7:18.5;
 }
-export function localTimeLabel(date){return new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date)}
-export function localDateLabel(date){return new Intl.DateTimeFormat(undefined,{weekday:'long',day:'numeric',month:'long'}).format(date)}
+export function localTimeLabel(date,timeZone){return new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit',hourCycle:'h23',...(timeZone?{timeZone}:{})}).format(date)}
+export function localDateLabel(date,timeZone){return new Intl.DateTimeFormat(undefined,{weekday:'long',day:'numeric',month:'long',...(timeZone?{timeZone}:{})}).format(date)}

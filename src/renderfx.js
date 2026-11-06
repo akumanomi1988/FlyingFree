@@ -1,6 +1,7 @@
 import { random, clamp } from './core.js';
 import {createCoastHeightData,COAST_HEIGHT_MIN,COAST_HEIGHT_MAX} from './coastalBathymetry.js';
 import {TROPICAL_WORLD} from './tropicalTerrain.js';
+import {OCEAN_PLANE_SIZE,OCEAN_SEGMENTS} from './oceanMotion.js';
 
 export function createSky(THREE,scene) {
   const uniforms={
@@ -84,10 +85,10 @@ export function createOcean(THREE,scene,seed=1988){
       varying vec3 vPosition,vNormal;
       varying float vWave;
       float h(vec2 p){
-        return sin(p.x*.011+time*.61)*2.0
-         +sin(p.y*.008-time*.50)*1.8
-         +sin((p.x+p.y)*.019+time*1.07)*(1.1+storm*1.0)
-         +sin(p.x*.027-p.y*.016+time*.81)*.45;
+        return sin(p.x*.011+time*.61)*3.0
+         +sin(p.y*.008-time*.50)*2.6
+         +sin((p.x+p.y)*.019+time*1.07)*(1.7+storm*2.1)
+         +sin(p.x*.027-p.y*.016+time*.81)*.80;
       }
       void main(){
         vec3 p=position;
@@ -146,8 +147,21 @@ export function createOcean(THREE,scene,seed=1988){
         color=mix(color,skyColor,fresnel*.47);
         color+=mix(vec3(.65,.76,.81),vec3(1.0,.78,.46),.65)*
           (sparkle*.84+sunTrail*.11);
-        float crest=smoothstep(3.6,5.9,abs(vWave));
-        float foam=clamp(nearShore*(.19+.25*coarse)+crest*storm*.23,0.0,.67);
+        // Breakers along shallow reefs and directly below abrupt rock
+        // coastlines. Sample neighboring terrain elevations from the same
+        // heightmap to distinguish cliff surf from calm open-water swell.
+        vec2 deltaUv=vec2(26.0/coastExtent,0.0);
+        float cliffHeight=max(
+          max(texture2D(coastHeightmap,clamp(coastUv+deltaUv,vec2(.001),vec2(.999))).r,
+              texture2D(coastHeightmap,clamp(coastUv-deltaUv,vec2(.001),vec2(.999))).r),
+          max(texture2D(coastHeightmap,clamp(coastUv+deltaUv.yx,vec2(.001),vec2(.999))).r,
+              texture2D(coastHeightmap,clamp(coastUv-deltaUv.yx,vec2(.001),vec2(.999))).r));
+        float cliffFace=smoothstep(22.0,68.0,
+          mix(coastHeightRange.x,coastHeightRange.y,cliffHeight)-terrainHeight);
+        float breakers=cliffFace*(1.0-smoothstep(10.0,42.0,depth))*
+          (.38+.62*pow(sin(time*1.4+vPosition.x*.07+vPosition.z*.09)*.5+.5,2.0));
+        float crest=smoothstep(4.0,7.0,abs(vWave));
+        float foam=clamp(nearShore*(.24+.34*coarse)+breakers*.58+crest*(.10+storm*.37),0.0,.77);
         color=mix(color,vec3(.77,.88,.82),foam);
         float dist=length(cameraPosition-vPosition);
         float fog=1.0-exp(-fogDensity*fogDensity*dist*dist);
@@ -155,7 +169,7 @@ export function createOcean(THREE,scene,seed=1988){
         gl_FragColor=vec4(color,1.0);
       }`
   });
-  const g=new THREE.PlaneGeometry(17000,17000,190,190);g.rotateX(-Math.PI/2);
+  const g=new THREE.PlaneGeometry(OCEAN_PLANE_SIZE,OCEAN_PLANE_SIZE,OCEAN_SEGMENTS,OCEAN_SEGMENTS);g.rotateX(-Math.PI/2);
   const water=new THREE.Mesh(g,material);water.position.y=-9;water.renderOrder=1;
   scene.add(water);
   return {mesh:water,uniforms,bathymetry:{seed,resolution:heightmap.size,extent:heightmap.extent},

@@ -5,13 +5,13 @@
 // rendered triangles, making floating birds appear submerged.
 export const OCEAN_BASE_HEIGHT=-9;
 export const OCEAN_PLANE_SIZE=17000;
-export const OCEAN_SEGMENTS=190;
+export const OCEAN_SEGMENTS=270;
 
 export function oceanWave(x,z,time,storm=0){
-  return Math.sin(x*.011+time*.61)*2.0
-    +Math.sin(z*.008-time*.50)*1.8
-    +Math.sin((x+z)*.019+time*1.07)*(1.1+storm*1.0)
-    +Math.sin(x*.027-z*.016+time*.81)*.45;
+  return Math.sin(x*.011+time*.61)*3.0
+    +Math.sin(z*.008-time*.50)*2.6
+    +Math.sin((x+z)*.019+time*1.07)*(1.7+storm*2.1)
+    +Math.sin(x*.027-z*.016+time*.81)*.80;
 }
 
 // Triangle interpolation follows PlaneGeometry's a-b-d / b-c-d indexing

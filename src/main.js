@@ -13,8 +13,11 @@ import {createAdaptiveResolution} from './adaptiveResolution.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {createHabitatMonitor} from './habitatMonitor.js';
+import {createBirdHud} from './hudStatus.js';
+import {BIRD_ETHOLOGY,birdStatus} from './speciesEthology.js';
 import {tropicalTerrainSample,tropicalLandscapeSeed,TROPICAL_WORLD} from './tropicalTerrain.js';
 import {createTropicalRivers} from './tropicalRivers.js';
+import {createCoastalCliffs} from './coastalCliffs.js';
 import {createCameraDirector} from './cameraDirector.js';
 import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
 import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from './localClimate.js';
@@ -24,7 +27,7 @@ const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
-let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cameraDirector;
+let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
@@ -34,8 +37,17 @@ let timeOverride=opts.hour!=null||Boolean(opts.phase);
 let weatherOverride=Boolean(opts.weather);
 let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
  opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
-const worldSeed=opts.seed??tropicalLandscapeSeed(new Date(simMs));
+// Normal sessions create a different geography. Explicit ?seed= and CI
+// selftest preserve reproducibility for QA and sharing.
+const sessionRandomSeed=()=>{
+ const values=new Uint32Array(1);
+ if(globalThis.crypto?.getRandomValues)crypto.getRandomValues(values);
+ else values[0]=Math.floor(Math.random()*2147483646)+1;
+ return 1+(values[0]%2147483646);
+};
+const worldSeed=opts.seed??(opts.selftest?1988:sessionRandomSeed());
 const habitatMonitor=createHabitatMonitor(worldSeed);
+const birdHud=createBirdHud(document,worldSeed);
 let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
@@ -98,11 +110,11 @@ function init(){
   camera.lookAt(cameraLook);
   ecosystem=createEcosystem(THREE,scene,worldSeed,innerWidth<720?.65:1);
   groundDetail=createGroundDetail(THREE,scene,innerWidth<720?.5:1,windField,worldSeed);
-  atmospherics=createAtmospherics(THREE,scene,innerWidth<720?.56:1);
+  atmospherics=createAtmospherics(THREE,scene,innerWidth<720?.56:1,worldSeed);
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
-  status.world={seed:worldSeed,extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments,
+  status.world={seed:worldSeed,regeneration:opts.seed!=null?'fixed':opts.selftest?'test':'session',extent:TROPICAL_WORLD.extent,cliffStacks:cliffs.count,riverChannels:rivers.channels,riverSegments:rivers.segments,
     coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution};
   status.faunaLOD=ecosystem.lodStats;
   status.habitatUse=habitatMonitor.snapshot();
@@ -152,6 +164,7 @@ function createLandscape(){
   scene.add(terrain);
   oceanFX=createOcean(THREE,scene,worldSeed);water=oceanFX.mesh;
   rivers=createTropicalRivers(THREE,scene,worldSeed);
+  cliffs=createCoastalCliffs(THREE,scene,worldSeed);
 }
 function createForest(){
   const rng=random(worldSeed);
@@ -315,8 +328,8 @@ function createStars(){
   stars=new THREE.Points(g,starMat);scene.add(stars);
 }
 function createBird(){
-  const previousState=birdBrain?.snapshot;
-  const previousPosition=birdModel?.position.clone();
+  // Every bird is introduced in its own habitat, not teleported into the
+  // previous species' location (e.g. colibri above offshore water).
   if(birdModel){
     scene.remove(birdModel);
     // Repeated species changes must not leak GPU buffers and materials.
@@ -329,10 +342,19 @@ function createBird(){
     for(const geo of geometries)geo.dispose();
     for(const mat of materials)mat.dispose();
   }
-  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,worldSeed,previousState);
+  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,worldSeed);
   habitatMonitor.reset(currentBird.id);
   cameraDirector?.reset();
-  if(previousPosition)birdModel.position.copy(previousPosition);
+  const spawn=birdBrain.snapshot;
+  birdModel.position.set(spawn.x,spawn.y,spawn.z);
+  if(cameraDirector){
+    // An explicitly selected subject can be kilometres away. Cut to its own
+    // environment rather than travelling the entire island in chase mode.
+    camera.position.set(spawn.x+currentBird.wingspan*2,
+      spawn.y+Math.max(8,currentBird.wingspan*3),
+      spawn.z+Math.max(8,currentBird.wingspan*5));
+    cameraDirector.reset();
+  }
   scene.add(birdModel);
   status.bird=currentBird.id;
   status.birdDrawCallsSaved=birdModel.userData.plumageDrawCallsSaved;
@@ -403,6 +425,9 @@ function fly(date,dt,sun){
   state:action.state},dt);
  status.behaviour=action.state;status.flightSpeed=Math.round(action.speed);
  status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
+ status.physiology=birdStatus(action.energy,action.hunger,action.state,weatherState.rain);
+ status.position={x:Math.round(action.x),z:Math.round(action.z),height:Math.round(action.y)};
+ status.ethology=BIRD_ETHOLOGY[currentBird.id];
  status.landings=action.landings;status.feedings=action.feedings;
  status.floating=Boolean(action.floating);
  const occupancy=habitatMonitor.observe(elapsed,currentBird.id,action.x,action.z,action.state);
@@ -462,13 +487,16 @@ function animate(now){
     status.fps=Math.round(renderFrames/measuredSeconds);
     $('fps').textContent=status.fps+' FPS';renderFrames=0;fpsTimer=0;
     const hour=localHour(date);
-    $('clock').textContent=localTimeLabel(date);
+    $('clock').textContent=localTimeLabel(date,climate.weather?.timezone);
     $('bird-name').textContent=currentBird.name;
     $('weather-name').textContent=currentWeather.name;
     $('season-name').textContent=seasonLocal(date);
     $('speed-name').textContent='×'+speed;
-    $('scene-caption').textContent=sun.night?'Un cielo lleno de caminos':hour<9?'La primera luz sobre el agua':hour>=18?'La calma del atardecer':'Cada instante es irrepetible';
-    $('phase').textContent=sun.night?'EL MUNDO BAJA EL RITMO':currentBird.name.toUpperCase()+' EN LIBERTAD';
+    $('scene-caption').textContent=currentBird.habitat;
+    $('phase').textContent='SEMILLA '+worldSeed;
+    birdHud.update({energy:status.energy,hunger:status.hunger,state:status.behaviour,
+      x:birdModel.position.x,z:birdModel.position.z,
+      heading:birdModel.rotation.y,rain:weatherState.rain});
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
@@ -479,6 +507,7 @@ function animate(now){
     status.motion={wind:+windField.strength.toFixed(2),windMaterials:windField.materials,
       clouds:clouds.length,articulatedAnimals:ecosystem.actors.length,motes:atmospherics.activeCount};
     status.sunAccurate=Boolean(solarCoordinates.accurate);
+    status.timezone=climate.weather?.timezone??Intl.DateTimeFormat().resolvedOptions().timeZone;
     status.timeMode=timeOverride?'simulated':'live';
     updateWeatherUI(date);
     const quality=adaptiveResolution.observe({
@@ -589,8 +618,8 @@ function updateWeatherUI(date){
  $('weather-source').textContent=source;
  $('temperature').textContent=temperature;
  $('wind').textContent=wind;
- $('tv-date').textContent=localDateLabel(date);
- $('tv-clock').textContent=localTimeLabel(date);
+ $('tv-date').textContent=localDateLabel(date,observed?.timezone);
+ $('tv-clock').textContent=localTimeLabel(date,observed?.timezone);
  $('tv-temp').textContent=temperature;
  $('tv-weather').textContent=currentWeather.name.toUpperCase();
  $('tv-wind').textContent='VIENTO '+wind;
@@ -636,6 +665,11 @@ function bindUI(){
  $('tv-audio').addEventListener('click',audioToggle);
  $('photo-btn').addEventListener('click',png);
  $('tv-btn').addEventListener('click',()=>setTVMode(!tvActive));
+ $('info-btn').addEventListener('click',()=>{
+   const hidden=document.body.classList.toggle('hide-information');
+   $('info-btn').classList.toggle('active',!hidden);
+   $('info-btn').setAttribute('aria-pressed',String(!hidden));
+ });
  $('tv-exit').addEventListener('click',()=>setTVMode(false));
  $('weather-btn').addEventListener('click',()=>void connectClimate(false));
  $('tv-consent').addEventListener('click',()=>void connectClimate(false));
@@ -656,7 +690,7 @@ function bindUI(){
  window.addEventListener('keydown',(event)=>{
   if(event.ctrlKey||event.altKey||event.metaKey)return;
   const key=event.key.toLowerCase();
-  if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','t','r','escape'].includes(key))event.preventDefault();
+  if([' ','1','2','3','4','5','6','7','8','h','i','f','p','m','b','t','r','escape'].includes(key))event.preventDefault();
   revealTVControls();
   switch(key){
    case '1':setHour(astronomicalPhase(new Date(simMs),'dawn',solarCoordinates.latitude,solarCoordinates.longitude));break;
@@ -670,6 +704,7 @@ function bindUI(){
    case 'r':timeOverride=false;weatherOverride=false;speed=1;simMs=Date.now();if(climate.weather)currentWeather=climate.weather.descriptor;break;
    case ' ':flapBoost=1;break;
    case 'h':document.body.classList.toggle('no-ui');break;
+   case 'i':$('info-btn').click();break;
    case 't':setTVMode(!tvActive);break;
    case 'f':if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();break;
    case 'p':png();break;

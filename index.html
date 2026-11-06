@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#081b21">
 <meta name="description" content="VUELO: una isla, un ave, música generativa y el transcurso de las horas. Todo creado en tu navegador.">
-<title>VUELO — Un mundo para quedarse</title>
+<title>VUELO — Simulación de naturaleza</title>
 <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
@@ -13,11 +13,11 @@
   <div id="viewport" aria-label="Paisaje tridimensional procedural"></div>
   <div class="shade" aria-hidden="true"></div>
   <div class="grain" aria-hidden="true"></div>
-  <header class="brand"><span class="brand-mark">◈</span><span>VUELO</span><small>UN MUNDO PARA QUEDARSE</small></header>
+  <header class="brand"><span class="brand-mark">◈</span><span>VUELO</span></header>
   <section class="hud" id="hud">
-    <div class="eyebrow">EN ESTE MOMENTO</div>
+    <div class="eyebrow">CONDICIONES</div>
     <div class="clock" id="clock">--:--</div>
-    <div class="caption" id="scene-caption">Un mundo en movimiento</div>
+    <div class="caption" id="scene-caption"></div>
     <div class="line"></div>
     <div class="stat"><span>AVE</span><strong id="bird-name">—</strong></div>
     <div class="stat"><span>CLIMA</span><strong id="weather-name">—</strong></div>
@@ -25,10 +25,18 @@
     <div class="stat"><span>VIENTO</span><strong id="wind">-- km/h</strong></div>
     <div class="weather-source" id="weather-source" aria-live="polite">Clima generado · Activa el clima local</div>
     <div class="stat"><span>ESTACIÓN</span><strong id="season-name">—</strong></div>
-    <div class="stat"><span>FAUNA</span><strong>ISLA VIVA</strong></div>
+    <section id="bird-vitals" class="bird-vitals" aria-label="Estado del ave">
+      <div class="stat"><span>ACTIVIDAD</span><strong id="bird-state">—</strong></div>
+      <div class="stat"><span>CONDICIÓN</span><strong id="bird-condition">—</strong></div>
+      <div class="vital-label"><span>ENERGÍA</span></div>
+      <div class="vital-track" role="progressbar" aria-label="Energía del ave" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="bird-stamina"></i></div>
+      <div class="vital-label"><span>HAMBRE</span></div>
+      <div class="vital-track hunger" role="progressbar" aria-label="Hambre del ave" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="bird-hunger"></i></div>
+    </section>
     <div class="stat"><span>TIEMPO</span><strong id="speed-name">×1</strong></div>
   </section>
   <div class="right-tools" id="tools">
+    <button class="circle" id="info-btn" aria-label="Mostrar u ocultar información y minimapa" aria-pressed="true" title="Información (I)">◎</button>
     <button class="circle" id="tv-btn" aria-label="Activar modo salvapantallas de TV" title="Modo TV (T)">▣</button>
     <button class="circle" id="weather-btn" aria-label="Activar meteorología local" title="Permitir clima local (sin mostrar ubicación)">☁</button>
     <button class="circle" id="bird-btn" aria-label="Seleccionar ave" title="Aves (B)">♢</button>
@@ -37,12 +45,16 @@
     <button class="circle" id="help-btn" aria-label="Mostrar los controles" title="Ayuda">?</button>
   </div>
   <aside class="bird-picker hidden" id="bird-picker" role="dialog" aria-label="Elegir ave">
-    <div class="picker-header"><div><div class="eyebrow">ELIGE TU COMPAÑERO</div><h2>EL CIELO ES TUYO</h2></div><button id="close-birds" class="dismiss" aria-label="Cerrar selector">×</button></div>
-    <p class="picker-intro">Cada especie tiene su vuelo, su hábitat y su forma de recorrer la isla. Puedes cambiar en cualquier momento.</p>
+    <div class="picker-header"><div><div class="eyebrow">ESPECIES</div><h2>Seleccionar ave</h2></div><button id="close-birds" class="dismiss" aria-label="Cerrar selector">×</button></div>
+    <p class="picker-intro">La cámara seguirá al ave desde su hábitat.</p>
     <div id="bird-options" class="species-grid"></div>
     <div class="picker-detail"><span id="species-total">12 ESPECIES</span><strong id="bird-habitat"></strong><p id="bird-description"></p></div>
   </aside>
-  <footer class="bottom" id="bottom"><span id="phase">OBSERVA. RESPIRA. VUELA.</span><span>MUNDO PROCEDURAL · <span id="fps">-- FPS</span> · <a class="roadmap-link" href="./roadmap/" target="_blank" rel="noopener noreferrer">ROADMAP ↗</a></span></footer>
+  <aside id="minimap-panel" class="minimap-panel" aria-label="Posición en la isla">
+    <canvas id="bird-minimap" width="104" height="104" aria-label="Mapa de la isla y posición del ave"></canvas>
+    <span>POSICIÓN</span>
+  </aside>
+  <footer class="bottom" id="bottom"><span id="phase">SIMULACIÓN</span><span><span id="fps">-- FPS</span> · <a class="roadmap-link" href="./roadmap/" target="_blank" rel="noopener noreferrer">ROADMAP ↗</a></span></footer>
   <section id="tv-overlay" class="tv-overlay hidden" aria-label="Hora y condiciones meteorológicas">
     <div class="tv-date" id="tv-date"></div>
     <div class="tv-clock" id="tv-clock">--:--</div>
@@ -58,10 +70,10 @@
   </div>
   <div class="intro" id="intro">
     <div class="intro-card">
-      <div class="eyebrow centered">UN LUGAR QUE NO SE REPITE</div>
+      <div class="eyebrow centered">SIMULACIÓN PROCEDURAL</div>
       <div class="intro-symbol">◈</div>
       <h1>VUELO</h1>
-      <p>Una isla viva. Doce especies de aves. Fauna en libertad.<br>La luz de cada instante.<br>Sin imágenes, vídeos ni música grabada.</p>
+      <p>Isla tropical generada al iniciar. Doce especies y fauna autónoma.</p>
       <button id="enter-btn" class="enter">ENTRAR CON CLIMA LOCAL <span>↗</span></button>
       <button id="skip-location-btn" class="enter-skip" type="button">CONTINUAR SIN UBICACIÓN</button>
       <p class="micro">Con tu permiso, adaptamos el sol, el amanecer y el clima a tu zona.<br>Tu ubicación no se muestra ni se almacena. Puedes continuar sin permitirla.</p>
@@ -72,7 +84,7 @@
     <h2>CONTROLES</h2>
     <p><kbd>1</kbd> Amanecer <kbd>2</kbd> Mediodía <kbd>3</kbd> Atardecer <kbd>4</kbd> Noche</p>
     <p><kbd>5</kbd> Cambiar clima <kbd>6</kbd> ×1 <kbd>7</kbd> ×60 <kbd>8</kbd> ×600</p>
-    <p><kbd>B</kbd> Selector de aves <kbd>Esc</kbd> Cerrar</p>
+    <p><kbd>B</kbd> Selector de aves <kbd>I</kbd> Estado y minimapa <kbd>Esc</kbd> Cerrar</p>
     <p><kbd>Espacio</kbd> Aletear <kbd>M</kbd> Audio <kbd>H</kbd> Interfaz</p>
     <p><kbd>P</kbd> Captura PNG <kbd>F</kbd> Pantalla completa</p>
     <p><kbd>T</kbd> Salvapantallas TV <kbd>R</kbd> Volver a tiempo real</p>

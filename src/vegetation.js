@@ -57,7 +57,7 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
  const bloom=[0xe7d27a,0xd4a1b8,0xece7de,0xb1b1dc,0xe7aa88].map(c=>new THREE.Color(c));
  const brushes=[0x55845f,0x769e64,0x407c60,0x8eae6d].map(c=>new THREE.Color(c));
  const meshes=spec.map(s=>{
-  const material=new THREE.MeshStandardMaterial({color:s.color,roughness:1,side:THREE.DoubleSide,flatShading:s.name==='shrubs'});
+  const material=new THREE.MeshStandardMaterial({color:s.color,roughness:1,side:THREE.DoubleSide,flatShading:s.name==='shrubs',transparent:true,opacity:0,depthWrite:false});
   if(windField)windField.apply(material,{amplitude:s.name==='grass'?.68:s.name==='flowers'?.27:.35,height:s.name==='shrubs'?6:3.8,frequency:s.name==='grass'?1.4:.78});
   const mesh=new THREE.InstancedMesh(s.geo,material,s.n);
   mesh.visible=false;mesh.frustumCulled=false;mesh.count=0;scene.add(mesh);
@@ -71,22 +71,32 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
  const bugs=[],flowers=[];
  const scratch=new THREE.Vector3();
  function populate(item,cx,cz){
-  const rng=makeCellRandom(cx,cz,item.kind^seed);
+  // Stable world-space cells: a new camera neighbourhood does not re-roll
+  // all plant positions, only enters/leaves fixed cells at the fringe.
+  const spacing=35,window=700;
+  const minX=Math.floor((cx-window/2)/spacing),minZ=Math.floor((cz-window/2)/spacing);
   let count=0;
-  for(let i=0;i<item.n*7&&count<item.n;i++){
-   const x=cx+(rng()-.5)*350,z=cz+(rng()-.5)*350;
-   const h=habitatAt(x,z,seed),density=foliageDensity(h,item.name);
-   if(rng()>density)continue;
-   const scale=(.55+rng()*1.55)*GROUND_DETAIL_SCALE[item.name];
-   dummy.position.set(x,h.height+.025,z);
-   dummy.rotation.set(0,rng()*Math.PI*2,item.name==='grass'?(rng()-.5)*.17:0);
-   dummy.scale.set(scale,scale*(item.name==='grass'?.7+rng()*.5:1),scale);
-   dummy.updateMatrix();
-   item.mesh.setMatrixAt(count,dummy.matrix);
-   if(item.name==='flowers'){item.mesh.setColorAt(count,bloom[Math.floor(rng()*bloom.length)]);flowers.push({x,y:h.height+3.1*scale,z});}
-   if(item.name==='grass')item.mesh.setColorAt(count,green[Math.floor(rng()*green.length)]);
-   if(item.name==='shrubs')item.mesh.setColorAt(count,brushes[Math.floor(rng()*brushes.length)]);
-   count++;
+  const attempts=item.name==='grass'?18:item.name==='flowers'?5:3;
+  outer:for(let ix=0;ix<=20;ix++)for(let iz=0;iz<=20;iz++){
+   const gx=minX+ix,gz=minZ+iz;
+   const rng=makeCellRandom(gx,gz,item.kind^seed);
+   for(let n=0;n<attempts;n++){
+    const x=(gx+rng())*spacing,z=(gz+rng())*spacing;
+    const h=habitatAt(x,z,seed),density=foliageDensity(h,item.name);
+    if(rng()>density)continue;
+    const scale=(.55+rng()*1.55)*GROUND_DETAIL_SCALE[item.name];
+    dummy.position.set(x,h.height+.025,z);
+    dummy.rotation.set(0,rng()*Math.PI*2,item.name==='grass'?(rng()-.5)*.17:0);
+    dummy.scale.set(scale,scale*(item.name==='grass'?.7+rng()*.5:1),scale);
+    dummy.updateMatrix();item.mesh.setMatrixAt(count,dummy.matrix);
+    if(item.name==='flowers'){
+      item.mesh.setColorAt(count,bloom[Math.floor(rng()*bloom.length)]);
+      flowers.push({x,y:h.height+3.1*scale,z});
+    }
+    if(item.name==='grass')item.mesh.setColorAt(count,green[Math.floor(rng()*green.length)]);
+    if(item.name==='shrubs')item.mesh.setColorAt(count,brushes[Math.floor(rng()*brushes.length)]);
+    if(++count>=item.n)break outer;
+   }
   }
   item.mesh.count=count;item.mesh.instanceMatrix.needsUpdate=true;
   if(item.mesh.instanceColor)item.mesh.instanceColor.needsUpdate=true;
@@ -119,7 +129,9 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
   const birdAltitude=bird.y-terrainHeight(bird.x,bird.z,seed);
   const focus=birdAltitude<120?bird:camera.position;
   const altitude=focus.y-terrainHeight(focus.x,focus.z,seed);
-  if(altitude>(active?190:135)){active=false;meshes.forEach(m=>m.mesh.visible=false);insects.visible=false;return;}
+  if(altitude>280){active=false;meshes.forEach(m=>m.mesh.visible=false);insects.visible=false;return;}
+  const fade=clamp((280-altitude)/120);
+  for(const item of meshes)item.mesh.material.opacity=fade;
   const cx=Math.round(focus.x/140)*140,cz=Math.round(focus.z/140)*140;
   if(cx!==cellX||cz!==cellZ){
    cellX=cx;cellZ=cz;flowers.length=0;
@@ -128,7 +140,7 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
   }
   active=true;meshes.forEach(m=>m.mesh.visible=true);
   const activity=insectActivity(day,rain,temperature);
-  insects.visible=activity>.08&&bugs.length>0;
+  insects.visible=altitude<90&&activity>.08&&bugs.length>0;
   if(insects.visible&&t-lastInsect>.35){lastInsect=t;tickInsects(t,activity);}
  }
  return {update,get active(){return active},

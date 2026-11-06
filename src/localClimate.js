@@ -27,6 +27,7 @@ export function parseWeather(payload,receivedAt=Date.now()){
   feelsLike:Number.isFinite(v.apparent_temperature)?Math.round(v.apparent_temperature):null,
   humidity:Number.isFinite(v.relative_humidity_2m)?Math.round(v.relative_humidity_2m):null,
   windKmh:Number.isFinite(v.wind_speed_10m)?Math.round(v.wind_speed_10m):null,
+  timezone:typeof payload.timezone==='string'?payload.timezone:null,
   observedAt:receivedAt,source:'Open-Meteo'};
 }
 export function buildWeatherURL(latitude,longitude){
