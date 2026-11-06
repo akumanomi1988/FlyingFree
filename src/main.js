@@ -347,6 +347,14 @@ function createBird(){
   cameraDirector?.reset();
   const spawn=birdBrain.snapshot;
   birdModel.position.set(spawn.x,spawn.y,spawn.z);
+  if(cameraDirector){
+    // An explicitly selected subject can be kilometres away. Cut to its own
+    // environment rather than travelling the entire island in chase mode.
+    camera.position.set(spawn.x+currentBird.wingspan*2,
+      spawn.y+Math.max(8,currentBird.wingspan*3),
+      spawn.z+Math.max(8,currentBird.wingspan*5));
+    cameraDirector.reset();
+  }
   scene.add(birdModel);
   status.bird=currentBird.id;
   status.birdDrawCallsSaved=birdModel.userData.plumageDrawCallsSaved;
@@ -479,7 +487,7 @@ function animate(now){
     status.fps=Math.round(renderFrames/measuredSeconds);
     $('fps').textContent=status.fps+' FPS';renderFrames=0;fpsTimer=0;
     const hour=localHour(date);
-    $('clock').textContent=localTimeLabel(date);
+    $('clock').textContent=localTimeLabel(date,climate.weather?.timezone);
     $('bird-name').textContent=currentBird.name;
     $('weather-name').textContent=currentWeather.name;
     $('season-name').textContent=seasonLocal(date);
@@ -499,6 +507,7 @@ function animate(now){
     status.motion={wind:+windField.strength.toFixed(2),windMaterials:windField.materials,
       clouds:clouds.length,articulatedAnimals:ecosystem.actors.length,motes:atmospherics.activeCount};
     status.sunAccurate=Boolean(solarCoordinates.accurate);
+    status.timezone=climate.weather?.timezone??Intl.DateTimeFormat().resolvedOptions().timeZone;
     status.timeMode=timeOverride?'simulated':'live';
     updateWeatherUI(date);
     const quality=adaptiveResolution.observe({
@@ -609,8 +618,8 @@ function updateWeatherUI(date){
  $('weather-source').textContent=source;
  $('temperature').textContent=temperature;
  $('wind').textContent=wind;
- $('tv-date').textContent=localDateLabel(date);
- $('tv-clock').textContent=localTimeLabel(date);
+ $('tv-date').textContent=localDateLabel(date,observed?.timezone);
+ $('tv-clock').textContent=localTimeLabel(date,observed?.timezone);
  $('tv-temp').textContent=temperature;
  $('tv-weather').textContent=currentWeather.name.toUpperCase();
  $('tv-wind').textContent='VIENTO '+wind;
