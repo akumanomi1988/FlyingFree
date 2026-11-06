@@ -118,6 +118,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       smoothYaw+=yawVelocity*delta;
     }
     const plan=cameraPlanAt(smoothYaw,wingspan,speed,currentShot);
+    const initializingShot=!hasPrevious;
     if(hasPrevious){
       birdMotion.subVectors(bird,lastBird);
       if(birdMotion.lengthSq()<2500){
@@ -170,14 +171,22 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     desired.y=Math.max(desired.y,Math.max(-9,terrainHeight(desired.x,desired.z,seed))+clearance);
     target.set(bird.x+plan.leadX,bird.y+Math.max(.08,wingspan*.10),bird.z+plan.leadZ);
     const k=1-Math.exp(-delta*(currentShot==='scenic'||currentShot==='high-reveal'?1.35:2.6));
-    camera.position.lerp(desired,k);
+    // Establish a new small-bird documentary shot on its viable hillside
+    // vantage from the very first frame. Otherwise, moving the orbit across
+    // the subject for seconds while angle speed is capped loses the bird.
+    // Never snap a running shot or a landscape-to-landscape transition.
+    const establishTerrainShot=initializingShot&&terrainOffset.corrected&&
+      camera.aspect<.72&&wingspan<.5;
+    if(establishTerrainShot)camera.position.copy(desired);
+    else camera.position.lerp(desired,k);
     camera.position.y=Math.max(camera.position.y,
       Math.max(-9,terrainHeight(camera.position.x,camera.position.z,seed))+clearance);
-    smoothedTarget.lerp(target,1-Math.exp(-delta*3.1));
+    if(establishTerrainShot)smoothedTarget.copy(target);
+    else smoothedTarget.lerp(target,1-Math.exp(-delta*3.1));
     camera.up.set(0,1,0);
     lookMatrix.lookAt(camera.position,smoothedTarget,camera.up);
     lookRotation.setFromRotationMatrix(lookMatrix);
-    if(!hasLookRotation){
+    if(!hasLookRotation||establishTerrainShot){
       camera.quaternion.copy(lookRotation);
       hasLookRotation=true;
       lastAngularStep=0;
