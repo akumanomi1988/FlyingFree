@@ -221,7 +221,7 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   const soar=flight==='soar'||flight==='marine';
   const flyCycle=Math.sin(elapsed*rate*Math.PI*2+profile.id.length*.73);
   const pulse=soar?Math.pow(Math.max(0,Math.sin(elapsed*.55)),4):1;
-  const targetFlap=flyCycle*(power+energy*.10)*pulse;
+  const targetFlap=activity.state==='aerial_rest'?0:flyCycle*(power+energy*.10)*pulse;
   const response=1-Math.exp(-Math.max(0,Math.min(.12,dt))*
     Math.max(16,rate*Math.PI*5));
   group.userData.flap+=(targetFlap-group.userData.flap)*response;
