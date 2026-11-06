@@ -116,3 +116,44 @@ test('frequent frame updates do not allocate a new set of pad voices',async()=>{
  assert.ok(audio.noteCount<20,'Melody scheduling is bounded over a short session');
  await audio.dispose();
 });
+
+test('weather pad voicings never generate continuous sub-bass frequencies',()=>{
+ const ids=['clear','sunny','cloudy','drizzle','rain','storm','fog','snow'];
+ for(const id of ids){
+  const profile=deriveMusicProfile({cloud:.6,rain:.4,fog:.2},sun,id);
+  assert.ok(profile.notes.every(n=>n>=130&&n<=400),id+' includes a motor-like sub-bass oscillator');
+  assert.ok(profile.windLevel<.04,id+' wind must stay under the former rumble level');
+  assert.ok(profile.rainLevel<=.08,id+' ambient rain must remain subordinate to music');
+ }
+});
+
+test('audio graph removes low rumble and keeps the melody audible',async()=>{
+ const audio=new Soundscape({AudioContextClass:FakeAudioContext});
+ await audio.start();
+ assert.equal(audio.padHighpass.type,'highpass');
+ assert.ok(audio.padHighpass.frequency.value>=125);
+ assert.equal(audio.windHighpass.type,'highpass');
+ assert.ok(audio.windHighpass.frequency.value>=220);
+ assert.equal(audio.windLowpass.type,'lowpass');
+ assert.equal(audio.rainHighpass.type,'highpass');
+ const pads=audio.padBanks.flatMap(b=>b.voices);
+ assert.equal(pads.length,10);
+ assert.ok(pads.every(v=>v.oscillator.frequency.value>=130));
+ assert.ok(pads.reduce((sum,v)=>sum+v.level.gain.value,0)<.14,
+  'Ten standing voices must not overwhelm the melodic bells');
+ assert.ok(audio.noise.buffer.getChannelData(0).length>=audio.ctx.sampleRate*10,
+  'Short noise loops cause periodic engine-like ambience');
+ const before=audio.noteCount;
+ audio.update({cloud:.1,rain:0,fog:0},sun,'clear');
+ assert.ok(audio.noteCount>before);
+ await audio.dispose();
+});
+
+test('environment remains weather-reactive without bass rumble',()=>{
+ const clear=deriveMusicProfile({cloud:0,rain:0,fog:0},sun,'clear');
+ const storm=deriveMusicProfile({cloud:1,rain:1,fog:.4},sun,'storm');
+ assert.ok(storm.windLevel>clear.windLevel);
+ assert.ok(storm.rainLevel>clear.rainLevel);
+ assert.ok(clear.brightness>storm.brightness);
+ assert.ok(clear.bellLevel>storm.bellLevel);
+});
