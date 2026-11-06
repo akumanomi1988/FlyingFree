@@ -28,6 +28,8 @@ async function render(name,query,width,height,runChecks){
     assert.equal(r?.status(),200,'Respuesta HTTP');
     await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,null,{timeout:60000});
     await page.waitForTimeout(1100);
+    await page.waitForFunction(()=>typeof window.__FLYINGFREE_STATUS__?.motion?.motes==='number',
+      null,{timeout:12000});
     const stats=await page.evaluate(()=>{
       const c=document.querySelector('#viewport canvas'),s=window.__FLYINGFREE_STATUS__;
       if(!c)return {canvas:false,error:s.error};
@@ -47,13 +49,27 @@ async function render(name,query,width,height,runChecks){
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
-        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,habitatUse:s.habitatUse,floating:s.floating,
+        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
+        metrics:{energy:document.querySelector('#bird-energy')?.value,
+          hunger:document.querySelector('#bird-hunger')?.value,
+          mood:document.querySelector('#bird-mood')?.textContent,
+          mapVisible:getComputedStyle(document.querySelector('#mini-map')).display!=='none',
+          mapExpected:!document.body.classList.contains('tv-mode')&&!document.body.classList.contains('no-ui')},
+        particles:s.motion?.motes,
         species:document.querySelectorAll('[data-bird]').length};
     });
     assert.equal(stats.canvas,true,'Canvas ausente');
     assert.equal(stats.error,null,'Excepción del motor');
     assert.equal(stats.species,12,'Selector incompleto');
+    assert.ok(stats.metrics?.energy>=0&&stats.metrics?.energy<=1,
+      'Energy indicator not initialized');
+    assert.ok(stats.metrics?.hunger>=0&&stats.metrics?.hunger<=1,
+      'Satiety indicator not initialized');
+    assert.ok(stats.metrics?.mood,'Missing bird state indicator');
+    assert.equal(stats.metrics?.mapVisible,stats.metrics?.mapExpected,
+      'Minimap should be visible in standard UI, hidden for clean TV/broadcast');
+    assert.equal(stats.particles,0,'Useless airborne point particles have returned');
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.birdDrawCallsSaved>=40,'El plumaje cercano no está agrupado por materiales');
     assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
@@ -88,7 +104,13 @@ async function render(name,query,width,height,runChecks){
       'Resolución adaptativa por debajo de su presupuesto');
     assert.ok(stats.adaptiveQuality.scale<=stats.adaptiveQuality.maxScale,
       'Resolución adaptativa sobrepasa el límite del dispositivo');
-    assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),`Fallo visual: ${name}, colores=${stats.colors}, brillo=${stats.brightness}, plano=${stats.cameraShot}`);
+    if(name==='05-mobile-selector'){
+      assert.ok(stats.framing&&Math.abs(stats.framing.y)<.95&&Math.abs(stats.framing.x)<.95,
+        'Subject fell outside mobile portrait framing: '+JSON.stringify(stats.framing));
+      assert.ok(stats.framing.fov>=65&&stats.framing.fov<=81,
+        'Portrait lens did not adapt to narrow screen: '+JSON.stringify(stats.framing));
+    }
+    assert.ok(stats.colors>(name.includes('night')||name.includes('storm')?12:25),`Fallo visual: ${name}, colores=${stats.colors}, brillo=${stats.brightness}, plano=${stats.cameraShot}, framing=${JSON.stringify(stats.framing)}`);
     assert.ok(stats.brightness>8,'Escena demasiado oscura o no renderizada');
     if(runChecks)await runChecks(page,stats);
     await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
@@ -96,6 +118,13 @@ async function render(name,query,width,height,runChecks){
     await page.close();
   }catch(error){
     report.scenarios.push({name,success:false,error:String(error)});
+    // Preserve raw WebGL pixels without the welcome overlay obscuring the
+    // scene. This distinguishes a genuine render occlusion from UI tint.
+    try{
+      const raw=await page.evaluate(()=>document.querySelector('#viewport canvas')?.toDataURL('image/png'));
+      if(raw?.startsWith('data:image/png;base64,'))
+        await fs.writeFile(directory+'/'+name+'-CANVAS.png',Buffer.from(raw.split(',')[1],'base64'));
+    }catch{}
     try{await page.screenshot({path:directory+'/'+name+'-ERROR.png'})}catch{}
     await page.close();
     throw error;
@@ -138,10 +167,10 @@ try{
       await page.waitForTimeout(1200);
       assert.equal(await page.locator('#weather-name').innerText(),'Soleado','Cambio de clima');
     });
-  await render('02-sunset-vulture','?phase=sunset&bird=vulture&weather=cloudy&broadcast=1',1440,900);
-  await render('03-night-owl','?h=23&bird=owl&weather=clear&broadcast=1',1440,900);
-  await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1',1440,900);
-  await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog',390,844,
+  await render('02-sunset-vulture','?phase=sunset&bird=vulture&weather=cloudy&broadcast=1&seed=1988',1440,900);
+  await render('03-night-owl','?h=23&bird=owl&weather=clear&broadcast=1&seed=1988',1440,900);
+  await render('04-storm-albatross','?h=14&bird=albatross&weather=storm&broadcast=1&seed=1988',1440,900);
+  await render('05-mobile-selector','?h=8&bird=hummingbird&weather=fog&seed=1988',390,844,
     async(page)=>{
       assert.match(await page.locator('#enter-btn').innerText(),/ENTRAR CON CLIMA LOCAL/);
       assert.equal(await page.locator('#skip-location-btn').isVisible(),true);
@@ -166,13 +195,24 @@ try{
       await page.waitForFunction(()=>document.querySelector('#audio-btn').classList.contains('active'));
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false,'El selector no abre');
+      const originalPosition=await page.evaluate(()=>({...window.__FLYINGFREE_STATUS__.birdPosition}));
       await page.locator('[data-bird="owl"]').click();
       await page.waitForTimeout(150);
       assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.bird),'owl','No cambia el ave');
+      const selected=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.birdPosition);
+      assert.ok(Math.hypot(selected.x-originalPosition.x,selected.z-originalPosition.z)>80,
+        'Changing bird must relocate to species-specific habitat');
+      await page.locator('#map-btn').click();
+      assert.equal(await page.locator('#mini-map').isVisible(),false,'Minimap does not hide');
+      await page.locator('#map-btn').click();
+      assert.equal(await page.locator('#mini-map').isVisible(),true,'Minimap cannot be restored');
+      await page.locator('#hud-btn').click();
+      assert.equal(await page.locator('#hud').isVisible(),false,'Bird indicators cannot hide');
+      await page.locator('#hud-btn').click();
       await page.locator('#bird-btn').click();
       assert.equal(await page.locator('#bird-picker').evaluate(e=>e.classList.contains('hidden')),false);
     });
-  await render('06-tv-live-weather','?tv=1&bird=kestrel',1440,900,
+  await render('06-tv-live-weather','?tv=1&bird=kestrel&seed=1988',1440,900,
     async(page)=>{
       assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('tv-mode')),true);
       assert.equal(await page.locator('#tv-overlay').isVisible(),true);

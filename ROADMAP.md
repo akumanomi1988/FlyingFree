@@ -117,6 +117,17 @@ npm run audit:habitats   # auditoría offline; duración configurable
 
 Reproducir un escenario: `?seed=1988&bird=eagle&phase=dawn&weather=clear&broadcast=1`. Otras semillas, especies y climas ayudan a descubrir defectos que una única captura oculta.
 
+
+## Integración y QA — revisión del 6 de noviembre de 2026
+
+- **PR #21 y PR #22** son alternativas con cambios parcialmente solapados. No deben fusionarse ambas sin revisión diferencial. La PR #22 contiene semilla de sesión, selección de sujeto con hábitat propio, minimapa/HUD opcional, ecología por arquetipos y acantilados sembrados; esto **no** se considera integrado hasta merge a `main` y comprobación del despliegue.
+- Se rescató una capacidad específica de la PR #21 hacia #22: descanso aéreo de vencejos con recuperación de energía y planeo, más alimentación con movimiento de postura. Requiere validación Node, Vite y WebGL en el último HEAD.
+- La cámara conserva desplazamiento horizontal total del ave para evitar retraso acumulativo y amortigua oscilaciones verticales. La aceptación exige proyección del protagonista dentro del encuadre en móvil y a diferentes FPS, no simplemente que el render no lance errores.
+- **Bloqueo visual de referencia:** `?h=8&bird=hummingbird&weather=fog&seed=1988` (390×844) resultó casi monocromático en [CI de PR #22](https://github.com/akumanomi1988/FlyingFree/actions/runs/42260524030). No relajar el test de colores: registrar cámara y posición proyectada, reparar el encuadre/oclusiones y verificar captura nueva.
+- El [contrato de calidad](./docs/QUALITY_GATES.md) y la [arquitectura actual](./docs/ARCHITECTURE.md) fijan métricas, responsabilidades y deuda técnica. La comprobación de despliegue SHA, hardware físico y pruebas 8/24/72 h continúan abiertas.
+
+**Próximo ROI:** superar la reproducción móvil con niebla, revisar contact sheet en múltiples semillas, comprobar PR #21 vs #22 y consolidar una única integración revisable. A continuación abordar coherencia de malla/collision y detalle cercano, sin añadir un motor de IA distribuida.
+
 ## Fuentes
 
 - [Atlas de la visión](./public/roadmap/index.html): narrativa histórica y decisiones desde las conversaciones disponibles.

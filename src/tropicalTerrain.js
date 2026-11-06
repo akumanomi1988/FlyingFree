@@ -101,7 +101,13 @@ export function tropicalTerrainSample(x,z,seed=1988){
     Math.exp(-((mx-100)**2/(1300*1300)+(mz-1350)**2/(840*840)))*280;
   const relief=160+large*90+highland*(430*mountainSpine+360*ridgeSharp)+peaks;
   const slopes=layered(x*.0029,z*.0029,seed+207)*24*inland;
-  let height=-38+inland*relief+slopes;
+  // Cliff sectors rise sharply near the sea rather than making the whole
+  // coastline a uniform ring of sand. Soft masks keep bays and beaches.
+  const cliffSector=smooth(.06,.31,layered(x*.00048+3,z*.00048-7,seed+399));
+  const cliffRim=smooth(.73,.85,shape.radial)*
+    (1-smooth(.96,1.055,shape.radial));
+  const cliffHeight=cliffSector*cliffRim*(42+31*ridgeSharp);
+  let height=-38+inland*relief+slopes+cliffHeight;
   const river=riverField(x,z,seed);
   // Broad eroded valleys with a narrower wet channel, cut into the same height
   // field used by physics and ecology (no decorative floating river-only lines).

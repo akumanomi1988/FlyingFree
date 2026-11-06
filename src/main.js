@@ -15,7 +15,10 @@ import {habitatAt} from './ecology.js';
 import {createHabitatMonitor} from './habitatMonitor.js';
 import {tropicalTerrainSample,tropicalLandscapeSeed,TROPICAL_WORLD} from './tropicalTerrain.js';
 import {createTropicalRivers} from './tropicalRivers.js';
+import {createCoastalCliffs} from './coastalCliffs.js';
 import {createCameraDirector} from './cameraDirector.js';
+import {createMinimap,sessionIslandSeed} from './minimap.js';
+import {birdSensation} from './birdEcology.js';
 import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
 import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from './localClimate.js';
 import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,localDateLabel} from './localTime.js';
@@ -24,7 +27,7 @@ const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
-let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cameraDirector;
+let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
@@ -34,14 +37,16 @@ let timeOverride=opts.hour!=null||Boolean(opts.phase);
 let weatherOverride=Boolean(opts.weather);
 let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
  opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():Date.now();
-const worldSeed=opts.seed??tropicalLandscapeSeed(new Date(simMs));
+const worldSeed=opts.seed??sessionIslandSeed();
 const habitatMonitor=createHabitatMonitor(worldSeed);
+const minimap=createMinimap($('map-canvas'),worldSeed);
 let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
 let currentWeather=opts.weather||chooseWeather(new Date(simMs));
 let speed=1,flapBoost=0,lastFrame=performance.now(),elapsed=0,cameraLook=new THREE.Vector3(0,150,0),sleepFactor=0;
 const lastCameraBird=new THREE.Vector3();let cameraBirdTracked=false;
+const framingProbe=new THREE.Vector3();
 let weatherState={cloud:currentWeather.cloud,rain:currentWeather.rain,fog:currentWeather.fog},renderFrames=0,fpsTimer=0,lastClimatePoll=0;
 const sound=new Soundscape();
 const canvasParent=$('viewport');
@@ -103,7 +108,8 @@ function init(){
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
   status.world={seed:worldSeed,extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments,
-    coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution};
+    coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution,
+    cliffStacks:cliffs.count};
   status.faunaLOD=ecosystem.lodStats;
   status.habitatUse=habitatMonitor.snapshot();
   // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
@@ -152,6 +158,7 @@ function createLandscape(){
   scene.add(terrain);
   oceanFX=createOcean(THREE,scene,worldSeed);water=oceanFX.mesh;
   rivers=createTropicalRivers(THREE,scene,worldSeed);
+  cliffs=createCoastalCliffs(THREE,scene,worldSeed);
 }
 function createForest(){
   const rng=random(worldSeed);
@@ -267,7 +274,8 @@ function createForest(){
     inst.frustumCulled=false;
     scene.add(inst);
   }
-  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches,palms};
+  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches,palms,
+    perches:treeRecords};
   treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1,windField);
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
@@ -315,7 +323,6 @@ function createStars(){
   stars=new THREE.Points(g,starMat);scene.add(stars);
 }
 function createBird(){
-  const previousState=birdBrain?.snapshot;
   const previousPosition=birdModel?.position.clone();
   if(birdModel){
     scene.remove(birdModel);
@@ -329,12 +336,31 @@ function createBird(){
     for(const geo of geometries)geo.dispose();
     for(const mat of materials)mat.dispose();
   }
-  birdModel=createBirdRig(THREE,currentBird);birdBrain=createBirdBrain(currentBird,worldSeed,previousState);
+  birdModel=createBirdRig(THREE,currentBird);
+  // Species start in their own suitable biome, never inherit the previous
+  // bird's coordinates or its energy/hunger. This is a new wildlife subject.
+  birdBrain=createBirdBrain(currentBird,worldSeed,null,{perches:forest?.perches});
   habitatMonitor.reset(currentBird.id);
   cameraDirector?.reset();
-  if(previousPosition)birdModel.position.copy(previousPosition);
+  if(previousPosition){
+    const start=birdBrain.snapshot;
+    birdModel.position.set(start.x,start.y,start.z);
+    const span=birdCameraDistance(currentBird);
+    camera.position.set(start.x+span*.38,start.y+span*.29,start.z+span*1.65);
+    camera.quaternion.setFromEuler(new THREE.Euler(0,0,0));
+  }
   scene.add(birdModel);
   status.bird=currentBird.id;
+  const initialBird=birdBrain.snapshot;
+  status.birdPosition={x:initialBird.x,z:initialBird.z,heading:initialBird.heading};
+  status.energy=initialBird.energy;status.hunger=initialBird.hunger;
+  status.sensation=birdSensation({energy:initialBird.energy,hunger:initialBird.hunger,state:'patrol'});
+  minimap.update(initialBird.x,initialBird.z,initialBird.heading);
+  $('bird-energy').value=initialBird.energy;
+  $('bird-energy-pct').textContent=Math.round(initialBird.energy*100)+'%';
+  $('bird-hunger').value=1-initialBird.hunger;
+  $('bird-hunger-pct').textContent=Math.round((1-initialBird.hunger)*100)+'%';
+  $('bird-mood').textContent=status.sensation;
   status.birdDrawCallsSaved=birdModel.userData.plumageDrawCallsSaved;
 }
 function selectBird(id){
@@ -401,10 +427,13 @@ function fly(date,dt,sun){
   bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
   floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
   state:action.state},dt);
- status.behaviour=action.state;status.flightSpeed=Math.round(action.speed);
+ status.behaviour=action.state;status.flightSpeed=Math.round(action.speed*3.6);
  status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
  status.landings=action.landings;status.feedings=action.feedings;
  status.floating=Boolean(action.floating);
+ status.sensation=birdSensation({energy:action.energy,hunger:action.hunger,state:action.state,
+   floating:action.floating,weather:weatherState.rain});
+ status.birdPosition={x:action.x,z:action.z,heading:action.heading};
  const occupancy=habitatMonitor.observe(elapsed,currentBird.id,action.x,action.z,action.state);
  if(occupancy)status.habitatUse=occupancy;
  return birdModel.position;
@@ -461,14 +490,32 @@ function animate(now){
     const measuredSeconds=fpsTimer;
     status.fps=Math.round(renderFrames/measuredSeconds);
     $('fps').textContent=status.fps+' FPS';renderFrames=0;fpsTimer=0;
-    const hour=localHour(date);
-    $('clock').textContent=localTimeLabel(date);
+    const hour=localHour(date,climate.weather?.timeZone);
+    $('clock').textContent=localTimeLabel(date,climate.weather?.timeZone);
     $('bird-name').textContent=currentBird.name;
     $('weather-name').textContent=currentWeather.name;
-    $('season-name').textContent=seasonLocal(date);
+    $('season-name').textContent=seasonLocal(date,solarCoordinates.latitude);
     $('speed-name').textContent='×'+speed;
-    $('scene-caption').textContent=sun.night?'Un cielo lleno de caminos':hour<9?'La primera luz sobre el agua':hour>=18?'La calma del atardecer':'Cada instante es irrepetible';
-    $('phase').textContent=sun.night?'EL MUNDO BAJA EL RITMO':currentBird.name.toUpperCase()+' EN LIBERTAD';
+    const habitat=habitatAt(position.x,position.z,worldSeed);
+    const biomeName={ocean:'Mar',shore:'Costa',wetland:'Humedal',forest:'Bosque',
+      meadow:'Pradera',highland:'Montaña',rock:'Cumbre'}[habitat.type]||habitat.type;
+    $('scene-caption').textContent=biomeName;
+    $('phase').textContent=currentBird.name.toUpperCase()+' · '+status.sensation.toUpperCase();
+    $('bird-mood').textContent=status.sensation;
+    $('bird-activity').textContent=Math.round(status.flightSpeed)+' km/h';
+    $('bird-energy').value=status.energy;
+    $('bird-energy-pct').textContent=Math.round(status.energy*100)+'%';
+    $('bird-hunger').value=1-status.hunger;
+    $('bird-hunger-pct').textContent=Math.round((1-status.hunger)*100)+'%';
+    minimap.update(position.x,position.z,birdModel.rotation.y);
+    // Real camera-space framing, not an inferred "bird is nearby" proxy.
+    // Available to deterministic WebGL QA and runtime diagnostics.
+    framingProbe.copy(birdModel.position).project(camera);
+    status.framing={x:+framingProbe.x.toFixed(3),y:+framingProbe.y.toFixed(3),
+      depth:+framingProbe.z.toFixed(3),distance:+camera.position.distanceTo(birdModel.position).toFixed(2),
+      cameraY:+camera.position.y.toFixed(2),birdY:+birdModel.position.y.toFixed(2),fov:+camera.fov.toFixed(1),
+      cameraClearance:+(camera.position.y-terrainHeight(camera.position.x,camera.position.z,worldSeed)).toFixed(2),
+      birdClearance:+(birdModel.position.y-terrainHeight(birdModel.position.x,birdModel.position.z,worldSeed)).toFixed(2)};
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
@@ -508,7 +555,7 @@ function png(){try{renderer.render(scene,camera);const a=document.createElement(
 function setHour(h){
   timeOverride=true;
   simMs=withLocalHour(new Date(simMs),h).getTime();
-  $('clock').textContent=localTimeLabel(new Date(simMs));
+  $('clock').textContent=localTimeLabel(new Date(simMs),climate.weather?.timeZone);
 }
 function changeWeather(){
   const i=WEATHER.findIndex(w=>w.id===currentWeather.id);
@@ -589,8 +636,8 @@ function updateWeatherUI(date){
  $('weather-source').textContent=source;
  $('temperature').textContent=temperature;
  $('wind').textContent=wind;
- $('tv-date').textContent=localDateLabel(date);
- $('tv-clock').textContent=localTimeLabel(date);
+ $('tv-date').textContent=localDateLabel(date,climate.weather?.timeZone);
+ $('tv-clock').textContent=localTimeLabel(date,climate.weather?.timeZone);
  $('tv-temp').textContent=temperature;
  $('tv-weather').textContent=currentWeather.name.toUpperCase();
  $('tv-wind').textContent='VIENTO '+wind;
@@ -640,6 +687,16 @@ function bindUI(){
  $('weather-btn').addEventListener('click',()=>void connectClimate(false));
  $('tv-consent').addEventListener('click',()=>void connectClimate(false));
  $('help-btn').addEventListener('click',()=>$('help').classList.toggle('hidden'));
+ const toggleMap=()=>{
+   const hidden=$('mini-map').classList.toggle('hidden');
+   $('map-btn').setAttribute('aria-pressed',String(!hidden));
+ };
+ const toggleVitals=()=>{
+   const hidden=document.body.classList.toggle('hide-bird-hud');
+   $('hud-btn').setAttribute('aria-pressed',String(!hidden));
+ };
+ $('map-btn').addEventListener('click',toggleMap);
+ $('hud-btn').addEventListener('click',toggleVitals);
  $('close-help').addEventListener('click',()=>$('help').classList.add('hidden'));
  const picker=$('bird-picker');
  $('bird-btn').addEventListener('click',()=>picker.classList.toggle('hidden'));
@@ -656,7 +713,7 @@ function bindUI(){
  window.addEventListener('keydown',(event)=>{
   if(event.ctrlKey||event.altKey||event.metaKey)return;
   const key=event.key.toLowerCase();
-  if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','t','r','escape'].includes(key))event.preventDefault();
+  if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','t','r','n','i','escape'].includes(key))event.preventDefault();
   revealTVControls();
   switch(key){
    case '1':setHour(astronomicalPhase(new Date(simMs),'dawn',solarCoordinates.latitude,solarCoordinates.longitude));break;
@@ -670,6 +727,8 @@ function bindUI(){
    case 'r':timeOverride=false;weatherOverride=false;speed=1;simMs=Date.now();if(climate.weather)currentWeather=climate.weather.descriptor;break;
    case ' ':flapBoost=1;break;
    case 'h':document.body.classList.toggle('no-ui');break;
+   case 'n':toggleMap();break;
+   case 'i':toggleVitals();break;
    case 't':setTVMode(!tvActive);break;
    case 'f':if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();break;
    case 'p':png();break;

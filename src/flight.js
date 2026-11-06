@@ -2,6 +2,7 @@ import { clamp } from './core.js';
 import { birdRigScale } from './worldScale.js';
 import { batchStaticMeshes } from './meshBatch.js';
 import { birdPlumage } from './speciesAppearance.js';
+import { birdEcology } from './birdEcology.js';
 
 // Species-dependent wing planform; span remains calibrated by birdRigScale.
 // Detailed surfaces are reserved for the camera-followed protagonist.
@@ -210,14 +211,24 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   const foldWanted=resting?1:0;
   const k=1-Math.exp(-Math.max(0,Math.min(.12,dt))*9);
   group.userData.fold+=(foldWanted-group.userData.fold)*k;
-  const fold=group.userData.fold,rate=profile.flapRate??3.8;
+  const fold=group.userData.fold;
+  const bio=birdEcology(profile),biologicalHz=bio.wingBeatHz;
+  // A 45-50 Hz hummingbird wingbeat cannot be resolved by a 60 Hz display;
+  // animate a visually readable rapid envelope and keep true physiology
+  // separate from render sampling (avoid false low-frequency slow motion).
+  const visibleHz=Math.min(biologicalHz,13);
   const energy=clamp(activity.energy??.5,0,1);
-  const power=flight==='hover'?.37:flight==='dash'?.28:flight==='nocturnal'?.19:.12;
-  const soar=flight==='soar'||flight==='marine';
-  const flyCycle=Math.sin(elapsed*rate+profile.id.length*.73);
-  const pulse=soar?Math.pow(Math.max(0,Math.sin(elapsed*.55)),4):1;
-  const targetFlap=flyCycle*(power+energy*.10)*pulse;
-  group.userData.flap+=(targetFlap-group.userData.flap)*(.3+.5*k);
+  const takingOff=activity.state==='takeoff';
+  const feeding=activity.state==='feed';
+  const power=flight==='hover'?.46:flight==='dash'?.32:flight==='nocturnal'?.25:.22;
+  const soaring=flight==='soar'||flight==='marine';
+  const glidePulse=soaring&&!takingOff&&!feeding?
+    Math.pow(Math.max(0,Math.sin(elapsed*.34+profile.id.length)),5):1;
+  const wingPhase=elapsed*visibleHz*Math.PI*2+profile.id.length*.73;
+  const targetFlap=activity.state==='aerial_rest'?0:
+     Math.sin(wingPhase)*(power+energy*.12)*glidePulse*(takingOff?1.4:1);
+  const response=flight==='hover'?.88:.43+.45*k;
+  group.userData.flap+=(targetFlap-group.userData.flap)*response;
   const wingbeat=group.userData.flap*(1-fold);
   const bank=clamp(activity.bank??0,-.65,.65)*(1-fold*.96);
   // Old fold rotated both wings upwards by ~46 degrees, visually leaving
@@ -230,7 +241,7 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   right.pivot.rotation.y=-fold*1.42-Math.cos(elapsed*.53)*.02*(1-fold);
   left.pivot.rotation.x=-.025-Math.sin(elapsed*.81)*.05*(1-fold);
   right.pivot.rotation.x=-.025+Math.sin(elapsed*.81)*.05*(1-fold);
-  const tipFlex=Math.sin(elapsed*rate-.52)*.11*(1-fold);
+  const tipFlex=Math.sin(wingPhase-.52)*.11*(1-fold);
   left.tip.rotation.z=-tipFlex;right.tip.rotation.z=tipFlex;
   tail.rotation.y=Math.sin(elapsed*(resting?.82:.55))*(resting?.025:.045)+bank*.21;
   tail.rotation.x=-fold*.13+(1-fold)*Math.sin(elapsed*.95)*.052+
@@ -248,6 +259,8 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   }
   group.rotation.z=bank+(activity.floating?clamp(activity.waterRoll??0,-.09,.09):
     resting?.008*Math.sin(elapsed*.94):0);
-  group.rotation.x=activity.floating?clamp(activity.waterPitch??0,-.09,.09):
-    resting?.012*Math.sin(elapsed*1.13):clamp(activity.pitch??0,-.34,.34);
+  // Feeding poses are visible; floating fishers do not peck at solid ground.
+  const forageBend=feeding&&grounded?.065+.065*Math.sin(elapsed*6.8):0;
+  group.rotation.x=(activity.floating?clamp(activity.waterPitch??0,-.09,.09):
+    resting?.012*Math.sin(elapsed*1.13):clamp(activity.pitch??0,-.34,.34))+forageBend;
 }

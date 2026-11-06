@@ -3,6 +3,20 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const CAMERA_SHOTS=Object.freeze(['chase','shoulder','scenic','profile','high-reveal']);
 
+// Choose the hillside side of an animal when a close chase would film uphill
+// into a single featureless mountainside. Camera on uphill side looks down
+// into the valley; the correction is applied smoothly by the director.
+export function terrainAwareOffset(x,z,gradientX,gradientZ,aboveGround){
+  const slope=Math.hypot(gradientX,gradientZ);
+  const distance=Math.hypot(x,z);
+  if(slope<.26||distance<.2||aboveGround>130)return {x,z,corrected:false};
+  const alignment=(x*gradientX+z*gradientZ)/(distance*slope);
+  if(alignment>=.1)return {x,z,corrected:false};
+  const weight=clamp((.1-alignment)*.90,0,.95);
+  return {x:x*(1-weight)+gradientX/slope*distance*weight,
+    z:z*(1-weight)+gradientZ/slope*distance*weight,corrected:true};
+}
+
 // Documentary framing is driven by the SUBJECT and the landscape, not by
 // blind clock-based cuts. "seconds" is retained for the public API.
 export function cameraShotAt(seconds,behaviour='patrol',context={}){
@@ -41,7 +55,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   let lastAngularStep=0;
   let candidateShot=null,candidateSince=0;
   let lastTime=-Infinity,lastYaw=0,turnRate=0,contextAt=-Infinity;
-  const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false};
+  const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false,slopeX:0,slopeZ:0};
   let lastReason='initial';
 
   function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt){
@@ -68,6 +82,8 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       ];
       context.groundClearance=Math.max(0,bird.y-Math.max(-9,ground));
       context.relief=Math.max(0,Math.max(...heights)-Math.min(...heights));
+      context.slopeX=(heights[0]-heights[1])/(2*horizon);
+      context.slopeZ=(heights[2]-heights[3])/(2*horizon);
       context.water=ground< -9;
       contextAt=clock;
     }
@@ -102,6 +118,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       smoothYaw+=yawVelocity*delta;
     }
     const plan=cameraPlanAt(smoothYaw,wingspan,speed,currentShot);
+    const initializingShot=!hasPrevious;
     if(hasPrevious){
       birdMotion.subVectors(bird,lastBird);
       if(birdMotion.lengthSq()<2500){
@@ -109,15 +126,39 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
         // transfers wing bob, terrain corrections and landing impulses
         // straight into the TV camera. Carry part of its travel, then let
         // the damped follower absorb the rest without losing the subject.
-        const ride=(currentShot==='scenic'||currentShot==='high-reveal') ? .42 : .58;
-        camera.position.addScaledVector(birdMotion,ride);
-        smoothedTarget.addScaledVector(birdMotion,.50);
+        // Preserve the full translational displacement of the subject.
+        // A partial ride accumulates metres of lag at 30–60 fps, enough to
+        // lose a small bird outside a narrow TV/mobile field of view.
+        // Damping below still smooths the *relative camera offset* and the
+        // quaternion; movement of the subject is never discarded.
+        // Keep horizontal travel in lockstep but reject the high-frequency
+        // vertical impulse of landing or ocean buoyancy. Relative position
+        // easing below catches up smoothly without losing the animal.
+        // Ordinary continuous climbs/descents are real subject travel; do
+        // not convert them into permanent lag (especially at 1–3 m camera
+        // distance for small birds). Only damp discontinuous vertical jumps.
+        const smoothVertical=Math.abs(birdMotion.y)<=Math.max(.5,30*delta);
+        const verticalRide=smoothVertical?1:.55;
+        camera.position.x+=birdMotion.x;
+        camera.position.z+=birdMotion.z;
+        camera.position.y+=birdMotion.y*verticalRide;
+        smoothedTarget.x+=birdMotion.x;
+        smoothedTarget.z+=birdMotion.z;
+        smoothedTarget.y+=birdMotion.y*verticalRide;
       }else{
         smoothedTarget.copy(bird);
       }
     }else{smoothedTarget.copy(bird);}
     lastBird.copy(bird);hasPrevious=true;
-    desired.set(bird.x+plan.x,bird.y+plan.y,bird.z+plan.z);
+    // A small forest bird may fly close to a steep mountain wall. A fixed
+    // chase offset then films only green terrain. Prefer the uphill side of
+    // the protagonist, preserving distance, while the usual follower eases
+    // the change in world space.
+    const terrainOffset=(camera.aspect<.72&&wingspan<.5)?
+      terrainAwareOffset(plan.x,plan.z,context.slopeX,context.slopeZ,
+        context.groundClearance):
+      {x:plan.x,z:plan.z,corrected:false};
+    desired.set(bird.x+terrainOffset.x,bird.y+plan.y,bird.z+terrainOffset.z);
     const clearance=currentShot==='close'?.85:2.6;
     let needed=0;
     for(let i=1;i<=8;i++){
@@ -132,14 +173,22 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     desired.y=Math.max(desired.y,Math.max(-9,terrainHeight(desired.x,desired.z,seed))+clearance);
     target.set(bird.x+plan.leadX,bird.y+Math.max(.08,wingspan*.10),bird.z+plan.leadZ);
     const k=1-Math.exp(-delta*(currentShot==='scenic'||currentShot==='high-reveal'?1.35:2.6));
-    camera.position.lerp(desired,k);
+    // Establish a new small-bird documentary shot on its viable hillside
+    // vantage from the very first frame. Otherwise, moving the orbit across
+    // the subject for seconds while angle speed is capped loses the bird.
+    // Never snap a running shot or a landscape-to-landscape transition.
+    const establishTerrainShot=initializingShot&&terrainOffset.corrected&&
+      camera.aspect<.72&&wingspan<.5;
+    if(establishTerrainShot)camera.position.copy(desired);
+    else camera.position.lerp(desired,k);
     camera.position.y=Math.max(camera.position.y,
       Math.max(-9,terrainHeight(camera.position.x,camera.position.z,seed))+clearance);
-    smoothedTarget.lerp(target,1-Math.exp(-delta*3.1));
+    if(establishTerrainShot)smoothedTarget.copy(target);
+    else smoothedTarget.lerp(target,1-Math.exp(-delta*3.1));
     camera.up.set(0,1,0);
     lookMatrix.lookAt(camera.position,smoothedTarget,camera.up);
     lookRotation.setFromRotationMatrix(lookMatrix);
-    if(!hasLookRotation){
+    if(!hasLookRotation||establishTerrainShot){
       camera.quaternion.copy(lookRotation);
       hasLookRotation=true;
       lastAngularStep=0;
@@ -153,13 +202,19 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       camera.quaternion.rotateTowards(lookRotation,angularStep);
       lastAngularStep=delta>0?angularStep/delta:0;
     }
-    const newFov=camera.fov+(plan.fov-camera.fov)*(1-Math.exp(-delta*.95));
+    // Portrait devices have a much narrower physical screen. A 55° vertical
+    // cinematic FOV cut the protagonist out of frame during steep descents.
+    // Keep the original lens on landscape, widen the vertical field on phones.
+    const portrait=clamp((.82-camera.aspect)/.35,0,1);
+    const framingFov=plan.fov+(80-plan.fov)*portrait;
+    const newFov=camera.fov+(framingFov-camera.fov)*(1-Math.exp(-delta*2.8));
     if(Math.abs(newFov-camera.fov)>.0001){
       camera.fov=newFov;camera.updateProjectionMatrix();
     }
     return {shot:currentShot,target:smoothedTarget,clearance,reason:lastReason,transitions,
       groundClearance:context.groundClearance,relief:context.relief,
-      cameraHeading:smoothYaw,turnSpeed:lastAngularStep};
+      cameraHeading:smoothYaw,turnSpeed:lastAngularStep,
+      uphillFraming:terrainOffset.corrected};
   }
   return {
     update,

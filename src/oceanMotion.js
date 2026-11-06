@@ -5,7 +5,7 @@
 // rendered triangles, making floating birds appear submerged.
 export const OCEAN_BASE_HEIGHT=-9;
 export const OCEAN_PLANE_SIZE=17000;
-export const OCEAN_SEGMENTS=190;
+export const OCEAN_SEGMENTS=300;
 
 export function oceanWave(x,z,time,storm=0){
   return Math.sin(x*.011+time*.61)*2.0

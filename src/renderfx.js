@@ -42,6 +42,18 @@ export function createSky(THREE,scene) {
           pow(max(dot(normalize(vRay.xz),normalize(sunDirection.xz)),0.0),3.0);
         c+=vec3(.68,.31,.16)*horizonLight*golden*.28;
         c=mix(c,vec3(.15,.21,.26),cloud*.32);
+        // Layered overcast breaks the single flat grey sky into soft cloud
+        // banks; distribution is angular (distant) rather than point sprites
+        // clustered beside the camera.
+        float bankA=sin(vRay.x*31.0+sin(vRay.z*14.0)*2.4)*
+          cos(vRay.z*23.0-vRay.x*8.0);
+        float bankB=sin(vRay.x*61.0-vRay.z*19.0)*
+          cos(vRay.z*43.0+vRay.x*12.0);
+        float haze=bankA*.72+bankB*.28;
+        float bankZone=smoothstep(-.28,.08,y)*(1.0-smoothstep(.60,.95,y));
+        float clouds=cloud*bankZone*smoothstep(-.55,.57,haze);
+        c=mix(c,vec3(.59,.67,.67)*(.80+.20*day),clouds*.44);
+        c-=vec3(.047,.062,.066)*cloud*bankZone*(1.0-smoothstep(-.42,.30,haze));
         gl_FragColor=vec4(c,1.0);
       }`
   });
@@ -115,7 +127,10 @@ export function createOcean(THREE,scene,seed=1988){
         float r1=sin(vPosition.x*.11+time*1.9)*cos(vPosition.z*.13-time*1.32);
         float r2=sin((vPosition.x+vPosition.z)*.19+time*2.21);
         float microFade=1.0-smoothstep(430.0,3200.0,length(cameraPosition-vPosition));
-        vec3 N=normalize(vNormal+vec3(r1*.07,0.0,r2*.05)*microFade);
+        float ripple=sin(vPosition.x*.43+time*3.3+sin(vPosition.z*.24))*
+          cos(vPosition.z*.34-time*2.6);
+        vec3 N=normalize(vNormal+(vec3(r1*.20+ripple*.055,0.0,
+          r2*.17-ripple*.045)*microFade)*(1.0+storm*.45));
         float diffuse=max(dot(N,L),0.0);
         float fresnel=pow(1.0-max(dot(V,N),0.0),3.0);
         float sparkle=pow(max(dot(reflect(-L,N),V),0.0),90.0)*day;
@@ -131,6 +146,14 @@ export function createOcean(THREE,scene,seed=1988){
         float shoal=1.0-smoothstep(7.0,68.0,depth);
         float nearShore=smoothstep(-6.0,1.0,depth)*
           (1.0-smoothstep(2.5,17.0,depth));
+        // Wave wash gathers near coastal cliffs, where the seeded bathymetry
+        // rises steeply. Both the rock and breakers use the same coastline.
+        float coastalRise=abs(texture2D(coastHeightmap,
+          clamp(coastUv+vec2(.006,0.0),vec2(.001),vec2(.999))).r-
+          texture2D(coastHeightmap,
+          clamp(coastUv-vec2(.006,0.0),vec2(.001),vec2(.999))).r);
+        float cliffBreak=smoothstep(.13,.37,coastalRise)*nearShore;
+        float advancingWave=.5+.5*sin(vPosition.x*.10+vPosition.z*.045-time*1.7);
         float coralBand=smoothstep(3.0,7.0,depth)*
           (1.0-smoothstep(23.0,55.0,depth));
         vec3 deep=mix(vec3(.014,.045,.094),vec3(.016,.155,.204),day);
@@ -147,15 +170,20 @@ export function createOcean(THREE,scene,seed=1988){
         color+=mix(vec3(.65,.76,.81),vec3(1.0,.78,.46),.65)*
           (sparkle*.84+sunTrail*.11);
         float crest=smoothstep(3.6,5.9,abs(vWave));
-        float foam=clamp(nearShore*(.19+.25*coarse)+crest*storm*.23,0.0,.67);
-        color=mix(color,vec3(.77,.88,.82),foam);
+        float shortCrest=smoothstep(.72,.92,
+          .50+.50*sin(vPosition.x*.076-time*1.8)*
+          cos(vPosition.z*.089+time*.9));
+        float foam=clamp(nearShore*(.28+.31*advancingWave)+
+          cliffBreak*(.25+.55*advancingWave)+
+          shortCrest*(.08+.20*storm)*microFade+crest*storm*.23,0.0,.88);
+        color=mix(color,vec3(.83,.91,.89),foam*(.60+day*.33));
         float dist=length(cameraPosition-vPosition);
         float fog=1.0-exp(-fogDensity*fogDensity*dist*dist);
         color=mix(color,skyColor,clamp(fog,0.0,.94));
         gl_FragColor=vec4(color,1.0);
       }`
   });
-  const g=new THREE.PlaneGeometry(17000,17000,190,190);g.rotateX(-Math.PI/2);
+  const g=new THREE.PlaneGeometry(17000,17000,300,300);g.rotateX(-Math.PI/2);
   const water=new THREE.Mesh(g,material);water.position.y=-9;water.renderOrder=1;
   scene.add(water);
   return {mesh:water,uniforms,bathymetry:{seed,resolution:heightmap.size,extent:heightmap.extent},

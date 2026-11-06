@@ -52,13 +52,13 @@ test('all twelve bird species have curved indexed wings, articulated feathers an
 
 test('near-tree geometry is pooled, distance bounded and can be disposed',()=>{
   assert.equal(treeDetailWeight(0),1);
-  assert.equal(treeDetailWeight(150),0);
-  assert.ok(treeDetailWeight(120)>0&&treeDetailWeight(120)<1);
+  assert.equal(treeDetailWeight(330),0);
+  assert.ok(treeDetailWeight(270)>0&&treeDetailWeight(270)<1);
   const scene=new THREE.Scene();
   const trees=[
     {x:0,y:0,z:0,height:30,kind:'pine',angle:0},
     {x:60,y:0,z:0,height:22,kind:'oak',angle:.1},
-    {x:300,y:0,z:0,height:30,kind:'birch',angle:0}
+    {x:500,y:0,z:0,height:30,kind:'birch',angle:0}
   ];
   const layer=createTreeDetail(THREE,scene,trees,1);
   layer.update({x:0,y:0,z:0},0);
@@ -132,7 +132,7 @@ test('dense tree patches fade before the fixed instance-pool boundary',()=>{
   }));
   const layer=createTreeDetail(THREE,scene,records,1);
   layer.update({x:0,y:10,z:0},0);
-  assert.ok(layer.fadeDistance<145);
+  assert.ok(layer.fadeDistance<330);
   assert.ok(layer.fadeDistance>0);
   assert.ok(layer.active<=TREE_DETAIL_POOL);
   assert.ok(scene.children.every(mesh=>mesh.count<=TREE_DETAIL_POOL*7));

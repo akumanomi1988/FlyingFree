@@ -67,3 +67,23 @@ transition:transform 12s ease-out,opacity .6s;transform:translate(var(--tv-shift
   .tv-condition span{font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){.tv-overlay{transition:none}.bird-picker{animation:none}}
+
+
+/* Minimal observational instrumentation: no extra panel chrome by default. */
+.bird-vitals{margin:15px 0 0;padding-top:13px;border-top:1px solid var(--line);font-size:10px}
+.vitals-head{display:flex;justify-content:space-between;gap:12px;color:#e8f6eb;font-size:11px;margin-bottom:11px}
+.vitals-head span:last-child{opacity:.74;font-size:10px}
+.vital{display:grid;grid-template-columns:65px 1fr 34px;gap:8px;align-items:center;margin:7px 0;font-size:9px;letter-spacing:.08em;color:#d8e9e0}
+.vital label{color:#c2d5cd}.vital output{font-variant-numeric:tabular-nums;text-align:right}
+.vital meter{width:100%;height:6px;background:none;border:0;appearance:none}
+.vital meter::-webkit-meter-bar{height:5px;border:0;border-radius:2px;background:#ffffff27}
+.vital meter::-webkit-meter-optimum-value{border-radius:2px;background:#b7d8be}
+.vital meter::-moz-meter-bar{border-radius:2px;background:#b7d8be}
+.mini-map{position:absolute;z-index:3;right:35px;bottom:72px;width:128px;padding:8px 8px 7px;background:#10262b7d;border:1px solid #c6e6d630;border-radius:5px;backdrop-filter:blur(9px);opacity:.77;transition:opacity .25s}
+.mini-map:hover{opacity:1}
+.mini-map canvas{width:112px;height:112px;display:block;border-radius:2px}
+.map-caption{text-align:center;font-size:8px;letter-spacing:.18em;color:#d8e7db;margin-top:5px}
+.no-ui .mini-map,.tv-mode .mini-map{display:none!important}
+@media(max-width:700px){.mini-map{right:16px;bottom:75px;width:91px;padding:5px}.mini-map canvas{width:79px;height:79px}.hud{width:172px}.vital{grid-template-columns:57px 1fr 30px;gap:5px}.right-tools{gap:5px}.circle{width:31px;height:31px;font-size:15px}}
+
+.hide-bird-hud .hud{opacity:0;visibility:hidden;pointer-events:none}

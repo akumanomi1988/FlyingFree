@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {cameraShotAt,cameraPlanAt,CAMERA_SHOTS,createCameraDirector} from '../src/cameraDirector.js';
+import {cameraShotAt,cameraPlanAt,CAMERA_SHOTS,createCameraDirector,terrainAwareOffset} from '../src/cameraDirector.js';
 import {terrainHeight} from '../src/core.js';
 
 test('cinematic shots remain attached to the bird with no fixed world-space coordinates',()=>{
@@ -104,4 +104,80 @@ test('camera QA angles are deterministic and cannot be requested accidentally',(
  assert.equal(forced.transitions,0);
  const invalid=createCameraDirector(THREE,()=>0,1988,{qaShot:'not-a-shot'});
  assert.equal(invalid.update(camera,bird,0,42,'patrol',1.5,0,.1).shot,'chase');
+});
+
+
+test('small and fast birds remain inside the visible camera frame at 15, 30 and 60 fps',()=>{
+ for(const fps of [15,30,60]){
+   const dt=1/fps;
+   const director=createCameraDirector(THREE,()=>0,1988);
+   const camera=new THREE.PerspectiveCamera(55,390/844,.15,5000);
+   const bird=new THREE.Vector3(0,100,0);
+   camera.position.set(0,101,3);
+   for(let i=0;i<fps*12;i++){
+     // 13 m/s is a representative stylized hummingbird cruise speed.
+     // The old .58 camera ride loses >2 m and focuses empty scenery.
+     bird.z-=13*dt;
+     director.update(camera,bird,0,13,'patrol',.11,i*dt,dt);
+     if(i>fps*3){
+       camera.updateMatrixWorld(true);
+       const screen=bird.clone().project(camera);
+       assert.ok(Number.isFinite(screen.x)&&Number.isFinite(screen.y),
+         'Non-finite projection at '+fps+' fps');
+       assert.ok(Math.abs(screen.x)<.72&&Math.abs(screen.y)<.72&&screen.z<1,
+         'Tracked hummingbird escaped frame at '+fps+' fps: '+JSON.stringify(screen.toArray()));
+     }
+   }
+ }
+});
+
+test('continuous descending flight does not leave small portrait subject below the frame',()=>{
+ for(const fps of [15,30,60]){
+  const dt=1/fps,seed=1988,camera=new THREE.PerspectiveCamera(55,390/844,.15,5000);
+  const bird=new THREE.Vector3(0,125,0),director=createCameraDirector(THREE,()=>0,seed);
+  camera.position.set(0,129,4);
+  for(let i=0;i<fps*4;i++){
+   bird.z-=13*dt;
+   bird.y-=12*dt;
+   director.update(camera,bird,0,13,'patrol',.11,i*dt,dt);
+   if(i>=fps*3){
+    camera.updateMatrixWorld(true);
+    const projection=bird.clone().project(camera);
+    assert.ok(Math.abs(projection.y)<.92&&Math.abs(projection.x)<.92,
+      'Continuous descent lost portrait bird at '+fps+'fps: '+projection.toArray());
+   }
+  }
+ }
+});
+
+test('hillside-aware framing looks downhill without changing level-ground shots',()=>{
+ const level=terrainAwareOffset(0,-3,0,.05,70);
+ assert.deepEqual(level,{x:0,z:-3,corrected:false});
+ const open=terrainAwareOffset(0,-3,0,.85,180);
+ assert.equal(open.corrected,false,'high soaring birds should keep scenic orbit');
+ const hillside=terrainAwareOffset(0,-3,0,.85,65);
+ assert.equal(hillside.corrected,true);
+ assert.ok(hillside.z>1.5,'steep uphill wall must not remain behind protagonist');
+ const director=createCameraDirector(THREE,(x,z)=>.8*z,1988);
+ const camera=new THREE.PerspectiveCamera(55,390/844,.15,5000);
+ camera.position.set(0,75,-5);
+ const bird=new THREE.Vector3(0,70,0);
+ let out;
+ for(let i=0;i<240;i++)
+  out=director.update(camera,bird,Math.PI,13,'patrol',.11,i/60,1/60);
+ assert.equal(out.uphillFraming,true,'shot should prefer valley-facing vantage');
+ assert.ok(camera.position.z>0.6,'camera should move to slope side after easing');
+});
+
+test('terrain-aware mobile orbit does not override landscape and TV direction',()=>{
+ const director=createCameraDirector(THREE,(x,z)=>z*.8,1988);
+ const camera=new THREE.PerspectiveCamera(56,16/9,.1,10000);
+ camera.position.set(0,85,-6);
+ const bird=new THREE.Vector3(0,78,0);
+ let shot;
+ for(let i=0;i<240;i++)
+   shot=director.update(camera,bird,Math.PI,50,'patrol',.75,i/60,1/60);
+ assert.equal(shot.uphillFraming,false,
+   'wide-screen raptor/TV camera must not orbit for portrait-only hillside fix');
+ assert.ok(camera.position.distanceTo(bird)<100);
 });
