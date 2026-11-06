@@ -1,13 +1,19 @@
 import {terrainHeight,random,clamp,TAU} from './core.js';
 import {resourcePoint,foodType,habitatAt,birdHabitatScore} from './ecology.js';
 import {oceanSurfaceHeight,oceanFloatPose} from './oceanMotion.js';
+import {birdEcology,flightAltitude} from './birdEcology.js';
 
 // Deterministic, species-aware utility AI. The bird has physiological drives and
 // explicit take-off, approach, landing, foraging, resting and sheltered states.
-export function createBirdBrain(profile,seed=1988,initial=null){
+export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  const rng=random(seed ^ profile.id.split('').reduce((n,c)=>n*31+c.charCodeAt(0),7));
  const flight=profile.flight,marine=flight==='marine',owl=flight==='nocturnal',swift=profile.id==='swift';
- const cruise={dash:80,soar:57,marine:62,hover:36,nocturnal:40,wade:30}[flight]||45;
+ const ecology=birdEcology(profile);
+ // Typical cruise speeds remain species-dependent rather than forcing tiny
+ // forest birds to fly at the same 60-80 m/s pace as a distant raptor.
+ const cruise=({hummingbird:13,kingfisher:17,swallow:22,swift:28,
+   heron:16,owl:18,gull:25,albatross:30,eagle:27,vulture:22,
+   osprey:25,kestrel:19})[profile.id]||22;
  const maxTurn=flight==='dash'?1.55:flight==='soar'||marine?.68:1.18;
  const startA=rng()*TAU;
  // Each newly spawned species starts in a compatible biome, not on an
@@ -33,6 +39,8 @@ export function createBirdBrain(profile,seed=1988,initial=null){
  let state='patrol',until=0,tx=x,tz=z,ty=y,
  energy=clamp(finite(initial?.energy,.76)),hunger=clamp(finite(initial?.hunger,.79));
  let food=null,activityChangedAt=0,landings=0,feedings=0,landingRest=false;
+ const perches=Array.isArray(world.perches)?world.perches:[];
+ let roost=null;
  let currentTime=0,currentRain=0;
  const buoyancy={};
  function clearance(px,pz,kind){
@@ -43,9 +51,13 @@ export function createBirdBrain(profile,seed=1988,initial=null){
      Math.max(.045,profile.wingspan*.042):kind==='hunt'?10:40;
   }
   if(swift)return Math.max(ground+70,95);
-  if(kind==='land')return ground+Math.max(.18,profile.wingspan*.32);
+  if(kind==='land'){
+   const biome=habitatAt(px,pz,seed);
+   const canopy=biome.type==='forest'?18:biome.type==='wetland'?6:0;
+   return ground+Math.max(.18,profile.wingspan*.32)+(ecology.rest==='branch'?canopy*.66:0);
+  }
   if(kind==='hunt')return ground+(profile.id==='hummingbird'?11:profile.id==='kingfisher'?10:profile.id==='heron'?8:14);
-  return ground+(flight==='soar'?112:flight==='dash'?90:58);
+  return flightAltitude(profile,habitatAt(px,pz,seed),ground);
  }
  function target(px,pz,height){
   tx=px;tz=pz;ty=height;
@@ -71,20 +83,40 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   }
   target(bestX,bestZ,clearance(bestX,bestZ,'cruise')+rng()*32);
  }
+ function selectRoost(){
+  roost=null;
+  if(!ecology.canPerch||ecology.rest==='water'||ecology.rest==='cliff')return null;
+  let best=null,cost=Infinity;
+  // Actual instanced tree records ensure that perching birds finish near a
+  // particular canopy, not at a random floating point above empty terrain.
+  for(const tree of perches){
+   if(tree.kind==='palm'||tree.kind==='cypress')continue;
+   const d2=(tree.x-x)**2+(tree.z-z)**2;
+   if(d2<cost){cost=d2;best=tree;}
+  }
+  if(best&&cost<2000*2000){
+   roost={x:best.x,z:best.z,y:best.y+best.height*.70};
+   return roost;
+  }
+  return null;
+ }
+ function returnToRest(){
+  const chosen=selectRoost();
+  const px=marine?x:(chosen?.x??homeX),pz=marine?z:(chosen?.z??homeZ);
+  target(px,pz,chosen?.y??clearance(px,pz,'land'));
+ }
  function transition(next,t){state=next;activityChangedAt=t;}
  function chooseAction(t,day,rain){
   const shouldSleep=owl?day>.67:day<.1;
   if(shouldSleep&&!swift&&state!=='rest'&&state!=='landing'){
-   transition('shelter',t);const px=marine?x:homeX,pz=marine?z:homeZ;
-   target(px,pz,clearance(px,pz,'land'));until=t+34;return;
+   transition('shelter',t);returnToRest();until=t+34;return;
   }
   if(rain>.70&&!marine&&state!=='shelter'&&state!=='rest'){
-   transition('shelter',t);target(homeX,homeZ,clearance(homeX,homeZ,'land'));until=t+25;return;
+   transition('shelter',t);returnToRest();until=t+25;return;
   }
   if((energy<.27||shouldSleep)&&!swift){
    transition('return',t);
-   const px=marine?x:homeX,pz=marine?z:homeZ;
-   target(px,pz,clearance(px,pz,'land'));until=t+40;return;
+   returnToRest();until=t+40;return;
   }
   if(hunger>.56){
    food=resourcePoint(profile,x,z,rng,seed);
@@ -105,7 +137,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   dt=clamp(dt,0,.10);day=clamp(day);rain=clamp(rain);
   currentTime=t;currentRain=rain;
   const resting=['rest','shelter'].includes(state),feeding=state==='feed';
-  energy=clamp(energy+(resting?.022:feeding?.008:-.0029)*dt);
+  energy=clamp(energy+(resting?.022:feeding?.008:-.0029*ecology.fatigueDrain)*dt);
   hunger=clamp(hunger+(feeding?-.105:.0017)*dt);
   if(state==='patrol'&&(t>=until||Math.hypot(tx-x,tz-z)<30))chooseAction(t,day,rain);
   else if(state==='seek_food'&&t-activityChangedAt>0){
@@ -127,7 +159,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
    }
   }
   else if(state==='landing'){
-   if(Math.hypot(tx-x,tz-z)<10&&Math.abs(y-clearance(x,z,'land'))<3.4){
+   if(Math.hypot(tx-x,tz-z)<10&&Math.abs(y-(roost?.y??clearance(x,z,'land')))<3.4){
     transition(landingRest?'rest':'feed',t);until=t+(landingRest?20+rng()*14:5+rng()*6);landings++;if(!landingRest)feedings++;
    }
   }
@@ -186,7 +218,8 @@ export function createBirdBrain(profile,seed=1988,initial=null){
    floating,waterPitch,waterRoll,
    state,mode:state,speed:velocity,velocity,resting:grounded||floating,grounded,
    wingsFolded:grounded||floating||state==='rest'||state==='landing',flapping:state==='takeoff'||flight==='hover',
-   hunger,energy,food:food?.kind||null,feedingHabitat:food?.biome||null,landings,feedings};
+   hunger,energy,food:food?.kind||null,feedingHabitat:food?.biome||null,
+   roosting:grounded&&Boolean(roost),landings,feedings};
  },
  get state(){return state;},
  get snapshot(){return {x,y,z,heading,velocity,energy,hunger};},
