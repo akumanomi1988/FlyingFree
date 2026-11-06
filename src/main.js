@@ -114,7 +114,7 @@ function init(){
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
-  status.world={seed:worldSeed,regeneration:'session',extent:TROPICAL_WORLD.extent,cliffStacks:cliffs.count,riverChannels:rivers.channels,riverSegments:rivers.segments,
+  status.world={seed:worldSeed,regeneration:opts.seed!=null?'fixed':opts.selftest?'test':'session',extent:TROPICAL_WORLD.extent,cliffStacks:cliffs.count,riverChannels:rivers.channels,riverSegments:rivers.segments,
     coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution};
   status.faunaLOD=ecosystem.lodStats;
   status.habitatUse=habitatMonitor.snapshot();
