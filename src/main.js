@@ -396,49 +396,9 @@ function fly(date,dt,sun){
  return birdModel.position;
 }
 function directCamera(bird,dt){
-  const shot=Math.floor(elapsed/31)%7;
-  const yaw=birdModel.rotation.y,forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
-  const side=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-  const span=currentBird.wingspan,near=birdCameraDistance(currentBird);
-  const low=['approach','landing','feed','rest'].includes(status.behaviour);
-  const tracking=low||![2,5,6].includes(shot);
-  // Translate the observer along with the bird before easing. Without this,
-  // a 60 m/s bird outruns an otherwise close cinematic chase camera.
-  if(tracking&&cameraBirdTracked){
-    const motion=bird.clone().sub(lastCameraBird);
-    if(motion.lengthSq()<2500){camera.position.add(motion);cameraLook.add(motion);}
-  }
-  lastCameraBird.copy(bird);cameraBirdTracked=true;
-  let target=bird.clone().add(new THREE.Vector3(0,span*.08,0)),desired;
-  switch(shot){
-    case 0:desired=bird.clone().addScaledVector(forward,-near).addScaledVector(side,near*.30).add(new THREE.Vector3(0,near*.24,0));break;
-    case 1:desired=bird.clone().add(new THREE.Vector3(Math.cos(elapsed*.048)*near*1.18,near*.36,Math.sin(elapsed*.048)*near*1.18));break;
-    case 2:desired=new THREE.Vector3(950,650,1320);target.lerp(new THREE.Vector3(0,210,0),.38);break;
-    case 3:desired=bird.clone().addScaledVector(side,-near*1.2).addScaledVector(forward,-near*.25).add(new THREE.Vector3(0,near*.22,0));break;
-    case 4:desired=bird.clone().addScaledVector(forward,near*1.15).addScaledVector(side,near*.24).add(new THREE.Vector3(0,near*.37,0));break;
-    case 5:{
-      const fauna=ecosystem.focus(elapsed);target=fauna.point;
-      const d=fauna.kind==='ocean'?18:fauna.kind==='flowers'?.75:8;
-      desired=target.clone().add(new THREE.Vector3(d*.42,d*.38,d));
-      break;
-    }
-    default:desired=new THREE.Vector3(-1230,510,-900);target=new THREE.Vector3(90,170,10);break;
-  }
-  if(low){
-    const d=Math.max(.55,span*2.8);
-    desired=bird.clone().addScaledVector(side,d*.65).addScaledVector(forward,-d*.75).add(new THREE.Vector3(0,d*.35,0));
-    target=bird.clone().add(new THREE.Vector3(0,span*.12,0));
-  }
-  const clearance=low?.35:shot===5?.45:tracking?Math.max(.65,span*.4):8;
-  desired.y=Math.max(desired.y,terrainHeight(desired.x,desired.z)+clearance);
-  const ease=1-Math.exp(-dt*2.2);
-  camera.position.lerp(desired,ease);
-  camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+clearance);
-  cameraLook.lerp(target,1-Math.exp(-dt*1.8));
-  camera.lookAt(cameraLook);
-  const fov=low?48:[54,52,61,53,53,48,62][shot];
-  camera.fov=lerp(camera.fov,fov,1-Math.exp(-dt*.8));
-  camera.updateProjectionMatrix();
+  const frame=cameraDirector.update(camera,bird,birdModel.rotation.y,
+    birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,elapsed,dt);
+  status.cameraShot=frame.shot;
 }
 function updateSea(t,dt,sun){
   oceanFX.update(t,sun,weatherState,scene.fog.color);
@@ -706,7 +666,9 @@ function selfTest(){
  const tests=[
   ['WebGL2 disponible',!!renderer?.capabilities.isWebGL2],
   ['Escena 3D renderizando',scene?.children.length>20],
-  ['Terreno con geometría',terrain?.geometry.attributes.position.count>10000],
+  ['Terreno con geometría',terrain?.geometry.attributes.position.count>50000],
+  ['Isla tropical procedural',terrainHeight(0,0,worldSeed)>100&&terrainHeight(5500,5500,worldSeed)<0],
+  ['Ríos fluviales',rivers?.channels===3&&rivers.segments>100],
   ['Relieve reproducible',terrainHeight(0,0)>0&&terrainHeight(3000,3000)<0],
   ['Vegetación instanciada',forest?.count>1000],
   ['Océano GPU',!!oceanFX?.mesh?.material.isShaderMaterial],
@@ -715,14 +677,14 @@ function selfTest(){
   ['Reloj del dispositivo',localHour(new Date(simMs))>=0],
   ['Aves disponibles',BIRDS.length>=12],
   ['Selección de aves',document.querySelectorAll('[data-bird]').length===BIRDS.length],
-  ['Ave con alas articuladas',!!birdModel?.userData?.left?.pivot],
+  ['Ave con alas articuladas',!!birdModel?.userData?.left?.pivot&&birdModel.userData.wingSilhouette==='single-continuous'],
   ['Siete tipos de clima',WEATHER.length===7],
   ['Fauna terrestre',ecosystem.stats.deer>=4&&ecosystem.stats.fox>=2],
   ['Fauna marina',ecosystem.stats.dolphins>=4],
   ['Aves secundarias',ecosystem.stats.gulls>=10],
   ['Polinizadores',ecosystem.stats.butterflies>=12],
   ['Precipitación dinámica',!!rainFX?.mesh],
-  ['Cámara cinematográfica',camera?.position.length()>0],
+  ['Cámara cinematográfica',camera?.position.length()>0&&!!cameraDirector?.shot],
   ['Audio procedural',!!(window.AudioContext||window.webkitAudioContext)],
   ['Fotogramas suficientes',status.frames>6],
   ['Sin errores graves',status.error===null],
