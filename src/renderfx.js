@@ -42,6 +42,18 @@ export function createSky(THREE,scene) {
           pow(max(dot(normalize(vRay.xz),normalize(sunDirection.xz)),0.0),3.0);
         c+=vec3(.68,.31,.16)*horizonLight*golden*.28;
         c=mix(c,vec3(.15,.21,.26),cloud*.32);
+        // Layered overcast breaks the single flat grey sky into soft cloud
+        // banks; distribution is angular (distant) rather than point sprites
+        // clustered beside the camera.
+        float bankA=sin(vRay.x*31.0+sin(vRay.z*14.0)*2.4)*
+          cos(vRay.z*23.0-vRay.x*8.0);
+        float bankB=sin(vRay.x*61.0-vRay.z*19.0)*
+          cos(vRay.z*43.0+vRay.x*12.0);
+        float haze=bankA*.72+bankB*.28;
+        float bankZone=smoothstep(-.28,.08,y)*(1.0-smoothstep(.60,.95,y));
+        float clouds=cloud*bankZone*smoothstep(-.55,.57,haze);
+        c=mix(c,vec3(.59,.67,.67)*(.80+.20*day),clouds*.44);
+        c-=vec3(.047,.062,.066)*cloud*bankZone*smoothstep(.30,-.42,haze);
         gl_FragColor=vec4(c,1.0);
       }`
   });
