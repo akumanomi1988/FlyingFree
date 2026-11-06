@@ -148,8 +148,8 @@ function createLandscape(){
   rivers=createTropicalRivers(THREE,scene,worldSeed);
 }
 function createForest(){
-  const rng=random(1988);
-  const n=innerWidth<720?1500:2450;
+  const rng=random(worldSeed);
+  const n=innerWidth<720?2250:4400;
   const treeRecords=[];
   const foliage=(color,animate=false,amplitude=.8,height=19)=>{
     const material=new THREE.MeshStandardMaterial({color,roughness:1,flatShading:true});
@@ -163,34 +163,65 @@ function createForest(){
   const cypress=new THREE.InstancedMesh(new THREE.ConeGeometry(4.9,43,7),foliage('#3b7954',true,.46,43),n);
   const olive=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(8.5,1),foliage('#9aaa78',true,.39,17),n);
   const birch=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(9,1),foliage('#90b08c',true,.44,18),n);
-  const greens=['#447755','#5a9161','#699f68','#4f8060','#87ac72'].map(c=>new THREE.Color(c));
-  const currentMonth=new Date(simMs).getMonth();
-  const broadGreens=(currentMonth>=8&&currentMonth<=10?
-    ['#dfac50','#c78047','#b86d49','#d3b365']:
-    currentMonth<=1?['#8b9c78','#a3ad86','#87976c']:
-    currentMonth<=4?['#a6c875','#8ab86f','#b7d17d']:
-    ['#90b771','#74a36a','#a4bf7c','#719563']).map(c=>new THREE.Color(c));
+  const greens=['#17643a','#287647','#397e4b','#1e6840','#3e8754'].map(c=>new THREE.Color(c));
+  const broadGreens=['#17663e','#217a4a','#3b8953','#246d43','#397b49','#4a965a']
+    .map(c=>new THREE.Color(c));
+  // Palm crowns are seven fronds per trunk, instanced into ONE draw call.
+  const frondPositions=[],frondIndices=[];
+  for(let t=0;t<=8;t++){
+    const u=t/8,width=Math.sin(u*Math.PI),droop=.38*Math.sin(Math.PI*u)-.52*u*u;
+    for(const side of [-1,0,1])
+      frondPositions.push(side*width,droop+(side===0?.07:0),u);
+    if(t<8){
+      const k=t*3;
+      frondIndices.push(k,k+3,k+1,k+1,k+3,k+4,k+1,k+4,k+2,k+2,k+4,k+5);
+    }
+  }
+  const frondGeometry=new THREE.BufferGeometry();
+  frondGeometry.setAttribute('position',new THREE.Float32BufferAttribute(frondPositions,3));
+  frondGeometry.setIndex(frondIndices);frondGeometry.computeVertexNormals();
+  const palmLeaves=new THREE.InstancedMesh(frondGeometry,
+    new THREE.MeshStandardMaterial({color:0x397e43,roughness:1,side:THREE.DoubleSide}),
+    n*7);
+  windField.apply(palmLeaves.material,{amplitude:.17,height:1,frequency:.81});
+  let palms=0;
   let pines=0,deciduous=0,cypresses=0,olives=0,birches=0,trees=0;
   for(let attempt=0;attempt<n*8&&trees<n;attempt++){
-    const x=(rng()-.5)*3450,z=(rng()-.5)*3060,y=terrainHeight(x,z);
-    if(y<14||y>340||rng()<smooth(190,335,y)*.56)continue;
-    const habitat=habitatAt(x,z);
-    if(habitat.type==='rock'||habitat.slope>.85)continue;
+    const x=(rng()-.5)*9950,z=(rng()-.5)*8600;
+    const candidate=tropicalTerrainSample(x,z,worldSeed),y=candidate.height;
+    if(y<12||y>730||rng()<smooth(430,700,y)*.48)continue;
+    const habitat=habitatAt(x,z,worldSeed);
+    if(habitat.type==='rock'||habitat.slope>1.02)continue;
     const s=.78+rng()*.50,a=rng()*TAU;
-    const kind=habitat.type==='shore'?'olive':
-      y<125&&habitat.humidity<.50&&rng()<.35?'olive':
-      habitat.type==='forest'&&rng()<.16?'birch':
-      habitat.type==='forest'&&rng()<.22?'oak':
-      y<195&&rng()<.13?'cypress':'pine';
-    const h=TREE_HEIGHT_M[kind]*s;
-    const trunkRatio=kind==='olive'?.43:kind==='birch'?.58:kind==='oak'?.44:kind==='cypress'?.34:.47;
-    const trunkThickness=kind==='olive'?.26:kind==='birch'?.30:kind==='oak'?.58:kind==='cypress'?.43:.52;
+    // Tropical canopy dominates; palms concentrate on coastal plains and
+    // mangrove-like crowns line the humid river corridors.
+    const kind=y<135&&rng()<(habitat.type==='shore'?.80:.32)?'palm':
+      habitat.type==='wetland'?'mangrove':
+      y>515?(rng()<.38?'cypress':'pine'):
+      habitat.type==='forest'||rng()<.76?'oak':'birch';
+    const h=(kind==='palm'?18:kind==='mangrove'?14:TREE_HEIGHT_M[kind])*s;
+    const trunkRatio=kind==='palm'?.82:kind==='mangrove'?.57:
+      kind==='olive'?.43:kind==='birch'?.58:kind==='oak'?.44:kind==='cypress'?.34:.47;
+    const trunkThickness=kind==='palm'?.12:kind==='mangrove'?.46:
+      kind==='olive'?.26:kind==='birch'?.30:kind==='oak'?.58:kind==='cypress'?.43:.52;
     const trunkHeight=h*trunkRatio;
     temp.rotation.set(0,a,0);
     temp.position.set(x,y+trunkHeight*.5,z);
     temp.scale.set(s*trunkThickness,trunkHeight/16,s*trunkThickness);
     temp.updateMatrix();trunk.setMatrixAt(trees,temp.matrix);
-    if(kind==='cypress'){
+    if(kind==='palm'){
+      const leafColor=new THREE.Color().setHSL(.30+rng()*.08,.30+rng()*.18,.24+rng()*.14);
+      for(let k=0;k<7;k++){
+        temp.position.set(x,y+h*.85,z);
+        temp.rotation.set(0,a+k*TAU/7,0);
+        temp.scale.set(h*.11,h*.16,h*.37);
+        temp.updateMatrix();
+        const slot=palms*7+k;
+        palmLeaves.setMatrixAt(slot,temp.matrix);
+        palmLeaves.setColorAt(slot,leafColor);
+      }
+      palms++;
+    }else if(kind==='cypress'){
       temp.position.set(x,y+h*.52,z);
       temp.scale.set(h*.16/4.9,h*.96/43,h*.16/4.9);
       temp.updateMatrix();cypress.setMatrixAt(cypresses++,temp.matrix);
@@ -202,7 +233,7 @@ function createForest(){
       temp.position.set(x,y+h*.72,z);
       temp.scale.set(h*.24/9,h*.28/9,h*.24/9);
       temp.updateMatrix();birch.setMatrixAt(birches++,temp.matrix);
-    }else if(kind==='oak'){
+    }else if(kind==='oak'||kind==='mangrove'){
       temp.position.set(x,y+h*.70,z);
       temp.scale.set(h*.40/11,h*.30/11,h*.40/11);
       temp.updateMatrix();broad.setMatrixAt(deciduous,temp.matrix);
@@ -223,20 +254,21 @@ function createForest(){
     trees++;
   }
   trunk.count=trees;lower.count=upper.count=pines;broad.count=deciduous;cypress.count=cypresses;olive.count=olives;birch.count=birches;
-  for(const inst of [trunk,lower,upper,broad,cypress,olive,birch]){
+  palmLeaves.count=palms*7;
+  for(const inst of [trunk,lower,upper,broad,cypress,olive,birch,palmLeaves]){
     inst.instanceMatrix.needsUpdate=true;
     if(inst.instanceColor)inst.instanceColor.needsUpdate=true;
     inst.frustumCulled=false;
     scene.add(inst);
   }
-  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches};
+  forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches,palms};
   treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1,windField);
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
   let j=0;
   for(let attempt=0;attempt<850&&j<95;attempt++){
-    const x=(rng()-.5)*1900,z=(rng()-.5)*1800,y=terrainHeight(x,z);
-    if(y<240)continue;
+    const x=(rng()-.5)*7700,z=(rng()-.5)*7000,y=terrainHeight(x,z,worldSeed);
+    if(y<480)continue;
     const scale=6+rng()*13;
     temp.position.set(x,y-1,z);temp.rotation.set(rng(),rng()*TAU,rng());
     temp.scale.set(scale,scale*.45,scale*.82);temp.updateMatrix();
@@ -259,7 +291,7 @@ function createClouds(){
       lobe.scale.set(45+rng()*45,20+rng()*24,40+rng()*38);
       group.add(lobe);
     }
-    group.position.set((rng()-.5)*6500,570+rng()*830,(rng()-.5)*6100);
+    group.position.set((rng()-.5)*11000,900+rng()*1500,(rng()-.5)*10200);
     group.rotation.y=rng()*TAU;
     clouds.push({group,mat:material,baseX:group.position.x,baseZ:group.position.z,
       velocity:2+rng()*5,drift:rng()*TAU,weight:rng()});
@@ -338,7 +370,7 @@ function ambient(date,dt){
     c.mat.opacity=clamp(.16+cloud*.67+(c.weight-.4)*.09,0,.89);
     c.mat.color.copy(cloudTint).multiplyScalar(.72+day*.27);
     c.group.visible=cloud>.035;
-    c.group.position.x=((c.baseX+elapsed*c.velocity+3500)%7000)-3500;
+    c.group.position.x=((c.baseX+elapsed*c.velocity+6000)%12000)-6000;
     c.group.position.z=c.baseZ+Math.sin(elapsed*.02+c.drift)*110;
     c.group.position.y+=Math.sin(elapsed*.003+c.drift)*.07;
   }
