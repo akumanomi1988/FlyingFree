@@ -29,11 +29,18 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   const faunaLOD=createFaunaLODFactory(THREE,{brown,cream,dark,foxCoat,white});
   const legRig=createQuadrupedLegRig(THREE,{create,legGeo,sphere,terrainHeight,seed});
   function habitatPos(maxRadius,minElevation=22,maxElevation=250){
-    for(let i=0;i<100;i++){
-      const x=(rng()-.5)*maxRadius*2,z=(rng()-.5)*maxRadius*2;
-      const y=terrainHeight(x,z,seed);if(y>=minElevation&&y<=maxElevation)return [x,y,z];
+    let fallback=null,bestPenalty=Infinity;
+    // Search tropical foothills, river margins and low forests, not only the
+    // volcanic summit. The old 950 m sampling window stranded mammals on peaks.
+    for(let i=0;i<110;i++){
+      const theta=rng()*TAU,radius=1250+rng()*(1800+maxRadius*.5);
+      const x=Math.cos(theta)*radius,z=Math.sin(theta)*radius*.82;
+      const y=terrainHeight(x,z,seed);
+      if(y>=minElevation&&y<=maxElevation)return [x,y,z];
+      const penalty=Math.abs(y-clamp(y,minElevation,maxElevation));
+      if(y>0&&penalty<bestPenalty){bestPenalty=penalty;fallback=[x,y,z];}
     }
-    return [250,terrainHeight(250,80,seed),80];
+    return fallback||[250,terrainHeight(250,80,seed),80];
   }
   function deer(){
     const group=new THREE.Group();
@@ -195,7 +202,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     const distant=new THREE.Mesh(vgeom,gullMat);
     const g=new THREE.LOD();g.addLevel(high,0);g.addLevel(distant,155);
     g.scale.setScalar(FAUNA_SCALE.gull);root.add(g);
-    birds.push({g,wings,phase:rng()*TAU,offset:rng()*TAU,alt:170+rng()*180,radius:850+rng()*700});
+    birds.push({g,wings,phase:rng()*TAU,offset:rng()*TAU,alt:80+rng()*150,radius:4600+rng()*550});
   }
   const dolphins=[];
   const dolphinMat=mat(0x7192a2);
@@ -219,7 +226,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     group.userData.tail=tail;
     group.scale.setScalar(FAUNA_SCALE.dolphin);
     root.add(group);
-    dolphins.push({group,phase:rng()*TAU,radius:1900+rng()*470,period:11+rng()*12,offset:i});
+    dolphins.push({group,phase:rng()*TAU,radius:5450+rng()*400,period:11+rng()*12,offset:i});
   }
   function update(t,daylight=1,wind=0,hero=null,precipitation=0,observer=null){
     for(const g of actors){
