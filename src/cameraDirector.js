@@ -164,7 +164,12 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       camera.quaternion.rotateTowards(lookRotation,angularStep);
       lastAngularStep=delta>0?angularStep/delta:0;
     }
-    const newFov=camera.fov+(plan.fov-camera.fov)*(1-Math.exp(-delta*.95));
+    // Portrait devices have a much narrower physical screen. A 55° vertical
+    // cinematic FOV cut the protagonist out of frame during steep descents.
+    // Keep the original lens on landscape, widen the vertical field on phones.
+    const portrait=clamp((.82-camera.aspect)/.35,0,1);
+    const framingFov=plan.fov+(80-plan.fov)*portrait;
+    const newFov=camera.fov+(framingFov-camera.fov)*(1-Math.exp(-delta*2.8));
     if(Math.abs(newFov-camera.fov)>.0001){
       camera.fov=newFov;camera.updateProjectionMatrix();
     }
