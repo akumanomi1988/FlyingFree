@@ -13,6 +13,8 @@ import {createAdaptiveResolution} from './adaptiveResolution.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {createHabitatMonitor} from './habitatMonitor.js';
+import {createBirdHud} from './hudStatus.js';
+import {BIRD_ETHOLOGY,birdStatus} from './speciesEthology.js';
 import {tropicalTerrainSample,tropicalLandscapeSeed,TROPICAL_WORLD} from './tropicalTerrain.js';
 import {createTropicalRivers} from './tropicalRivers.js';
 import {createCameraDirector} from './cameraDirector.js';
@@ -44,6 +46,7 @@ const sessionRandomSeed=()=>{
 };
 const worldSeed=opts.seed??(opts.selftest?1988:sessionRandomSeed());
 const habitatMonitor=createHabitatMonitor(worldSeed);
+const birdHud=createBirdHud(document,worldSeed);
 let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
@@ -110,7 +113,7 @@ function init(){
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
-  status.world={seed:worldSeed,extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments,
+  status.world={seed:worldSeed,regeneration:'session',extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments,
     coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution};
   status.faunaLOD=ecosystem.lodStats;
   status.habitatUse=habitatMonitor.snapshot();
@@ -412,6 +415,9 @@ function fly(date,dt,sun){
   state:action.state},dt);
  status.behaviour=action.state;status.flightSpeed=Math.round(action.speed);
  status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
+ status.physiology=birdStatus(action.energy,action.hunger,action.state,weatherState.rain);
+ status.position={x:Math.round(action.x),z:Math.round(action.z),height:Math.round(action.y)};
+ status.ethology=BIRD_ETHOLOGY[currentBird.id];
  status.landings=action.landings;status.feedings=action.feedings;
  status.floating=Boolean(action.floating);
  const occupancy=habitatMonitor.observe(elapsed,currentBird.id,action.x,action.z,action.state);
@@ -476,8 +482,11 @@ function animate(now){
     $('weather-name').textContent=currentWeather.name;
     $('season-name').textContent=seasonLocal(date);
     $('speed-name').textContent='×'+speed;
-    $('scene-caption').textContent=sun.night?'Un cielo lleno de caminos':hour<9?'La primera luz sobre el agua':hour>=18?'La calma del atardecer':'Cada instante es irrepetible';
-    $('phase').textContent=sun.night?'EL MUNDO BAJA EL RITMO':currentBird.name.toUpperCase()+' EN LIBERTAD';
+    $('scene-caption').textContent=currentBird.habitat;
+    $('phase').textContent='SEMILLA '+worldSeed;
+    birdHud.update({energy:status.energy,hunger:status.hunger,state:status.behaviour,
+      x:birdModel.position.x,z:birdModel.position.z,
+      heading:birdModel.rotation.y,rain:weatherState.rain});
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
@@ -645,6 +654,11 @@ function bindUI(){
  $('tv-audio').addEventListener('click',audioToggle);
  $('photo-btn').addEventListener('click',png);
  $('tv-btn').addEventListener('click',()=>setTVMode(!tvActive));
+ $('info-btn').addEventListener('click',()=>{
+   const hidden=document.body.classList.toggle('hide-information');
+   $('info-btn').classList.toggle('active',!hidden);
+   $('info-btn').setAttribute('aria-pressed',String(!hidden));
+ });
  $('tv-exit').addEventListener('click',()=>setTVMode(false));
  $('weather-btn').addEventListener('click',()=>void connectClimate(false));
  $('tv-consent').addEventListener('click',()=>void connectClimate(false));
@@ -665,7 +679,7 @@ function bindUI(){
  window.addEventListener('keydown',(event)=>{
   if(event.ctrlKey||event.altKey||event.metaKey)return;
   const key=event.key.toLowerCase();
-  if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','t','r','escape'].includes(key))event.preventDefault();
+  if([' ','1','2','3','4','5','6','7','8','h','i','f','p','m','b','t','r','escape'].includes(key))event.preventDefault();
   revealTVControls();
   switch(key){
    case '1':setHour(astronomicalPhase(new Date(simMs),'dawn',solarCoordinates.latitude,solarCoordinates.longitude));break;
@@ -679,6 +693,7 @@ function bindUI(){
    case 'r':timeOverride=false;weatherOverride=false;speed=1;simMs=Date.now();if(climate.weather)currentWeather=climate.weather.descriptor;break;
    case ' ':flapBoost=1;break;
    case 'h':document.body.classList.toggle('no-ui');break;
+   case 'i':$('info-btn').click();break;
    case 't':setTVMode(!tvActive);break;
    case 'f':if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();break;
    case 'p':png();break;
