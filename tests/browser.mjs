@@ -47,6 +47,7 @@ async function render(name,query,width,height,runChecks){
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
+        world:s.world,cameraShot:s.cameraShot,
         camera:!!document.querySelector('#viewport canvas'),
         species:document.querySelectorAll('[data-bird]').length};
     });
@@ -62,6 +63,11 @@ async function render(name,query,width,height,runChecks){
       'Los modelos simplificados de fauna superan el presupuesto de draw calls');
     assert.ok(stats.renderedFrames>6,'No hay animación');
     assert.ok(stats.treeDetail?.capacity>=12,'La capa de LOD arbóreo no está integrada');
+    assert.equal(stats.world?.extent,12000,'Se ha perdido la nueva isla tropical');
+    assert.equal(stats.world?.riverChannels,3,'No se han generado tres ríos');
+    assert.ok(stats.world.riverSegments>130,'Los cauces son demasiado cortos');
+    assert.ok(['chase','shoulder','scenic','profile','high-reveal','close'].includes(stats.cameraShot),
+      'Cámara cinematográfica sin director activo');
     assert.ok(Number.isInteger(stats.performance?.samples),'No se inicializó la telemetría de fotogramas');
     assert.ok(Number.isFinite(stats.adaptiveQuality?.scale),'La resolución adaptativa no se inicializó');
     assert.ok(stats.adaptiveQuality.scale>=stats.adaptiveQuality.minScale,
@@ -88,7 +94,7 @@ try{
     '--enable-unsafe-swiftshader','--ignore-gpu-blocklist',
     '--autoplay-policy=no-user-gesture-required'
   ]});
-  await render('01-day-kestrel','?h=12.5&bird=kestrel&weather=clear&broadcast=1&selftest=1',1440,900,
+  await render('01-day-kestrel','?h=12.5&bird=kestrel&weather=clear&broadcast=1&selftest=1&seed=1988',1440,900,
     async(page)=>{
       await page.waitForFunction(()=>!!window.__FLYINGFREE_STATUS__.selftest,{timeout:10000});
       const diagnostics=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.selftest);
