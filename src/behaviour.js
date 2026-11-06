@@ -47,10 +47,11 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   if(kind==='land'){
     // Forest birds perch in canopy/branches instead of always standing at
     // terrainHeight; raptors prefer larger trees and exposed lookout sites.
-    const perching=new Set(['hummingbird','owl','swallow','kestrel','eagle','osprey','kingfisher']);
-    if(perching.has(profile.id))
-      return ground+Math.max(profile.id==='eagle'?19:profile.id==='kestrel'?12:8,
-        birdFlightClearance(profile.id,'cruise')*.45);
+    const perchMeters={
+      hummingbird:12,owl:19,swallow:14,kestrel:17,
+      eagle:28,osprey:24,kingfisher:7
+    };
+    if(perchMeters[profile.id])return ground+perchMeters[profile.id];
     return ground+Math.max(.18,profile.wingspan*.32);
   }
   if(kind==='hunt')return ground+(profile.id==='hummingbird'?11:profile.id==='kingfisher'?10:profile.id==='heron'?8:14);
