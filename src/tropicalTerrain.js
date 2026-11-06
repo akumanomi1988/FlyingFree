@@ -21,7 +21,7 @@ const directions=[-.17,2.94,1.61];
 export const TROPICAL_WORLD=Object.freeze({extent:12000,halfExtent:6000,seaLevel:-9,riverCount:3});
 
 function islandShape(x,z,seed){
-  const phase=(seed%997)*.0071;
+  const phase=((Math.imul(seed|0,1103515245)>>>0)/4294967296)*TAU;
   const cx=x-140-Math.sin(phase)*220,cz=z+110-Math.cos(phase)*160;
   const theta=Math.atan2(cz,cx);
   const radial=Math.hypot(cx/4050,cz/3200);
@@ -68,10 +68,14 @@ export function tropicalTerrainSample(x,z,seed=1988){
   const ridges=1-Math.abs(layered(x*.00145,z*.00145,seed+137));
   const ridgeSharp=ridges*ridges*ridges;
   const highland=Math.pow(Math.max(0,1-shape.radial),1.33);
-  const mountainSpine=Math.exp(-Math.pow((shape.cz*.79+shape.cx*.40+170)/1350,2));
-  const peaks=Math.exp(-((shape.cx+800)**2/(980*980)+(shape.cz-260)**2/(930*930))) * 540+
-    Math.exp(-((shape.cx-1050)**2/(1050*1050)+(shape.cz+680)**2/(900*900)))*510+
-    Math.exp(-((shape.cx-100)**2/(1300*1300)+(shape.cz-1350)**2/(840*840)))*280;
+  // Rotate volcanic massifs independently of coast shape so a new seed
+  // genuinely changes mountain/valley geography, not just surface noise.
+  const spin=(seed%1499)*.00419,cs=Math.cos(spin),sn=Math.sin(spin);
+  const mx=shape.cx*cs-shape.cz*sn,mz=shape.cx*sn+shape.cz*cs;
+  const mountainSpine=Math.exp(-Math.pow((mz*.79+mx*.40+170)/1350,2));
+  const peaks=Math.exp(-((mx+800)**2/(980*980)+(mz-260)**2/(930*930))) * 540+
+    Math.exp(-((mx-1050)**2/(1050*1050)+(mz+680)**2/(900*900)))*510+
+    Math.exp(-((mx-100)**2/(1300*1300)+(mz-1350)**2/(840*840)))*280;
   const relief=160+large*90+highland*(430*mountainSpine+360*ridgeSharp)+peaks;
   const slopes=layered(x*.0029,z*.0029,seed+207)*24*inland;
   let height=-38+inland*relief+slopes;
@@ -88,5 +92,6 @@ export function tropicalTerrainHeight(x,z,seed=1988){
 }
 export function tropicalLandscapeSeed(date=new Date()){
   const utc=Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate());
-  return Math.max(1,Math.floor(utc/86400000));
+  const days=Math.floor(utc/86400000);
+  return ((Math.imul(days,1103515245)+12345)>>>0)&0x7fffffff||1;
 }
