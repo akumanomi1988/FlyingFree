@@ -56,13 +56,14 @@ test('rest destinations may target an actual tree branch without changing fallba
  const initial=createBirdBrain(bird,1988).snapshot;
  const tree={x:initial.x+21,z:initial.z+18,y:terrainHeight(initial.x+21,initial.z+18,1988),height:22,kind:'oak'};
  const brain=createBirdBrain(bird,1988,{...initial,energy:.08,hunger:.25},{perches:[tree]});
- let landed=false;
+ let landed=false,last=null;const states={};
  for(let frame=0;frame<1500;frame++){
   const state=brain.update(frame*.1,.1,.12,.8);
+  last=state;states[state.state]=(states[state.state]||0)+1;
   if(state.roosting){landed=true;break;}
   assert.ok(Number.isFinite(state.x)&&Number.isFinite(state.y));
  }
- assert.ok(landed,'tired bird did not reach its available branch roost');
+ assert.ok(landed,'tired bird did not reach its available branch roost '+JSON.stringify({states,last,tree}));
 });
 
 test('location-based clock uses weather-provider IANA zone, without returning coordinates to UI',()=>{
