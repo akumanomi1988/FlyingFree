@@ -107,3 +107,18 @@ test('seabirds genuinely float with folded wings and gentle wave response',()=>{
    assert.ok(changedHeight,'floating bird must react to changing water surface');
  }
 });
+
+test('camera softens sudden vertical landing and ocean-bob impulses',()=>{
+ const camera=new THREE.PerspectiveCamera(56,16/9,.1,20000);
+ const bird=new THREE.Vector3(0,190,0);
+ camera.position.set(0,199,11);
+ const director=createCameraDirector(THREE,()=>20,1988);
+ const dt=1/60;
+ director.update(camera,bird,0,50,'patrol',1.3,0,dt);
+ const initialY=camera.position.y;
+ bird.y+=12; // simulate a strong 12 metre impulse in one world tick
+ director.update(camera,bird,0,50,'patrol',1.3,dt,dt);
+ assert.ok(camera.position.y-initialY<9,
+   'camera must not mirror full bird bob/teleport: '+(camera.position.y-initialY));
+ assert.ok(camera.position.y>initialY,'camera must continue following the subject');
+});
