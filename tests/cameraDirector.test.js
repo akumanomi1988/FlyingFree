@@ -168,3 +168,16 @@ test('hillside-aware framing looks downhill without changing level-ground shots'
  assert.equal(out.uphillFraming,true,'shot should prefer valley-facing vantage');
  assert.ok(camera.position.z>0.6,'camera should move to slope side after easing');
 });
+
+test('terrain-aware mobile orbit does not override landscape and TV direction',()=>{
+ const director=createCameraDirector(THREE,(x,z)=>z*.8,1988);
+ const camera=new THREE.PerspectiveCamera(56,16/9,.1,10000);
+ camera.position.set(0,85,-6);
+ const bird=new THREE.Vector3(0,78,0);
+ let shot;
+ for(let i=0;i<240;i++)
+   shot=director.update(camera,bird,Math.PI,50,'patrol',.75,i/60,1/60);
+ assert.equal(shot.uphillFraming,false,
+   'wide-screen raptor/TV camera must not orbit for portrait-only hillside fix');
+ assert.ok(camera.position.distanceTo(bird)<100);
+});
