@@ -154,8 +154,10 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     // chase offset then films only green terrain. Prefer the uphill side of
     // the protagonist, preserving distance, while the usual follower eases
     // the change in world space.
-    const terrainOffset=terrainAwareOffset(plan.x,plan.z,context.slopeX,
-      context.slopeZ,context.groundClearance);
+    const terrainOffset=(camera.aspect<.72&&wingspan<.5)?
+      terrainAwareOffset(plan.x,plan.z,context.slopeX,context.slopeZ,
+        context.groundClearance):
+      {x:plan.x,z:plan.z,corrected:false};
     desired.set(bird.x+terrainOffset.x,bird.y+plan.y,bird.z+terrainOffset.z);
     const clearance=currentShot==='close'?.85:2.6;
     let needed=0;
