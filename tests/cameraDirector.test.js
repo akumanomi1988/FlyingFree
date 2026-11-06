@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {cameraShotAt,cameraPlanAt,CAMERA_SHOTS,createCameraDirector} from '../src/cameraDirector.js';
+import {cameraShotAt,cameraPlanAt,CAMERA_SHOTS,createCameraDirector,terrainAwareOffset} from '../src/cameraDirector.js';
 import {terrainHeight} from '../src/core.js';
 
 test('cinematic shots remain attached to the bird with no fixed world-space coordinates',()=>{
@@ -148,4 +148,23 @@ test('continuous descending flight does not leave small portrait subject below t
    }
   }
  }
+});
+
+test('hillside-aware framing looks downhill without changing level-ground shots',()=>{
+ const level=terrainAwareOffset(0,-3,0,.05,70);
+ assert.deepEqual(level,{x:0,z:-3,corrected:false});
+ const open=terrainAwareOffset(0,-3,0,.85,180);
+ assert.equal(open.corrected,false,'high soaring birds should keep scenic orbit');
+ const hillside=terrainAwareOffset(0,-3,0,.85,65);
+ assert.equal(hillside.corrected,true);
+ assert.ok(hillside.z>1.5,'steep uphill wall must not remain behind protagonist');
+ const director=createCameraDirector(THREE,(x,z)=>.8*z,1988);
+ const camera=new THREE.PerspectiveCamera(55,390/844,.15,5000);
+ camera.position.set(0,75,-5);
+ const bird=new THREE.Vector3(0,70,0);
+ let out;
+ for(let i=0;i<240;i++)
+  out=director.update(camera,bird,Math.PI,13,'patrol',.11,i/60,1/60);
+ assert.equal(out.uphillFraming,true,'shot should prefer valley-facing vantage');
+ assert.ok(camera.position.z>0.6,'camera should move to slope side after easing');
 });
