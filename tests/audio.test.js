@@ -143,6 +143,11 @@ test('audio graph removes low rumble and keeps the melody audible',async()=>{
   'Ten standing voices must not overwhelm the melodic bells');
  assert.ok(audio.noise.buffer.getChannelData(0).length>=audio.ctx.sampleRate*10,
   'Short noise loops cause periodic engine-like ambience');
+ const ambience=audio.noise.buffer.getChannelData(0);
+ assert.equal(ambience[0],0,'Loop must begin without a discontinuous click');
+ assert.equal(ambience[ambience.length-1],0,'Loop must end without a discontinuous click');
+ assert.ok(Math.abs(ambience[Math.floor(ambience.length/2)])>0,
+  'Ambience must not be accidentally silent');
  const before=audio.noteCount;
  audio.update({cloud:.1,rain:0,fog:0},sun,'clear');
  assert.ok(audio.noteCount>before);
