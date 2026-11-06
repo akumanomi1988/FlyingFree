@@ -1,5 +1,7 @@
 # VUELO · Roadmap vivo de ingeniería y calidad documental
 
+> **Actualización de integración (6 nov 2026):** PR #22 integrada en `main@f9a236f8`, con [CI verde](https://github.com/akumanomi1988/FlyingFree/actions/runs/42300550512) (Node/Vite y 7 WebGL). Las notas históricas inferiores sobre #22 abierta describen el estado *antes del merge*. PR #15 y #21 requieren revisión diferencial; la publicación Pages y la validación GPU/TV siguen siendo puertas independientes. La siguiente iteración corrige las estrellas bajo lluvia y evita CI duplicada.
+
 **Dirección adoptada:** VUELO debe ser un documental autónomo de naturaleza estilizada; no un juego de pilotaje ni una colección de funciones aisladas. El espectador debe poder observar durante varios minutos sin intervención y encontrar un mundo coherente.
 
 **Atlas visual interactivo:** [Abrir el atlas](./public/roadmap/index.html) · [Versión publicada tras pasar CI y desplegar Pages](https://akumanomi1988.github.io/FlyingFree/roadmap/)  

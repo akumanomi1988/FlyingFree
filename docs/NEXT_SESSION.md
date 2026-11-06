@@ -186,3 +186,11 @@
 **Validación verificada intermedia:** 116 pruebas Node superadas y build Vite correcto en Actions #42296780091; fallo WebGL móvil persistente antes de los últimos ajustes de cámara. La CI del **último HEAD** debe comprobarse otra vez. No hay benchmarking GPU físico ni evaluación perceptiva ni despliegue público acreditado por estos cambios.
 
 **Siguiente acción:** comprobar screenshot/telemetría móvil en el último SHA, solucionar cualquier fallo sin debilitar tests, comparar aportaciones únicas de PR21/22, fusionar solo con CI íntegra verde y SHA previsto, verificar Pages mediante `build-info.json`; después revisar audio y 4 minutos de documental.
+
+
+## Cierre de PR #22 y siguiente pulido atmosférico (6 nov 2026)
+
+- **Fusionada:** PR [#22](https://github.com/akumanomi1988/FlyingFree/pull/22) a `main` con squash `f9a236f806a5b2845699981d6e1937d3b76352db`. [CI #42300550512](https://github.com/akumanomi1988/FlyingFree/actions/runs/42300550512) pasó Node, build y los siete escenarios WebGL en HEAD validado `e31d04d6`. El problema original del móvil se reparó con cámara pendiente-orientada sin alterar TV; el umbral visual no se redujo.
+- **Estado de publicación:** el workflow Pages se ejecuta después del merge; comprobar el run del SHA `f9a236f8` y el manifiesto público `build-info.json`. Una PR fusionada no certifica por sí sola distribución.
+- **Nueva iteración en rama:** `fix/weather-stars-ci-efficiency-20261106` corrige estrellas visibles durante lluvia nocturna (captura TV de #22) mediante función pura `starOpacityAt`, test Node de oclusión, test WebGL con clima local y telemetría `status.starOpacity`. También elimina la doble ejecución push/PR de `.github/workflows/quality.yml` y cancela checks antiguos. **No describir estos cambios como integrados hasta su propia CI y merge.**
+- **Riesgos persistentes:** escasa variedad vegetal de laderas, sombras y visibilidad bajo eventos meteorológicos, hidrología no física, 24/72 h sin certificar y ausencia de benchmark P95 GPU real.

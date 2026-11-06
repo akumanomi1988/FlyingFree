@@ -18,7 +18,7 @@ Este documento distingue **observación zoológica**, **aproximación de softwar
 - Buitre/águila/águila pescadora: sobrevuelo del dosel, laderas, acantilados y corrientes ascendentes (las térmicas todavía son aproximaciones de comportamiento).
 - Albatros/gaviota: costa y mar, reposo flotando donde corresponde.
 - Garza: humedales y marcha/vadeo en agua somera; no debe nadar como una gaviota.
-- Vencejo: actividad eminentemente aérea, sin reposo inventado sobre ramas.
+- Vencejo: actividad eminentemente aérea, sin reposo inventado sobre ramas. El estado `aerial_rest` permite recuperar energía planeando sin aterrizar (también durante la lluvia); no representa agarre real a roquedos ni reproducción, y se comprueba con `tests/aerialRecovery.test.js`.
 
 El mapa cambia de **semilla por sesión** si la URL no especifica `seed`. Para comparar fotogramas o auditar regresiones usa `?seed=1988`, que reproduce la misma geografía. La variación procedural sigue apoyándose en un modelo insular con los mismos algoritmos de montañas y ríos; no genera todavía un archipiélago ni evolución geológica de años.
 
