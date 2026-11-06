@@ -47,7 +47,7 @@ async function render(name,query,width,height,runChecks){
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
-        world:s.world,cameraShot:s.cameraShot,
+        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,habitatUse:s.habitatUse,
         camera:!!document.querySelector('#viewport canvas'),
         species:document.querySelectorAll('[data-bird]').length};
     });
@@ -68,6 +68,13 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.world.riverSegments>130,'Los cauces son demasiado cortos');
     assert.ok(['chase','shoulder','scenic','profile','high-reveal','close'].includes(stats.cameraShot),
       'Cámara cinematográfica sin director activo');
+    assert.ok(Number.isInteger(stats.cameraDirector?.transitions),
+      'Falta telemetría del director de cámara');
+    assert.ok(Number.isFinite(stats.cameraDirector.altitudeAGL),
+      'El director desconoce la altura sobre el suelo');
+    assert.equal(stats.habitatUse?.species,stats.bird,
+      'La telemetría ecológica debe corresponder al ave visible');
+    assert.ok(stats.habitatUse.samples>=1,'El muestreo ecológico no funciona');
     assert.ok(Number.isInteger(stats.performance?.samples),'No se inicializó la telemetría de fotogramas');
     assert.ok(Number.isFinite(stats.adaptiveQuality?.scale),'La resolución adaptativa no se inicializó');
     assert.ok(stats.adaptiveQuality.scale>=stats.adaptiveQuality.minScale,
@@ -104,6 +111,12 @@ try{
       assert.ok(motion.articulatedAnimals>=15,'Falta animación de fauna');
       assert.ok(motion.clouds>=15,'Cielo sin capas de nubes');
       assert.ok(motion.wind>0,'Viento sin inicializar');
+      assert.equal(await page.locator('#help .roadmap-link').count(),1,
+        'El roadmap no es accesible desde la ayuda');
+      const atlas=await page.request.get(root+'roadmap/');
+      assert.equal(atlas.status(),200,'Roadmap no se publica con Vite');
+      assert.match(await atlas.text(),/Atlas de una visión/,
+        'No se ha incorporado el HTML estratégico');
       await page.keyboard.press('4');
       await page.waitForTimeout(1200);
       assert.ok((await page.locator('#clock').textContent()).startsWith('23:'),'La tecla de noche no actualiza el reloj');
