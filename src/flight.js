@@ -205,7 +205,9 @@ export function createBirdRig(THREE,profile) {
 
 export function animateBirdRig(group,elapsed,activity,dt=1/60){
   const {profile,left,right,tail,legs}=group.userData,flight=profile.flight;
-  const grounded=Boolean(activity.grounded),foldWanted=activity.sleeping||grounded?1:0;
+  const grounded=Boolean(activity.grounded);
+  const resting=Boolean(activity.sleeping||grounded||activity.floating||activity.state==='rest');
+  const foldWanted=resting?1:0;
   const k=1-Math.exp(-Math.max(0,Math.min(.12,dt))*9);
   group.userData.fold+=(foldWanted-group.userData.fold)*k;
   const fold=group.userData.fold,rate=profile.flapRate??3.8;
@@ -217,25 +219,35 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   const targetFlap=flyCycle*(power+energy*.10)*pulse;
   group.userData.flap+=(targetFlap-group.userData.flap)*(.3+.5*k);
   const wingbeat=group.userData.flap*(1-fold);
-  const bank=clamp(activity.bank??0,-.65,.65);
-  left.pivot.rotation.z=-(fold*.81+wingbeat+bank*.085);
-  right.pivot.rotation.z=fold*.81+wingbeat-bank*.085;
-  left.pivot.rotation.y=-fold*.61+Math.cos(elapsed*.53)*.02*(1-fold);
-  right.pivot.rotation.y=fold*.61-Math.cos(elapsed*.53)*.02*(1-fold);
+  const bank=clamp(activity.bank??0,-.65,.65)*(1-fold*.96);
+  // Old fold rotated both wings upwards by ~46 degrees, visually leaving
+  // perched animals frozen in a raised-wing stance. A folded wing instead
+  // swings backwards along the body (+Z) and drops slightly on each side.
+  const featherBreath=resting?.010*Math.sin(elapsed*1.6+profile.id.length*.43):0;
+  left.pivot.rotation.z=-wingbeat-bank*.085+fold*(.12+featherBreath);
+  right.pivot.rotation.z=wingbeat-bank*.085-fold*(.12+featherBreath);
+  left.pivot.rotation.y=fold*1.42+Math.cos(elapsed*.53)*.02*(1-fold);
+  right.pivot.rotation.y=-fold*1.42-Math.cos(elapsed*.53)*.02*(1-fold);
   left.pivot.rotation.x=-.025-Math.sin(elapsed*.81)*.05*(1-fold);
   right.pivot.rotation.x=-.025+Math.sin(elapsed*.81)*.05*(1-fold);
   const tipFlex=Math.sin(elapsed*rate-.52)*.11*(1-fold);
   left.tip.rotation.z=-tipFlex;right.tip.rotation.z=tipFlex;
-  tail.rotation.y=Math.sin(elapsed*.55)*.045+bank*.21;
-  tail.rotation.x=fold?-.13:Math.sin(elapsed*.95)*.052;
+  tail.rotation.y=Math.sin(elapsed*(resting?.82:.55))*(resting?.025:.045)+bank*.21;
+  tail.rotation.x=-fold*.13+(1-fold)*Math.sin(elapsed*.95)*.052+
+    (resting?.018*Math.sin(elapsed*.72):0);
   tail.scale.x=1+(activity.state==='landing'?.23:.07)*Math.abs(bank);
-  const legsOut=grounded||activity.state==='landing'||activity.state==='approach';
+  // Floating sea birds keep feet below their body, but never use the
+  // exaggerated ground-landing extension below the waterline.
+  const legsOut=grounded||activity.state==='landing'&&!activity.floating||
+    activity.state==='approach'&&!activity.floating;
   for(const leg of legs){
     const legTarget=legsOut?.18:-1.12;
     leg.rotation.x+=(legTarget-leg.rotation.x)*k;
     leg.scale.y+=((legsOut?leg.userData.restScaleY:leg.userData.restScaleY*.18)-leg.scale.y)*k;
     leg.position.y+=((legsOut?-.48:-.30)-leg.position.y)*k;
   }
-  group.rotation.z=bank;
-  group.rotation.x=grounded?0:clamp(activity.pitch??0,-.34,.34);
+  group.rotation.z=bank+(activity.floating?clamp(activity.waterRoll??0,-.09,.09):
+    resting?.008*Math.sin(elapsed*.94):0);
+  group.rotation.x=activity.floating?clamp(activity.waterPitch??0,-.09,.09):
+    resting?.012*Math.sin(elapsed*1.13):clamp(activity.pitch??0,-.34,.34);
 }
