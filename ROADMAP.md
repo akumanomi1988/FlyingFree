@@ -32,7 +32,7 @@ Decisiones de producto:
 | Validación | Node, Vite y Playwright/WebGL en CI | No acreditan GPU real, estética ni sesiones de 8–72 h |
 | Publicación | Existe workflow Pages en push a `main` | Verificar último deploy SHA y captura pública después de cada PR |
 
-El último corte **anterior a esta revisión** verificado: PR #16 fusionada, 76 pruebas Node y 7 escenarios WebGL en [Actions #42190619653](https://github.com/akumanomi1988/FlyingFree/actions/runs/42190619653). No asumir que ese SHA se ha desplegado públicamente sin revisar Pages.
+**Última evidencia de integración comprobada:** PR #20 fusionada, 100 pruebas Node y 7 escenarios WebGL en [Actions #42214762136](https://github.com/akumanomi1988/FlyingFree/actions/runs/42214762136). La publicación definitiva en GitHub Pages y la evaluación perceptiva siguen siendo comprobaciones independientes.
 
 ## Plan priorizado por dependencias
 
@@ -51,8 +51,10 @@ El último corte **anterior a esta revisión** verificado: PR #16 fusionada, 76 
 ### Fase 01 — Escenario tropical sobresaliente · P0
 
 - [ ] Chunks/LOD del terreno determinista, más tessellation cerca, horizonte estable y menor popping.
-- [x] Los tres ríos principales terminan en la costa real de cada semilla; PR #18, con pruebas de desembocadura.\n- [ ] Red hidrológica completa: tributarios, cascadas y desembocaduras con pendientes físicamente plausibles.
-- [x] El océano toma la profundidad del terreno procedural para localizar aguas someras, arrecifes estilizados y espuma; PR #18.\n- [ ] Playas, acantilados, coral y manglar con anatomía visual/hidrológica de alta calidad, revisados manualmente.
+- [x] Los tres ríos principales terminan en la costa real de cada semilla; PR #18, con pruebas de desembocadura.
+- [ ] Red hidrológica completa: tributarios, cascadas y desembocaduras con pendientes físicamente plausibles.
+- [x] El océano toma la profundidad del terreno procedural para localizar aguas someras, arrecifes estilizados y espuma; PR #18.
+- [ ] Playas, acantilados, coral y manglar con anatomía visual/hidrológica de alta calidad, revisados manualmente.
 - [ ] Selva estratificada por altitud/humedad y distancia, escala y sombra consistentes.
 - [ ] Tres semillas con geografías y rutas muy distintas, revisadas visualmente.
 
@@ -61,8 +63,10 @@ El último corte **anterior a esta revisión** verificado: PR #16 fusionada, 76 
 ### Fase 02 — Ecología por especie · P0
 
 - [x] Telemetría de tiempo sobre océano frente a hábitats interiores, separando vuelo y reposo.
-- [x] Replay automatizado de 15 minutos × doce especies × dos semillas en CI, con límites de ocupación oceánica y pesca en agua dulce; PR #19.\n- [ ] Auditoría documental 30–60 min y revisión humana en 3+ semillas; fijar umbrales realistas por especie.
-- [x] Restricción de puntos de pesca a agua dulce/mar real según la especie, sin eventos de alimentación sobre bosque o lecho seco; PR #19.\n- [ ] Nidos, dormideros, territorios, peces visibles, salpicaduras de pesca, perchas y recursos persistentes.
+- [x] Replay automatizado de 15 minutos × doce especies × dos semillas en CI, con límites de ocupación oceánica y pesca en agua dulce; PR #19.
+- [ ] Auditoría documental 30–60 min y revisión humana en 3+ semillas; fijar umbrales realistas por especie.
+- [x] Restricción de puntos de pesca a agua dulce/mar real según la especie, sin eventos de alimentación sobre bosque o lecho seco; PR #19.
+- [ ] Nidos, dormideros, territorios, peces visibles, salpicaduras de pesca, perchas y recursos persistentes.
 - [ ] Caza/huida, pesca y alimentación con consecuencias observables, no solo selección de estados.
 - [ ] Simulación por nivel de importancia: fauna cercana detallada, población lejana agregada.
 
@@ -71,6 +75,10 @@ El último corte **anterior a esta revisión** verificado: PR #16 fusionada, 76 
 ### Fase 03 — Anatomía y cine · P1
 
 - [x] Director de planos basado en comportamiento, relieve, altura y giros, con histéresis.
+- [x] Giro de cámara suavizado en posición y orientación, con aceleración/velocidad angular limitada y continuidad entre especies; PR #20.
+- [x] Alas replegadas hacia atrás durante el reposo, respiración y pequeñas oscilaciones de alas/cola; PR #20.
+- [x] Flotación de gaviotas/albatros sobre la triangulación real de las olas y distinción entre reposo acuático y apoyo en tierra; PR #20.
+- [ ] Revisión visual de cámara, reposo y flotación en TV: secuencia completa con capturas y aceptación artística.
 - [ ] Revisión multiángulo de alas de doce especies; contacto de patas, plegado, planeo y aleteo.
 - [ ] Cine por acontecimientos con composición, selección de sujeto, ritmo y continuidad.
 - [ ] Microeventos distinguibles (caza/pesca, descanso, despegue y costa/valle) en una misma secuencia.
