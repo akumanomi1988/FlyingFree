@@ -10,7 +10,7 @@ import {createWindField} from './worldMotion.js';
 import {createTreeDetail} from './treeDetail.js';
 import {createFrameTelemetry} from './frameTelemetry.js';
 import {createAdaptiveResolution} from './adaptiveResolution.js';
-import {createAtmospherics} from './atmospherics.js';
+import {createAtmospherics,starOpacityAt} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {createHabitatMonitor} from './habitatMonitor.js';
 import {tropicalTerrainSample,tropicalLandscapeSeed,TROPICAL_WORLD} from './tropicalTerrain.js';
@@ -400,7 +400,12 @@ function ambient(date,dt){
   moonOrb.position.copy(camera.position).addScaledVector(sunVec,-6750);
   moonOrb.visible=alt<.11;
   stars.position.copy(camera.position);
-  starMat.opacity=smooth(-.045,-.19,alt)*.97;
+  // Stars cannot shine through an overcast or rainstorm. Let the incoming
+   // weather close the sky immediately, while clearing remains smoothly
+   // governed by the weatherState transition.
+   starMat.opacity=starOpacityAt(alt,
+     Math.max(cloud,currentWeather.cloud),
+     Math.max(wet,currentWeather.rain));
   const cloudTint=new THREE.Color(0xdde4e6).lerp(new THREE.Color(0xffc29a),sun.golden*.52*day);
   for(const c of clouds){
     c.mat.opacity=clamp(.16+cloud*.67+(c.weight-.4)*.09,0,.89);
