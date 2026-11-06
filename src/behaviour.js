@@ -1,5 +1,5 @@
 import {terrainHeight,random,clamp,TAU} from './core.js';
-import {resourcePoint,foodType,habitatAt} from './ecology.js';
+import {resourcePoint,foodType,habitatAt,birdHabitatScore} from './ecology.js';
 
 // Deterministic, species-aware utility AI. The bird has physiological drives and
 // explicit take-off, approach, landing, foraging, resting and sheltered states.
@@ -8,21 +8,33 @@ export function createBirdBrain(profile,seed=1988,initial=null){
  const flight=profile.flight,marine=flight==='marine',owl=flight==='nocturnal',swift=profile.id==='swift';
  const cruise={dash:80,soar:57,marine:62,hover:36,nocturnal:40,wade:30}[flight]||45;
  const maxTurn=flight==='dash'?1.55:flight==='soar'||marine?.68:1.18;
- const startA=rng()*TAU,startR=marine?1930:Math.max(140,profile.radius*.65);
+ const startA=rng()*TAU;
+ // Each newly spawned species starts in a compatible biome, not on an
+ // arbitrary fixed-radius orbit which may lie over open sea.
+ let spawnX=0,spawnZ=0,spawnScore=-1;
+ for(let i=0;i<42;i++){
+  const angle=i===0?startA:rng()*TAU;
+  const dist=marine?3850+rng()*1250:330+rng()*2400;
+  const px=Math.cos(angle)*dist,pz=Math.sin(angle)*dist;
+  const score=birdHabitatScore(profile,habitatAt(px,pz,seed))+rng()*.12;
+  if(score>spawnScore){spawnScore=score;spawnX=px;spawnZ=pz;}
+ }
+ const homeX=spawnX,homeZ=spawnZ;
  // Species changes retain continuous world-space motion rather than respawning.
  // The new species still chooses fresh habitat-specific targets and flight dynamics.
  const finite=(v,fallback)=>Number.isFinite(v)?v:fallback;
- let x=finite(initial?.x,Math.cos(startA)*startR),
- z=finite(initial?.z,Math.sin(startA)*startR),
- y=finite(initial?.y,marine?65:Math.max(terrainHeight(x,z)+95,profile.alt)),
+ let x=finite(initial?.x,spawnX),
+ z=finite(initial?.z,spawnZ),
+ y=finite(initial?.y,marine?Math.max(25,terrainHeight(x,z,seed)+46):
+   Math.max(terrainHeight(x,z,seed)+95,profile.alt)),
  heading=finite(initial?.heading,startA),
  velocity=clamp(finite(initial?.velocity,cruise*.55),0,110);
  let state='patrol',until=0,tx=x,tz=z,ty=y,
  energy=clamp(finite(initial?.energy,.76)),hunger=clamp(finite(initial?.hunger,.79));
  let food=null,activityChangedAt=0,landings=0,feedings=0,landingRest=false;
  function clearance(px,pz,kind){
-  const ground=terrainHeight(px,pz);
-  if(marine)return kind==='land'?-5:kind==='hunt'?12:38;
+  const ground=terrainHeight(px,pz,seed);
+  if(marine)return ground> -7?ground+45:kind==='land'?-7:kind==='hunt'?10:40;
   if(swift)return Math.max(ground+70,95);
   if(kind==='land')return ground+Math.max(.18,profile.wingspan*.32);
   if(kind==='hunt')return ground+(profile.id==='hummingbird'?11:profile.id==='kingfisher'?10:profile.id==='heron'?8:14);
@@ -31,34 +43,45 @@ export function createBirdBrain(profile,seed=1988,initial=null){
  function target(px,pz,height){
   tx=px;tz=pz;ty=height;
  }
+ let lastPatrolBiome=null;
  function selectPatrol(){
-  const angle=rng()*TAU,dist=150+rng()*Math.min(profile.radius,720);
-  if(marine){
-   const phi=Math.atan2(z,x)+(rng()-.5)*.7;
-   const r=1800+rng()*360;target(Math.cos(phi)*r,Math.sin(phi)*r,clearance(x,z,'cruise'));
-  }else{
+  let bestX=x,bestZ=z,best=-Infinity;
+  // Marine birds may circle coastal bays or open water, but raptors and forest
+  // birds strongly favor terrestrial habitat at every waypoint.
+  for(let i=0;i<23;i++){
+   const angle=rng()*TAU,dist=120+rng()*(marine?690:Math.max(200,Math.min(profile.radius,840)));
    const px=x+Math.cos(angle)*dist,pz=z+Math.sin(angle)*dist;
-   target(px,pz,clearance(px,pz,'cruise')+rng()*32);
+   const habitat=habitatAt(px,pz,seed);
+   const preference=birdHabitatScore(profile,habitat);
+   // Keep regional routes bounded. Marine birds circle the island, not infinity.
+   const outside=Math.max(0,Math.hypot(px/5100,pz/4400)-1);
+   const score=preference+rng()*.13-outside*1.2;
+   if(score>best){best=score;bestX=px;bestZ=pz;lastPatrolBiome=habitat.type;}
   }
+  // Land birds that have crossed the sea seek a definite inland target.
+  if(!marine&&best<.18){
+   bestX=homeX;bestZ=homeZ;lastPatrolBiome=habitatAt(homeX,homeZ,seed).type;
+  }
+  target(bestX,bestZ,clearance(bestX,bestZ,'cruise')+rng()*32);
  }
  function transition(next,t){state=next;activityChangedAt=t;}
  function chooseAction(t,day,rain){
   const shouldSleep=owl?day>.67:day<.1;
   if(shouldSleep&&!swift&&state!=='rest'&&state!=='landing'){
-   transition('shelter',t);const px=marine?x:140,pz=marine?z:155;
+   transition('shelter',t);const px=marine?x:homeX,pz=marine?z:homeZ;
    target(px,pz,clearance(px,pz,'land'));until=t+34;return;
   }
   if(rain>.70&&!marine&&state!=='shelter'&&state!=='rest'){
-   transition('shelter',t);target(145,155,clearance(145,155,'land'));until=t+25;return;
+   transition('shelter',t);target(homeX,homeZ,clearance(homeX,homeZ,'land'));until=t+25;return;
   }
   if((energy<.27||shouldSleep)&&!swift){
    transition('return',t);
-   const px=marine?Math.cos(Math.atan2(z,x))*1850:170,pz=marine?Math.sin(Math.atan2(z,x))*1850:150;
+   const px=marine?x:homeX,pz=marine?z:homeZ;
    target(px,pz,clearance(px,pz,'land'));until=t+40;return;
   }
   if(hunger>.56){
    transition('seek_food',t);
-   food=resourcePoint(profile,x,z,rng);
+   food=resourcePoint(profile,x,z,rng,seed);
    target(food.x,food.z,clearance(food.x,food.z,'cruise'));until=t+26;return;
   }
   transition('patrol',t);selectPatrol();until=t+9+rng()*11;
@@ -124,6 +147,6 @@ export function createBirdBrain(profile,seed=1988,initial=null){
  },
  get state(){return state;},
  get snapshot(){return {x,y,z,heading,velocity,energy,hunger};},
- get diagnostics(){return {state,energy,hunger,landings,feedings};}
+ get diagnostics(){return {state,energy,hunger,landings,feedings,lastPatrolBiome,home:{x:homeX,z:homeZ}};}
  };
 }
