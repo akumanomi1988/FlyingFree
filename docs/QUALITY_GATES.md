@@ -19,7 +19,7 @@ Fecha de revisión: 2026-11-06. Documento operativo; un check técnico verde **n
 | Hábitat | `npm run audit:habitats -- --seed=1988 --seconds=1800 --strict` | Replays deterministas y proporción por bioma | Poblaciones ecológicas realistas |
 | Anatomía | `npm run audit:visual -- --seed=1988` | Hoja de contacto generada con las 12 aves × 3 ángulos | Que una persona haya aprobado las imágenes |
 
-El workflow manual `documentary-audit.yml` conserva los informes de revisión. En `tests/browser.mjs`, el escenario `05-mobile-selector` reproduce la niebla matinal con `?h=8&bird=hummingbird&weather=fog&seed=1988` a 390×844. La captura oscura/casi monocromática que disparó CI en PR #22 es un **defecto abierto hasta que una ejecución posterior pase sin relajar el umbral**.
+El workflow manual `documentary-audit.yml` conserva los informes de revisión. En `tests/browser.mjs`, el escenario `05-mobile-selector` reproduce la niebla matinal con `?h=8&bird=hummingbird&weather=fog&seed=1988` a 390×844. La captura oscura/casi monocromática que disparó CI en PR #22 se corrigió con seguimiento de sujeto y elección de vista hacia el valle para aves pequeñas en móvil; [CI #42300550512](https://github.com/akumanomi1988/FlyingFree/actions/runs/42300550512) pasó las siete escenas sin rebajar umbrales. La calidad artística prolongada sigue pendiente de evaluación humana.
 
 ## Aceptación de encuadre
 
