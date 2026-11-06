@@ -80,9 +80,16 @@ export function createBirdBrain(profile,seed=1988,initial=null){
    target(px,pz,clearance(px,pz,'land'));until=t+40;return;
   }
   if(hunger>.56){
-   transition('seek_food',t);
    food=resourcePoint(profile,x,z,rng,seed);
-   target(food.x,food.z,clearance(food.x,food.z,'cruise'));until=t+26;return;
+   if(!food.unavailable){
+     transition('seek_food',t);
+     target(food.x,food.z,clearance(food.x,food.z,'cruise'));
+     const trip=Math.hypot(food.x-x,food.z-z)/Math.max(14,cruise*.65);
+     until=t+Math.min(450,Math.max(26,trip*1.55+12));
+     return;
+   }
+   // An absent feeding site is not an invisible food source. Continue
+   // ecological search, then retry from a different patrol location.
   }
   transition('patrol',t);selectPatrol();until=t+9+rng()*11;
  }
@@ -99,7 +106,17 @@ export function createBirdBrain(profile,seed=1988,initial=null){
    else if(t>=until)chooseAction(t,day,rain);
   }
   else if(state==='approach'){
-   if(Math.hypot(tx-x,tz-z)<21){landingRest=false;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));}
+   if(Math.hypot(tx-x,tz-z)<21){
+     landingRest=false;
+     if(food?.kind==='fish'){
+       // Fishers skim/dive above the actual river or sea surface: unlike
+       // ground feeders, they must not land on the dry riverbed to "eat".
+       transition('feed',t);until=t+3+rng()*3;feedings++;
+       target(tx,tz,clearance(tx,tz,'hunt'));
+     }else{
+       transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
+     }
+   }
   }
   else if(state==='landing'){
    if(Math.hypot(tx-x,tz-z)<10&&Math.abs(y-ty)<3.4){
@@ -124,7 +141,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   const destinationAngle=Math.atan2(-dx,-dz);
   const diff=dist<2?0:Math.atan2(Math.sin(destinationAngle-heading),Math.cos(destinationAngle-heading));
   heading+=clamp(diff,-maxTurn*dt,maxTurn*dt);
-  const onGround=state==='feed'||state==='rest';
+  const onGround=state==='rest'||(state==='feed'&&food?.kind!=='fish');
   const slowing=state==='approach'||state==='landing'||state==='return'||state==='shelter';
   let wanted=onGround?0:cruise*(state==='seek_food'?1.08:state==='patrol'?1:state==='takeoff'?.9:slowing?.62:.78);
   if(slowing&&dist<80)wanted*=clamp(dist/80,.12,1);
@@ -143,7 +160,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
   return {x,y,z,heading,bank:clamp(diff*.22,-.48,.48),pitch:clamp(dy*1.4,-.30,.30),
    state,mode:state,speed:velocity,velocity,resting:grounded,grounded,
    wingsFolded:grounded||state==='landing',flapping:state==='takeoff'||flight==='hover',
-   hunger,energy,food:food?.kind||null,landings,feedings};
+   hunger,energy,food:food?.kind||null,feedingHabitat:food?.biome||null,landings,feedings};
  },
  get state(){return state;},
  get snapshot(){return {x,y,z,heading,velocity,energy,hunger};},
