@@ -1,9 +1,12 @@
 name: Visual and browser QA
 on:
-  push:
-    branches: ['improve/**', 'feature/**']
+  # PRs validate each proposed head once. Branch-only runs are available
+  # manually: running both push and pull_request doubled Chromium minutes.
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: visual-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
