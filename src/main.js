@@ -109,7 +109,7 @@ function init(){
   camera.lookAt(cameraLook);
   ecosystem=createEcosystem(THREE,scene,worldSeed,innerWidth<720?.65:1);
   groundDetail=createGroundDetail(THREE,scene,innerWidth<720?.5:1,windField,worldSeed);
-  atmospherics=createAtmospherics(THREE,scene,innerWidth<720?.56:1);
+  atmospherics=createAtmospherics(THREE,scene,innerWidth<720?.56:1,worldSeed);
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
