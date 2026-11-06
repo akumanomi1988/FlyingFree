@@ -178,8 +178,7 @@ export function createBirdBrain(profile,seed=1988,initial=null){
     x+=Math.sin(t*.17+seed*.001)*dt*.055;
     z+=Math.cos(t*.13+seed*.002)*dt*.045;
     const wave=oceanFloatPose(x,z,t,rain,profile.wingspan,buoyancy);
-    y=Math.max(wave.y,y-(2.6*dt));
-    if(y>wave.y+.02)y=Math.max(wave.y,y-2.6*dt);
+    y=Math.max(wave.y,y-2.6*dt);
     waterPitch=wave.pitch;waterRoll=wave.roll;
   }
   const grounded=onGround&&velocity<.8&&!floating;
