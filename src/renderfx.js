@@ -171,7 +171,7 @@ export function createOcean(THREE,scene,seed=1988){
         gl_FragColor=vec4(color,1.0);
       }`
   });
-  const g=new THREE.PlaneGeometry(17000,17000,190,190);g.rotateX(-Math.PI/2);
+  const g=new THREE.PlaneGeometry(17000,17000,300,300);g.rotateX(-Math.PI/2);
   const water=new THREE.Mesh(g,material);water.position.y=-9;water.renderOrder=1;
   scene.add(water);
   return {mesh:water,uniforms,bathymetry:{seed,resolution:heightmap.size,extent:heightmap.extent},
