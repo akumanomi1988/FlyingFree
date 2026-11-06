@@ -123,3 +123,18 @@ test('camera softens sudden vertical landing and ocean-bob impulses',()=>{
    'camera must not mirror full bird bob/teleport: '+(camera.position.y-initialY));
  assert.ok(camera.position.y>initialY,'camera must continue following the subject');
 });
+
+test('switching species preserves camera orientation continuity',()=>{
+ const camera=new THREE.PerspectiveCamera(55,1.7,.1,10000);
+ camera.position.set(0,140,10);
+ const director=createCameraDirector(THREE,()=>0,1988),bird=new THREE.Vector3(0,145,0);
+ const dt=1/60;
+ director.update(camera,bird,0,42,'patrol',1.7,0,dt);
+ for(let i=1;i<20;i++)director.update(camera,bird,0,42,'patrol',1.7,i*dt,dt);
+ const before=camera.quaternion.clone();
+ director.reset();
+ const state=director.update(camera,bird,Math.PI,50,'patrol',3.2,20*dt,dt);
+ assert.ok(before.angleTo(camera.quaternion)<.76*dt+.001,
+  'changing species must not instantly spin camera');
+ assert.ok(state.turnSpeed<=.761);
+});
