@@ -17,6 +17,7 @@ import {createBirdHud} from './hudStatus.js';
 import {BIRD_ETHOLOGY,birdStatus} from './speciesEthology.js';
 import {tropicalTerrainSample,tropicalLandscapeSeed,TROPICAL_WORLD} from './tropicalTerrain.js';
 import {createTropicalRivers} from './tropicalRivers.js';
+import {createCoastalCliffs} from './coastalCliffs.js';
 import {createCameraDirector} from './cameraDirector.js';
 import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
 import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from './localClimate.js';
@@ -26,7 +27,7 @@ const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
-let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cameraDirector;
+let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
@@ -113,7 +114,7 @@ function init(){
   skyFX=createSky(THREE,scene);
   rainFX=createPrecipitation(THREE,scene,innerWidth<720?.7:1);
   status.fauna=ecosystem.stats;
-  status.world={seed:worldSeed,regeneration:'session',extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments,
+  status.world={seed:worldSeed,regeneration:'session',extent:TROPICAL_WORLD.extent,cliffStacks:cliffs.count,riverChannels:rivers.channels,riverSegments:rivers.segments,
     coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution};
   status.faunaLOD=ecosystem.lodStats;
   status.habitatUse=habitatMonitor.snapshot();
@@ -163,6 +164,7 @@ function createLandscape(){
   scene.add(terrain);
   oceanFX=createOcean(THREE,scene,worldSeed);water=oceanFX.mesh;
   rivers=createTropicalRivers(THREE,scene,worldSeed);
+  cliffs=createCoastalCliffs(THREE,scene,worldSeed);
 }
 function createForest(){
   const rng=random(worldSeed);
