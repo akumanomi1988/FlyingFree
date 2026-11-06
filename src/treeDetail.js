@@ -1,9 +1,9 @@
 // High-detail tree layer, pooled and updated at low frequency.
 // Original instanced trunks/canopies remain as the stable far LOD.
 // Nearby branches and crown clusters scale in over 30 metres, avoiding hard popping.
-export const TREE_DETAIL_RADIUS=330;
-export const TREE_DETAIL_FADE_START=230;
-export const TREE_DETAIL_POOL=78;
+export const TREE_DETAIL_RADIUS=310;
+export const TREE_DETAIL_FADE_START=185;
+export const TREE_DETAIL_POOL=80;
 
 export function treeDetailWeight(distance,near=TREE_DETAIL_FADE_START,far=TREE_DETAIL_RADIUS){
   if(!Number.isFinite(distance)||distance>=far)return 0;
