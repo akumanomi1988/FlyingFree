@@ -3,6 +3,20 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const CAMERA_SHOTS=Object.freeze(['chase','shoulder','scenic','profile','high-reveal']);
 
+// Choose the hillside side of an animal when a close chase would film uphill
+// into a single featureless mountainside. Camera on uphill side looks down
+// into the valley; the correction is applied smoothly by the director.
+export function terrainAwareOffset(x,z,gradientX,gradientZ,aboveGround){
+  const slope=Math.hypot(gradientX,gradientZ);
+  const distance=Math.hypot(x,z);
+  if(slope<.26||distance<.2||aboveGround>130)return {x,z,corrected:false};
+  const alignment=(x*gradientX+z*gradientZ)/(distance*slope);
+  if(alignment>=.1)return {x,z,corrected:false};
+  const weight=clamp((.1-alignment)*.90,0,.95);
+  return {x:x*(1-weight)+gradientX/slope*distance*weight,
+    z:z*(1-weight)+gradientZ/slope*distance*weight,corrected:true};
+}
+
 // Documentary framing is driven by the SUBJECT and the landscape, not by
 // blind clock-based cuts. "seconds" is retained for the public API.
 export function cameraShotAt(seconds,behaviour='patrol',context={}){
@@ -41,7 +55,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   let lastAngularStep=0;
   let candidateShot=null,candidateSince=0;
   let lastTime=-Infinity,lastYaw=0,turnRate=0,contextAt=-Infinity;
-  const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false};
+  const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false,slopeX:0,slopeZ:0};
   let lastReason='initial';
 
   function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt){
@@ -68,6 +82,8 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       ];
       context.groundClearance=Math.max(0,bird.y-Math.max(-9,ground));
       context.relief=Math.max(0,Math.max(...heights)-Math.min(...heights));
+      context.slopeX=(heights[0]-heights[1])/(2*horizon);
+      context.slopeZ=(heights[2]-heights[3])/(2*horizon);
       context.water=ground< -9;
       contextAt=clock;
     }
@@ -133,7 +149,13 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       }
     }else{smoothedTarget.copy(bird);}
     lastBird.copy(bird);hasPrevious=true;
-    desired.set(bird.x+plan.x,bird.y+plan.y,bird.z+plan.z);
+    // A small forest bird may fly close to a steep mountain wall. A fixed
+    // chase offset then films only green terrain. Prefer the uphill side of
+    // the protagonist, preserving distance, while the usual follower eases
+    // the change in world space.
+    const terrainOffset=terrainAwareOffset(plan.x,plan.z,context.slopeX,
+      context.slopeZ,context.groundClearance);
+    desired.set(bird.x+terrainOffset.x,bird.y+plan.y,bird.z+terrainOffset.z);
     const clearance=currentShot==='close'?.85:2.6;
     let needed=0;
     for(let i=1;i<=8;i++){
@@ -180,7 +202,8 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     }
     return {shot:currentShot,target:smoothedTarget,clearance,reason:lastReason,transitions,
       groundClearance:context.groundClearance,relief:context.relief,
-      cameraHeading:smoothYaw,turnSpeed:lastAngularStep};
+      cameraHeading:smoothYaw,turnSpeed:lastAngularStep,
+      uphillFraming:terrainOffset.corrected};
   }
   return {
     update,
