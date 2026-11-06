@@ -117,6 +117,13 @@ try{
       assert.equal(atlas.status(),200,'Roadmap no se publica con Vite');
       assert.match(await atlas.text(),/Atlas de una visión/,
         'No se ha incorporado el HTML estratégico');
+      const meta=await page.request.get(root+'build-info.json');
+      assert.equal(meta.status(),200,'Falta manifiesto de versión desplegable');
+      const build=await meta.json();
+      assert.equal(build.application,'VUELO');
+      assert.match(build.buildTime,/^\\d{4}-\\d\\d-\\d\\dT/);
+      if(process.env.GITHUB_SHA)
+        assert.match(build.revision,/^[a-f0-9]{40}$/,'Build sin commit verificable');
       await page.keyboard.press('4');
       await page.waitForTimeout(1200);
       assert.ok((await page.locator('#clock').textContent()).startsWith('23:'),'La tecla de noche no actualiza el reloj');
