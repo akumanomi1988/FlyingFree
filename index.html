@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#081b21">
-<meta name="description" content="VUELO: una isla, un ave, música generativa y el transcurso de las horas. Todo creado en tu navegador.">
-<title>VUELO — Un mundo para quedarse</title>
+<meta name="description" content="Simulación autónoma de aves y ecosistema tropical, con terreno y meteorología en tiempo real.">
+<title>VUELO · Simulador de naturaleza</title>
 <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
@@ -13,11 +13,11 @@
   <div id="viewport" aria-label="Paisaje tridimensional procedural"></div>
   <div class="shade" aria-hidden="true"></div>
   <div class="grain" aria-hidden="true"></div>
-  <header class="brand"><span class="brand-mark">◈</span><span>VUELO</span><small>UN MUNDO PARA QUEDARSE</small></header>
+  <header class="brand"><span class="brand-mark">◈</span><span>VUELO</span></header>
   <section class="hud" id="hud">
-    <div class="eyebrow">EN ESTE MOMENTO</div>
+    <div class="eyebrow">CONDICIONES</div>
     <div class="clock" id="clock">--:--</div>
-    <div class="caption" id="scene-caption">Un mundo en movimiento</div>
+    <div class="caption" id="scene-caption">Vuelo autónomo</div>
     <div class="line"></div>
     <div class="stat"><span>AVE</span><strong id="bird-name">—</strong></div>
     <div class="stat"><span>CLIMA</span><strong id="weather-name">—</strong></div>
@@ -25,10 +25,12 @@
     <div class="stat"><span>VIENTO</span><strong id="wind">-- km/h</strong></div>
     <div class="weather-source" id="weather-source" aria-live="polite">Clima generado · Activa el clima local</div>
     <div class="stat"><span>ESTACIÓN</span><strong id="season-name">—</strong></div>
-    <div class="stat"><span>FAUNA</span><strong>ISLA VIVA</strong></div>
     <div class="stat"><span>TIEMPO</span><strong id="speed-name">×1</strong></div>
   </section>
   <div class="right-tools" id="tools">
+    <button class="circle" id="state-btn" aria-label="Mostrar u ocultar estado del ave" aria-pressed="true" title="Estado del ave (E)">≋</button>
+    <button class="circle" id="map-btn" aria-label="Mostrar u ocultar minimapa" aria-pressed="true" title="Minimapa (N)">⌖</button>
+    <button class="circle" id="seed-btn" aria-label="Generar nueva isla" title="Nueva isla">⟳</button>
     <button class="circle" id="tv-btn" aria-label="Activar modo salvapantallas de TV" title="Modo TV (T)">▣</button>
     <button class="circle" id="weather-btn" aria-label="Activar meteorología local" title="Permitir clima local (sin mostrar ubicación)">☁</button>
     <button class="circle" id="bird-btn" aria-label="Seleccionar ave" title="Aves (B)">♢</button>
@@ -36,13 +38,24 @@
     <button class="circle" id="photo-btn" aria-label="Guardar captura" title="Guardar PNG (P)">▣</button>
     <button class="circle" id="help-btn" aria-label="Mostrar los controles" title="Ayuda">?</button>
   </div>
+  <aside class="bird-vitals" id="bird-vitals" aria-label="Estado del ave">
+    <div class="vital-head"><span>ACTIVIDAD</span><strong id="bird-activity">—</strong></div>
+    <div class="vital-head"><span>CONDICIÓN</span><strong id="bird-feeling">—</strong></div>
+    <div class="vital-row"><span>CANSANCIO</span><span id="bird-fatigue-val">0 %</span></div>
+    <div class="vital-track"><div id="bird-fatigue" class="vital-fill"></div></div>
+    <div class="vital-row"><span>HAMBRE</span><span id="bird-hunger-val">0 %</span></div>
+    <div class="vital-track"><div id="bird-hunger" class="vital-fill"></div></div>
+  </aside>
+  <aside class="minimap" id="minimap" aria-label="Minimapa de la isla">
+    <canvas id="minimap-canvas" width="128" height="128" aria-label="Posición del ave"></canvas>
+    <span class="minimap-north" aria-hidden="true">N</span>
+  </aside>
   <aside class="bird-picker hidden" id="bird-picker" role="dialog" aria-label="Elegir ave">
-    <div class="picker-header"><div><div class="eyebrow">ELIGE TU COMPAÑERO</div><h2>EL CIELO ES TUYO</h2></div><button id="close-birds" class="dismiss" aria-label="Cerrar selector">×</button></div>
-    <p class="picker-intro">Cada especie tiene su vuelo, su hábitat y su forma de recorrer la isla. Puedes cambiar en cualquier momento.</p>
+    <div class="picker-header"><div><div class="eyebrow">SELECTOR</div><h2>AVES</h2></div><button id="close-birds" class="dismiss" aria-label="Cerrar selector">×</button></div>
     <div id="bird-options" class="species-grid"></div>
     <div class="picker-detail"><span id="species-total">12 ESPECIES</span><strong id="bird-habitat"></strong><p id="bird-description"></p></div>
   </aside>
-  <footer class="bottom" id="bottom"><span id="phase">OBSERVA. RESPIRA. VUELA.</span><span>MUNDO PROCEDURAL · <span id="fps">-- FPS</span> · <a class="roadmap-link" href="./roadmap/" target="_blank" rel="noopener noreferrer">ROADMAP ↗</a></span></footer>
+  <footer class="bottom" id="bottom"><span id="phase">SEMILLA —</span><span><span id="fps">-- FPS</span> · <a class="roadmap-link" href="./roadmap/" target="_blank" rel="noopener noreferrer">ROADMAP ↗</a></span></footer>
   <section id="tv-overlay" class="tv-overlay hidden" aria-label="Hora y condiciones meteorológicas">
     <div class="tv-date" id="tv-date"></div>
     <div class="tv-clock" id="tv-clock">--:--</div>
@@ -58,13 +71,13 @@
   </div>
   <div class="intro" id="intro">
     <div class="intro-card">
-      <div class="eyebrow centered">UN LUGAR QUE NO SE REPITE</div>
+      <div class="eyebrow centered">SIMULACIÓN AUTÓNOMA</div>
       <div class="intro-symbol">◈</div>
       <h1>VUELO</h1>
-      <p>Una isla viva. Doce especies de aves. Fauna en libertad.<br>La luz de cada instante.<br>Sin imágenes, vídeos ni música grabada.</p>
+      <p>Isla tropical generada en cada sesión. Doce especies seleccionables.<br>Clima local opcional.</p>
       <button id="enter-btn" class="enter">ENTRAR CON CLIMA LOCAL <span>↗</span></button>
       <button id="skip-location-btn" class="enter-skip" type="button">CONTINUAR SIN UBICACIÓN</button>
-      <p class="micro">Con tu permiso, adaptamos el sol, el amanecer y el clima a tu zona.<br>Tu ubicación no se muestra ni se almacena. Puedes continuar sin permitirla.</p>
+      <p class="micro">La ubicación solo se solicita con tu permiso y no se publica.<br>También puedes continuar sin autorizarla.</p>
     </div>
   </div>
   <aside id="help" class="help hidden" role="dialog" aria-label="Controles">
@@ -73,12 +86,12 @@
     <p><kbd>1</kbd> Amanecer <kbd>2</kbd> Mediodía <kbd>3</kbd> Atardecer <kbd>4</kbd> Noche</p>
     <p><kbd>5</kbd> Cambiar clima <kbd>6</kbd> ×1 <kbd>7</kbd> ×60 <kbd>8</kbd> ×600</p>
     <p><kbd>B</kbd> Selector de aves <kbd>Esc</kbd> Cerrar</p>
-    <p><kbd>Espacio</kbd> Aletear <kbd>M</kbd> Audio <kbd>H</kbd> Interfaz</p>
+    <p><kbd>M</kbd> Audio <kbd>H</kbd> Interfaz <kbd>E</kbd> Estado <kbd>N</kbd> Minimapa</p>
     <p><kbd>P</kbd> Captura PNG <kbd>F</kbd> Pantalla completa</p>
     <p><kbd>T</kbd> Salvapantallas TV <kbd>R</kbd> Volver a tiempo real</p>
     <p>El clima local requiere permiso del navegador. No se publica tu ubicación.</p>
     <p><a class="roadmap-link" href="./roadmap/" target="_blank" rel="noopener noreferrer">Atlas interactivo de VUELO y hoja de ruta ↗</a></p>
-    <p>URL: <code>?h=6.4&amp;bird=albatross&amp;weather=storm</code></p>
+    <p>URL reproducible: <code>?seed=1988&amp;bird=albatross&amp;weather=storm</code></p>
   </aside>
   <div id="error" class="error hidden" role="alert"></div>
   <div id="selftest" class="selftest hidden"></div>
