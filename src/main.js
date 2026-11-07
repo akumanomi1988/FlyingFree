@@ -40,6 +40,7 @@ let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
 const worldSeed=opts.seed??sessionIslandSeed();
 const habitatMonitor=createHabitatMonitor(worldSeed);
 const minimap=createMinimap($('map-canvas'),worldSeed);
+$('mini-map').title='Isla · semilla '+worldSeed;
 let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
@@ -113,7 +114,8 @@ function init(){
   status.faunaLOD=ecosystem.lodStats;
   status.habitatUse=habitatMonitor.snapshot();
   // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
-  status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
+  status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
+    fadeDistance:treeDetail.fadeDistance,radius:680};
   status.performance={...frameTelemetry.snapshot(),drawCalls:0,triangles:0,points:0,lines:0};
   status.adaptiveQuality=adaptiveResolution.snapshot();
   window.addEventListener('resize',onResize,{passive:true});
@@ -520,7 +522,8 @@ function animate(now){
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
     status.performance={...frameTelemetry.snapshot(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,points:renderer.info.render.points,lines:renderer.info.render.lines};
-    status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity};
+    status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
+    fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
     status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;status.insectCount=groundDetail.insectCount;
     status.motion={wind:+windField.strength.toFixed(2),windMaterials:windField.materials,
@@ -687,6 +690,15 @@ function bindUI(){
  $('weather-btn').addEventListener('click',()=>void connectClimate(false));
  $('tv-consent').addEventListener('click',()=>void connectClimate(false));
  $('help-btn').addEventListener('click',()=>$('help').classList.toggle('hidden'));
+ $('new-island').addEventListener('click',()=>{
+   // New session geography, explicitly shareable in the URL. Fixed-seed QA
+   // still works unchanged and no geolocation data goes into the address.
+   let next=sessionIslandSeed();
+   if(next===worldSeed)next=(next%2147483647)+1;
+   const url=new URL(location.href);
+   url.searchParams.set('seed',String(next));
+   location.assign(url.href);
+ });
  const toggleMap=()=>{
    const hidden=$('mini-map').classList.toggle('hidden');
    $('map-btn').setAttribute('aria-pressed',String(!hidden));

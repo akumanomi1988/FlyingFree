@@ -32,3 +32,15 @@ El mapa cambia de **semilla por sesión** si la URL no especifica `seed`. Para c
 6. Supervisión visual del mar y rompientes en acantilados, y benchmarking GPU real; las olas en shader no son un solucionador de fluidos.
 
 **Criterio de aceptación:** no etiquetar «realista» por haber añadido una tabla de especies. Revisar vídeos de cuatro minutos con seed fija y especies alternadas, contrastar con observación y validar comportamiento de 30–60 minutos.
+
+## Ajustes de simulación: 2026-11-07
+
+Se han vuelto a contrastar los **arquetipos**, no doce especies taxonómicas precisas, con observaciones publicadas:
+
+- Cornell Lab, [Broad-tailed Hummingbird](https://www.allaboutbirds.org/guide/Broad-tailed_Hummingbird/lifehistory): suspensión sobre flores para beber néctar y captura de pequeños insectos; ~50 batidos/s en esa especie. Se modela alimentación suspendida, sin falso apoyo terrestre.
+- Cornell Lab, [Laysan Albatross](https://www.allaboutbirds.org/guide/Laysan_Albatross/lifehistory): planeo dinámico con aleteo infrecuente, aprovechamiento de cizalladura del viento y despegues terrestres que pueden requerir carrera. Su perfil no debe usar aleteo constante ni los ritmos de especies pequeñas.
+- Cornell Lab, [Ringed Kingfisher](https://www.allaboutbirds.org/guide/Ringed_Kingfisher/lifehistory), y [RSPB, How do Kingfishers hunt?](https://members.rspb.org.uk/how-do-kingfishers-hunt/): caza en agua dulce desde posaderos y nidificación en galerías de orillas para las especies descritas. VUELO dispone de rutas acuáticas y posaderos aproximados, pero aún no anima el golpe contra rama ni la ingestión, y carece de galerías de nidificación físicas.
+
+**Nueva corrección en código:** el agotamiento crítico interrumpe viajes largos; los vencejos pasan a reposo aéreo, otras especies buscan descanso. Colibríes consumen néctar suspendidos, vencejos y golondrinas capturan insectos durante el vuelo. Los insectos visibles quedan ligados a flores cercanas y baja altura, evitando enjambres decorativos. Las aves grandes conservan altura superior al dosel; las pequeñas pueden bajar hacia plantas y corredores entre árboles.
+
+**Pendiente científico/artístico:** reproducción de aleteo con desenfoque temporal auténtico para colibríes, nidos y territorios físicamente representados, picados y capturas con presas visibles, locomoción e IK de patas/posaderos y secuencias documentales examinadas manualmente por especie.

@@ -72,11 +72,11 @@ test('ocean CPU surface uses precisely the upgraded mesh tessellation',()=>{
 });
 
 test('expanded tree LOD retains near shape and distant full crowns',()=>{
- assert.equal(TREE_DETAIL_RADIUS,310);
- assert.ok(TREE_DETAIL_POOL>=80);
- assert.ok(treeDetailWeight(210)>0&&treeDetailWeight(210)<1);
- assert.ok(treeDetailWeight(300)>0);
- assert.equal(treeDetailWeight(310),0);
+ assert.equal(TREE_DETAIL_RADIUS,680);
+ assert.ok(TREE_DETAIL_POOL>=200);
+ assert.equal(treeDetailWeight(210),1);
+ assert.ok(treeDetailWeight(580)>0);
+ assert.equal(treeDetailWeight(680),0);
 });
 
 test('consented weather timezone formats its local time independently from device timezone',()=>{

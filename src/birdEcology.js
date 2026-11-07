@@ -35,8 +35,10 @@ export function birdSensation({energy,hunger,state,floating=false,weather=0}){
  if(state==='landing'||state==='approach')return 'Aterrizando';
  if(state==='takeoff')return 'Despegando';
  if(state==='feed')return 'Alimentándose';
+ if(energy<.22)return 'Agotada';
+ if(state==='return')return 'Volviendo al posadero';
  if(state==='seek_food'||hunger>.66)return 'Buscando alimento';
- if(energy<.3)return 'Cansada';
- if(weather>.75)return 'Viento y lluvia';
- return 'Explorando';
+ if(energy<.38)return 'Fatigada';
+ if(weather>.75)return 'Buscando refugio';
+ return 'Patrullando';
 }

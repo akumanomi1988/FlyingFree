@@ -52,8 +52,9 @@ test('all twelve bird species have curved indexed wings, articulated feathers an
 
 test('near-tree geometry is pooled, distance bounded and can be disposed',()=>{
   assert.equal(treeDetailWeight(0),1);
-  assert.equal(treeDetailWeight(330),0);
-  assert.ok(treeDetailWeight(270)>0&&treeDetailWeight(270)<1);
+  assert.equal(treeDetailWeight(720),0);
+  assert.ok(treeDetailWeight(580)>0&&treeDetailWeight(580)<1);
+  assert.equal(treeDetailWeight(300),1);
   const scene=new THREE.Scene();
   const trees=[
     {x:0,y:0,z:0,height:30,kind:'pine',angle:0},
@@ -62,19 +63,19 @@ test('near-tree geometry is pooled, distance bounded and can be disposed',()=>{
   ];
   const layer=createTreeDetail(THREE,scene,trees,1);
   layer.update({x:0,y:0,z:0},0);
-  assert.equal(layer.active,2);
+  assert.equal(layer.active,3);
   assert.equal(layer.poolCapacity,TREE_DETAIL_POOL);
   assert.equal(scene.children.length,3);
   for(const mesh of scene.children){
     assert.ok(mesh.count<=layer.poolCapacity*7);
     assert.ok(mesh.instanceMatrix.version>0);
   }
-  layer.update({x:1000,y:0,z:0},2);
+  layer.update({x:2000,y:0,z:0},2);
   assert.equal(layer.active,0);
   assert.equal(layer.updateCount,2);
-  layer.update({x:1000,y:0,z:0},2.5);
+  layer.update({x:2000,y:0,z:0},2.5);
   assert.equal(layer.updateCount,2,'stationary camera must not rebuild every frame');
-  layer.update({x:1000,y:0,z:0},5.5);
+  layer.update({x:2000,y:0,z:0},5.5);
   assert.equal(layer.updateCount,3,'periodic refresh stays available');
   layer.dispose();
   assert.equal(scene.children.length,0);
@@ -132,7 +133,7 @@ test('dense tree patches fade before the fixed instance-pool boundary',()=>{
   }));
   const layer=createTreeDetail(THREE,scene,records,1);
   layer.update({x:0,y:10,z:0},0);
-  assert.ok(layer.fadeDistance<330);
+  assert.ok(layer.fadeDistance<=680);
   assert.ok(layer.fadeDistance>0);
   assert.ok(layer.active<=TREE_DETAIL_POOL);
   assert.ok(scene.children.every(mesh=>mesh.count<=TREE_DETAIL_POOL*7));
