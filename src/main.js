@@ -434,7 +434,7 @@ function fly(date,dt,sun){
   bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
   floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
   state:action.state,food:action.food,feedingProgress:action.feedingProgress},dt);
- const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan},elapsed);
+ const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan,rain:weatherState.rain},elapsed);
  const visibleRest=restVisuals?.update(action,camera.position);
  status.perchVisible=Boolean(visibleRest?.visible);
  status.restSiteKind=action.restSite?.kind??null;
