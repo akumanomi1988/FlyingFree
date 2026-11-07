@@ -25,7 +25,7 @@ test('every bird has coherent biological needs and contrasting canopy flight lev
  assert.equal(birdEcology(BIRDS.find(b=>b.id==='swift')).canPerch,false);
  assert.equal(birdEcology(BIRDS.find(b=>b.id==='albatross')).rest,'water');
  assert.equal(birdSensation({energy:.3,hunger:.8,state:'patrol'}),'Buscando alimento');
- assert.equal(birdSensation({energy:.18,hunger:.2,state:'patrol'}),'Cansada');
+ assert.equal(birdSensation({energy:.18,hunger:.2,state:'patrol'}),'Agotada');
 });
 
 test('a new browser visit gets a random seed; URL-supplied seeds stay reproducible',()=>{
