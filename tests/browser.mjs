@@ -48,7 +48,7 @@ async function render(name,query,width,height,runChecks){
         brightness:Math.round(luminance/(data.length/4)),colorVar:Math.round(variability/(data.length/4)),
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
-        treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
+        treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,regionalBirds:s.regionalBirds,riverLife:s.riverLife,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
         world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
         metrics:{energy:document.querySelector('#bird-energy')?.value,
@@ -80,7 +80,17 @@ async function render(name,query,width,height,runChecks){
       'Falta control para generar otra isla a voluntad');
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.birdDrawCallsSaved>=40,'El plumaje cercano no está agrupado por materiales');
-    assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
+    assert.ok(stats.fauna?.deer>=10,'La población terrestre sigue siendo muy baja');
+    assert.ok(stats.regionalBirds?.population>=30,
+      'Las aves secundarias no aparecen en los hábitats cercanos');
+    assert.ok(stats.regionalBirds?.visible>=3,
+      'La escena inicial carece de aves secundarias visibles');
+    assert.equal(stats.regionalBirds?.drawCalls,3,
+      'Los bandos secundarios han perdido el render instanciado');
+    assert.ok(stats.riverLife?.rocks>=100&&stats.riverLife?.reeds>=100,
+      'Las riberas no muestran rocas y vegetación');
+    assert.ok(stats.riverLife?.fish>=18,
+      'El río no dispone de peces simulados');
     assert.ok(stats.faunaLOD?.prototypes>=3,'Falta la reutilización del LOD de fauna');
     assert.ok(stats.faunaLOD?.totalActors>=15,'Faltan animales con niveles de detalle');
     assert.ok(Object.values(stats.faunaLOD.farDrawCalls).every(n=>n>0&&n<=3),
