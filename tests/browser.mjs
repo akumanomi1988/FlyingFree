@@ -70,8 +70,10 @@ async function render(name,query,width,height,runChecks){
     assert.equal(stats.metrics?.mapVisible,stats.metrics?.mapExpected,
       'Minimap should be visible in standard UI, hidden for clean TV/broadcast');
     assert.equal(stats.particles,0,'Useless airborne point particles have returned');
-    assert.ok(stats.treeDetail?.capacity>=200,
-      'El detalle de la selva sigue apareciendo demasiado cerca de la cámara');
+    // Mobile intentionally scales the number of pooled instances down, but
+    // keeps the extended geometric detail radius and a smooth fade.
+    assert.ok(stats.treeDetail?.capacity>=(width<720?150:230),
+      'El LOD arbóreo no respeta el presupuesto de su dispositivo');
     assert.ok(stats.treeDetail?.fadeDistance>0,
       'Falta transición continua de las copas');
     assert.equal(await page.locator('#new-island').count(),1,
