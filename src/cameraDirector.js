@@ -166,9 +166,11 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null,
     // Lift the observer slightly to see the terrain behind the subject while
     // retaining a close-enough camera for the animal to remain distinguishable.
     const portraitSmallBird=clamp((.78-camera.aspect)/.18,0,1)*
-      clamp((.65-wingspan)/.35,0,1)*
-      clamp((context.groundClearance-15)/55,0,1);
-    const scenicLift=portraitSmallBird*5.4;
+      clamp((.65-wingspan)/.35,0,1);
+    // Below the canopy, filming level with the bird places the lens inside
+    // dark foliage. Lift the observer above crowns without moving the bird.
+    const scenicLift=portraitSmallBird*
+      (context.groundClearance<45?7.5:5.4);
     desired.set(bird.x+terrainOffset.x,bird.y+plan.y+scenicLift,bird.z+terrainOffset.z);
     const clearance=currentShot==='close'?.85:2.6;
     let needed=0;
@@ -207,7 +209,8 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null,
     // vantage from the very first frame. Otherwise, moving the orbit across
     // the subject for seconds while angle speed is capped loses the bird.
     // Never snap a running shot or a landscape-to-landscape transition.
-    const establishTerrainShot=initializingShot&&terrainOffset.corrected&&
+    const establishTerrainShot=initializingShot&&
+      (terrainOffset.corrected||portraitSmallBird>.5)&&
       camera.aspect<.72&&wingspan<.5;
     if(establishTerrainShot)camera.position.copy(desired);
     else camera.position.lerp(desired,k);
