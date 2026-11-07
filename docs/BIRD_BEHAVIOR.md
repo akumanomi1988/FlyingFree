@@ -53,3 +53,13 @@ Se han vuelto a contrastar los **arquetipos**, no doce especies taxonómicas pre
 - `window.__FLYINGFREE_STATUS__` expone `foodVisible`, `foodKind` y `feedingProgress` para auditorías de escena reproducibles.
 
 **Alcance actual:** las presas son representaciones estilizadas, no individuos vivos del ecosistema enlazados mediante colisión o inventario. Faltan peces con IA, impactos, salpicaduras, capturas sostenidas por garras, IK preciso de posadero, caminar sobre el suelo, y la anatomía de ingestión por especie. La mejora pretende eliminar los cambios invisibles de estadísticas y dar continuidad visual observable, no certificar realismo zoológico completo.
+
+## Segunda iteración: contacto, refugio y encuadre (7 de noviembre de 2026)
+
+- **Contacto:** el aterrizaje se confirma únicamente cuando existe proximidad horizontal y vertical al punto escogido y velocidad baja. La recuperación energética comienza después de la inmovilización, no durante la aproximación.
+- **Reposo:** los pájaros capaces de posarse usan la geometría de un árbol realmente instanciado, seleccionando una rama desplazada del tronco; el render incorpora una rama local anclada a ese árbol cuando la cámara se acerca. Garzas y aves de suelo eligen lugares terrestres o humedales; las aves marinas buscan superficie oceánica para flotar.
+- **Presa y escala:** flores, insectos, peces y pequeños animales tienen escalas relacionadas con la envergadura del sujeto; una flor de colibrí deja de medir cerca de un metro. Los encuentros con peces generan una discreta onda superficial reutilizable en GPU.
+- **Actuación:** un ave descansando mueve ligeramente el tórax y cierra los ojos con sus mallas existentes. La cámara puede desplazar su atención hacia el alimento cercano durante el picoteo, sin cortes bruscos.
+- **Auditoría:** `__FLYINGFREE_STATUS__` incluye `grounded`, `rests`, `restSiteKind` y `perchVisible`. La regresión de escenas ecológicas comprueba albatros/gaviota, garza, rapaz, árbol y contacto con suelo.
+
+**Límites que permanecen:** la rama local es una mejora cinematográfica vinculada al árbol, no una malla de colisión completa con agarre de dedos; garzas todavía no vadean con IK de patas, y las presas siguen siendo proxies gráficos. La aceptación perceptiva en TV sigue siendo distinta de la CI.
