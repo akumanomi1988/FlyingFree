@@ -501,7 +501,7 @@ function animate(now){
   const position=fly(date,dt,sun);
   ecosystem.update(elapsed,sun.daylight,weatherState.cloud,position,weatherState.rain,camera.position);
   atmospherics.update(elapsed,camera,position,sun.daylight,weatherState);
-  const wildlifeFrame=wildlifeObservatory.update(elapsed,ecosystem.actors,camera,position,innerHeight);
+  const wildlifeFrame=wildlifeObservatory.update(elapsed,ecosystem.observableAnimals,camera,position,innerHeight);
   directCamera(position,dt,wildlifeFrame.focus);
   forestVisibility.update(camera.position,elapsed);
   regionalBirds.update(elapsed,position,camera.position,sun.daylight,weatherState.rain);
@@ -550,6 +550,7 @@ function animate(now){
     fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
     status.wildlifePopulation=ecosystem.populationStats;
+    status.marinePopulation=ecosystem.marinePopulationStats;
     status.wildlifeVisibility=wildlifeObservatory.stats;
     status.forestVisibility=forestVisibility.stats;
     status.performanceTarget={fps:30,frameBudgetMs:33.33,

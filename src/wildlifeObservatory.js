@@ -1,7 +1,9 @@
+import {TROPICAL_WORLD} from './tropicalTerrain.js';
+
 // Camera-space estimates distinguish generated animals from recognizable ones.
 // Frustum tests do NOT prove absence of terrain, canopy or fog occlusion.
-const BODY_HEIGHT={deer:1.65,fox:.72,rabbit:.38};
-const ACTION_SCORE={hunt:9,flee:9,alert:5,foraging:3,travelling:1};
+const BODY_HEIGHT={deer:1.65,fox:.72,rabbit:.38,dolphin:1.1};
+const ACTION_SCORE={breach:12,hunt:9,flee:9,alert:5,foraging:3,travelling:1,swimming:1};
 
 export function createWildlifeObservatory(THREE,{minPixels=9}={}){
   const point=new THREE.Vector3(),projected=new THREE.Vector3();
@@ -19,6 +21,8 @@ export function createWildlifeObservatory(THREE,{minPixels=9}={}){
       if(actor.visible===false)continue;
       const state=actor.userData.state;
       if(!state||!Object.hasOwn(BODY_HEIGHT,state.type))continue;
+      // A submerged dolphin is not a documentary subject even if its mesh projects.
+      if(state.type==='dolphin'&&actor.position.y<TROPICAL_WORLD.seaLevel-.3)continue;
       const distance=camera.position.distanceTo(actor.position);
       if(distance>950||distance<.01)continue;
       nearby++;
