@@ -37,7 +37,7 @@ let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmos
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
-  pendingSnapshot=false;
+  pendingSnapshot=false,pendingRenderProbe=null;
 const climate=createLiveClimate();
 let solarCoordinates=approximateSolarCoordinates();
 let timeOverride=opts.hour!=null||Boolean(opts.phase);
@@ -229,7 +229,9 @@ function createForest(){
   for(let attempt=0;attempt<n*8&&trees<n;attempt++){
     const x=(rng()-.5)*9950,z=(rng()-.5)*8600;
     const candidate=tropicalTerrainSample(x,z,worldSeed),y=candidate.height;
-    if(y<12||y>730||rng()<smooth(430,700,y)*.48)continue;
+    // A submerged channel must not contain forest trunks; riparian trees
+    // occupy the damp banks, outside the actual flowing-water boundary.
+    if(candidate.river>.23||y<12||y>730||rng()<smooth(430,700,y)*.48)continue;
     const habitat=habitatAt(x,z,worldSeed);
     if(habitat.type==='rock'||habitat.slope>1.02)continue;
     const s=.78+rng()*.50,a=rng()*TAU;
@@ -507,6 +509,13 @@ function animate(now){
   groundDetail.update(elapsed,camera,position,sun.daylight,weatherState.rain,climate.weather?.temperature??18);
   updateSea(elapsed,dt,sun);
   renderer.render(scene,camera);
+  // Browser QA reads the *actual* WebGL framebuffer before the compositor
+  // discards it. This is opt-in, costs zero GPU readbacks during normal play.
+  if(pendingRenderProbe){
+    const resolve=pendingRenderProbe;
+    pendingRenderProbe=null;
+    resolve(sampleRenderedFrame());
+  }
   if(pendingSnapshot)captureRenderedFrame();
   status.frames++;renderFrames++;fpsTimer+=Math.min(deltaRaw,.25);
   if(fpsTimer>=1){
@@ -546,6 +555,7 @@ function animate(now){
     status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
     fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
+    status.riverGeometry=rivers.stats;
     status.forestVisibility=forestVisibility.stats;
     status.performanceTarget={fps:30,frameBudgetMs:33.33,
       p95Ms:status.performance.p95,withinBudget:status.performance.p95<=33.33};
@@ -582,6 +592,36 @@ async function audioToggle(){
   }
  }catch(err){showError(err);}
 }
+function sampleRenderedFrame(){
+  try{
+    const source=renderer.domElement;
+    const sample=document.createElement('canvas');
+    sample.width=64;sample.height=36;
+    const context=sample.getContext('2d',{willReadFrequently:true});
+    context.drawImage(source,0,0,64,36);
+    const data=context.getImageData(0,0,64,36).data;
+    const distinct=new Set();
+    let luminance=0,variability=0,nonBlack=0;
+    for(let i=0;i<data.length;i+=4){
+      const r=data[i],g=data[i+1],b=data[i+2];
+      distinct.add([r>>4,g>>4,b>>4].join(':'));
+      const l=(r+g+b)/3;
+      luminance+=l;variability+=Math.abs(r-b);
+      if(r+g+b>60)nonBlack++;
+    }
+    return {colors:distinct.size,
+      brightness:Math.round(luminance/(data.length/4)),
+      colorVar:Math.round(variability/(data.length/4)),
+      nonBlack:Math.round(nonBlack/(data.length/4)*100)};
+  }catch(error){return {colors:0,brightness:0,colorVar:0,nonBlack:0,
+    error:String(error)};}
+}
+window.__FLYINGFREE_RENDER_PROBE__=()=>new Promise(resolve=>{
+  // One-shot readback. Displaced probes are resolved explicitly rather
+  // than left pending when a caller races with another inspection.
+  if(pendingRenderProbe)pendingRenderProbe({error:'superseded'});
+  pendingRenderProbe=resolve;
+});
 function captureRenderedFrame(){
   pendingSnapshot=false;
   try{
