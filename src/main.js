@@ -596,26 +596,36 @@ async function audioToggle(){
  }catch(err){showError(err);}
 }
 function sampleRenderedFrame(){
+  // Reading the default WebGL framebuffer synchronously after render avoids
+  // Chromium/SwiftShader blank 2D drawImage() copies when preserveDrawingBuffer
+  // is disabled. This QA-only probe samples nine small tiles, not the whole
+  // framebuffer; normal animation never invokes readPixels.
   try{
-    const source=renderer.domElement;
-    const sample=document.createElement('canvas');
-    sample.width=64;sample.height=36;
-    const context=sample.getContext('2d',{willReadFrequently:true});
-    context.drawImage(source,0,0,64,36);
-    const data=context.getImageData(0,0,64,36).data;
+    const gl=renderer.getContext(),width=gl.drawingBufferWidth,
+      height=gl.drawingBufferHeight;
+    const tile=Math.min(16,Math.floor(width/5),Math.floor(height/5));
+    if(tile<1)throw new Error('WebGL framebuffer is empty');
+    const rgba=new Uint8Array(tile*tile*4);
     const distinct=new Set();
-    let luminance=0,variability=0,nonBlack=0;
-    for(let i=0;i<data.length;i+=4){
-      const r=data[i],g=data[i+1],b=data[i+2];
-      distinct.add([r>>4,g>>4,b>>4].join(':'));
-      const l=(r+g+b)/3;
-      luminance+=l;variability+=Math.abs(r-b);
-      if(r+g+b>60)nonBlack++;
+    let luminance=0,variability=0,nonBlack=0,samples=0;
+    for(const fy of [.18,.5,.82])for(const fx of [.18,.5,.82]){
+      const x=Math.max(0,Math.min(width-tile,Math.floor(width*fx-tile/2)));
+      const y=Math.max(0,Math.min(height-tile,Math.floor(height*fy-tile/2)));
+      gl.readPixels(x,y,tile,tile,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
+      const error=gl.getError();
+      if(error!==gl.NO_ERROR)throw new Error('WebGL readPixels error '+error);
+      for(let i=0;i<rgba.length;i+=4){
+        const red=rgba[i],green=rgba[i+1],blue=rgba[i+2];
+        distinct.add([red>>4,green>>4,blue>>4].join(':'));
+        const light=(red+green+blue)/3;
+        luminance+=light;variability+=Math.abs(red-blue);
+        if(red+green+blue>60)nonBlack++;
+        samples++;
+      }
     }
-    return {colors:distinct.size,
-      brightness:Math.round(luminance/(data.length/4)),
-      colorVar:Math.round(variability/(data.length/4)),
-      nonBlack:Math.round(nonBlack/(data.length/4)*100)};
+    return {colors:distinct.size,brightness:Math.round(luminance/samples),
+      colorVar:Math.round(variability/samples),
+      nonBlack:Math.round(nonBlack/samples*100)};
   }catch(error){return {colors:0,brightness:0,colorVar:0,nonBlack:0,
     error:String(error)};}
 }
