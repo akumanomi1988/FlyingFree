@@ -148,12 +148,22 @@ export function createOcean(THREE,scene,seed=1988){
           (1.0-smoothstep(2.5,17.0,depth));
         // Wave wash gathers near coastal cliffs, where the seeded bathymetry
         // rises steeply. Both the rock and breakers use the same coastline.
-        float coastalRise=abs(texture2D(coastHeightmap,
-          clamp(coastUv+vec2(.006,0.0),vec2(.001),vec2(.999))).r-
+        // Rock faces point in any direction. The old one-axis gradient missed
+        // north/south cliffs, so their breakers seemed to disappear.
+        vec2 cliffStep=vec2(.0045,0.0);
+        float riseX=abs(texture2D(coastHeightmap,
+          clamp(coastUv+cliffStep,vec2(.001),vec2(.999))).r-
           texture2D(coastHeightmap,
-          clamp(coastUv-vec2(.006,0.0),vec2(.001),vec2(.999))).r);
-        float cliffBreak=smoothstep(.13,.37,coastalRise)*nearShore;
+          clamp(coastUv-cliffStep,vec2(.001),vec2(.999))).r);
+        float riseZ=abs(texture2D(coastHeightmap,
+          clamp(coastUv+cliffStep.yx,vec2(.001),vec2(.999))).r-
+          texture2D(coastHeightmap,
+          clamp(coastUv-cliffStep.yx,vec2(.001),vec2(.999))).r);
+        float coastalSlope=length(vec2(riseX,riseZ));
+        float cliffBreak=smoothstep(.08,.28,coastalSlope)*nearShore;
         float advancingWave=.5+.5*sin(vPosition.x*.10+vPosition.z*.045-time*1.7);
+        float breakerBands=.5+.5*sin(depth*.65-time*2.6+
+          sin(vPosition.x*.031+vPosition.z*.037)*.9);
         float coralBand=smoothstep(3.0,7.0,depth)*
           (1.0-smoothstep(23.0,55.0,depth));
         vec3 deep=mix(vec3(.014,.045,.094),vec3(.016,.155,.204),day);
@@ -173,9 +183,9 @@ export function createOcean(THREE,scene,seed=1988){
         float shortCrest=smoothstep(.72,.92,
           .50+.50*sin(vPosition.x*.076-time*1.8)*
           cos(vPosition.z*.089+time*.9));
-        float foam=clamp(nearShore*(.28+.31*advancingWave)+
-          cliffBreak*(.25+.55*advancingWave)+
-          shortCrest*(.08+.20*storm)*microFade+crest*storm*.23,0.0,.88);
+        float foam=clamp(nearShore*(.26+.36*advancingWave)+
+          cliffBreak*(.34+.40*advancingWave+.34*breakerBands)+
+          shortCrest*(.08+.20*storm)*microFade+crest*storm*.23,0.0,.92);
         color=mix(color,vec3(.83,.91,.89),foam*(.60+day*.33));
         float dist=length(cameraPosition-vPosition);
         float fog=1.0-exp(-fogDensity*fogDensity*dist*dist);
