@@ -67,14 +67,15 @@ export function createRegionalBirds(THREE,scene,seed=1988,quality=1){
      const altitude=coastal?12+rng()*55:
        region==='forest'?19+rng()*35:14+rng()*75;
      const palette=colors[region]||colors.meadow;
+     const color=palette[Math.floor(rng()*palette.length)];
      records.push({x,z,y:(coastal&&habitat.height<0?0:habitat.height)+altitude,
-       wingScale:wingspan/1.64,color:palette[Math.floor(rng()*palette.length)],
+       wingScale:wingspan/1.64,color,tint:new THREE.Color(color),
        phase:rng()*6.283,speed:5+rng()*8,roam:7+rng()*28,heading:rng()*6.283});
     }
    }
   }
   for(let i=0;i<records.length;i++){
-   const col=new THREE.Color(records[i].color);
+   const col=records[i].tint;
    for(const m of instances)m.setColorAt(i,col);
   }
   for(const m of instances){
@@ -113,7 +114,7 @@ export function createRegionalBirds(THREE,scene,seed=1988,quality=1){
    dummy.scale.setScalar(b.wingScale);
    dummy.updateMatrix();
    // Color is indexed by the compacted visible position as well as geometry.
-   const color=new THREE.Color(b.color);
+   const color=b.tint;
    for(const m of instances){
     m.setMatrixAt(count,dummy.matrix);
     m.setColorAt(count,color);
