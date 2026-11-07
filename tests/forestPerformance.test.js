@@ -84,3 +84,32 @@ test('30fps frame budget reacts to p95 stutter before apparent average drops',()
  for(let i=0;i<8;i++)quality.observe({fps:50,p95Ms:22,seconds:1});
  assert.ok(quality.snapshot().scale>reduced);
 });
+
+import {createCloudField} from '../src/cloudField.js';
+
+test('entire animated tropical cloud field uses one GPU draw call',()=>{
+ const scene=new THREE.Scene();
+ const c=createCloudField(THREE,scene);
+ assert.equal(c.stats.clouds,27);
+ assert.ok(c.stats.lobes>=27*5);
+ assert.equal(c.stats.drawCalls,1);
+ assert.equal(scene.children.length,1);
+ assert.ok(c.mesh.isInstancedMesh);
+ assert.equal(c.mesh.count,c.stats.lobes);
+ const old=c.mesh.instanceMatrix.array.slice(0,16);
+ c.update(1.3,.8,.9);
+ const newer=c.mesh.instanceMatrix.array.slice(0,16);
+ assert.notDeepEqual([...old],[...newer],'clouds stopped drifting');
+ assert.equal(c.mesh.material.opacity>.6,true);
+ c.update(1.5,0,.8);
+ assert.equal(c.mesh.visible,false);
+ c.dispose();
+ assert.equal(scene.children.length,0);
+});
+
+test('mobile retains the same cloud shape complexity with a lower fixed budget',()=>{
+ const c=createCloudField(THREE,new THREE.Scene(),{mobile:true});
+ assert.equal(c.stats.clouds,17);
+ assert.equal(c.stats.drawCalls,1);
+ c.dispose();
+});
