@@ -10,6 +10,8 @@ import {createWindField} from './worldMotion.js';
 import {createTreeDetail} from './treeDetail.js';
 import {createFrameTelemetry} from './frameTelemetry.js';
 import {createAdaptiveResolution} from './adaptiveResolution.js';
+import {createForestVisibility} from './forestVisibility.js';
+import {createCloudField} from './cloudField.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {createHabitatMonitor} from './habitatMonitor.js';
@@ -30,11 +32,12 @@ import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,loc
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
-let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
+let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,forestVisibility,cloudField,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,regionalBirds,riverHabitat,lastBirdAction=null;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
-let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
+let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
+  pendingSnapshot=false;
 const climate=createLiveClimate();
 let solarCoordinates=approximateSolarCoordinates();
 let timeOverride=opts.hour!=null||Boolean(opts.phase);
@@ -62,10 +65,22 @@ const createMaterial=(color,roughness=1)=>new THREE.MeshStandardMaterial({color,
 
 function init(){
   if(!document.createElement('canvas').getContext('webgl2'))throw new Error('WebGL2 no disponible. Comprueba la aceleración gráfica en tu navegador.');
-  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});
-  scaleFactor=Math.min(window.devicePixelRatio||1,innerWidth<700?1.05:1.4,
-    Math.sqrt(3700000/Math.max(1,innerWidth*innerHeight)));
-  adaptiveResolution=createAdaptiveResolution({maxScale:scaleFactor});
+  // The compositor must not retain the previous full-resolution framebuffer.
+  // Snapshots are captured synchronously immediately after the next render.
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:false,powerPreference:'high-performance'});
+  const maxScale=Math.min(window.devicePixelRatio||1,innerWidth<700?1:1.15,
+    Math.sqrt(3_000_000/Math.max(1,innerWidth*innerHeight)));
+  const minScale=Math.min(.48,maxScale);
+  // Start with a sane raster budget, then restore detail only on hardware
+  // that actually proves it can maintain a smooth documentary framerate.
+  scaleFactor=Math.max(minScale,Math.min(maxScale,innerWidth<700?.86:.84,
+    Math.sqrt(1_450_000/Math.max(1,innerWidth*innerHeight))));
+  adaptiveResolution=createAdaptiveResolution({
+    maxScale,minScale,initialScale:scaleFactor,
+    downFps:29,downP95Ms:44,upFps:38,upP95Ms:29,
+    severeFps:22,severeFactor:.74,
+    downHold:2,upHold:24,cooldownSeconds:3
+  });
   renderer.setPixelRatio(scaleFactor);
   renderer.setSize(innerWidth,innerHeight);
   renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -288,6 +303,11 @@ function createForest(){
   }
   forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches,palms,
     perches:treeRecords};
+  forestVisibility=createForestVisibility(
+    {trunk,lower,upper,broad,cypress,olive,birch,palmLeaves},
+    treeRecords,worldSeed,{radius:innerWidth<720?2200:2600}
+  );
+  forestVisibility.setQuality(scaleFactor/adaptiveResolution.snapshot().maxScale);
   treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1,windField);
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
@@ -303,26 +323,8 @@ function createForest(){
   rocks.count=j;rocks.instanceMatrix.needsUpdate=true;scene.add(rocks);
 }
 function createClouds(){
-  const rng=random(2405),puff=new THREE.SphereGeometry(1,10,7);
-  const count=innerWidth<720?17:27;
-  for(let i=0;i<count;i++){
-    const group=new THREE.Group();
-    const material=new THREE.MeshLambertMaterial({color:0xe2e5e0,transparent:true,
-      opacity:.73,depthWrite:false,roughness:1});
-    const layers=5+Math.floor(rng()*4),height=.7+rng()*.55;
-    for(let j=0;j<layers;j++){
-      const lobe=new THREE.Mesh(puff,material);
-      const u=(j/(layers-1)-.5)*260;
-      lobe.position.set(u+(rng()-.5)*24,(rng()-.5)*21, (rng()-.5)*75);
-      lobe.scale.set(45+rng()*45,20+rng()*24,40+rng()*38);
-      group.add(lobe);
-    }
-    group.position.set((rng()-.5)*11000,900+rng()*1500,(rng()-.5)*10200);
-    group.rotation.y=rng()*TAU;
-    clouds.push({group,mat:material,baseX:group.position.x,baseZ:group.position.z,
-      velocity:2+rng()*5,drift:rng()*TAU,weight:rng()});
-    scene.add(group);
-  }
+  cloudField=createCloudField(THREE,scene,{mobile:innerWidth<720});
+  clouds=cloudField.clouds;
 }
 function createStars(){
   const rand=random(773),pts=[];
@@ -414,14 +416,7 @@ function ambient(date,dt){
   stars.position.copy(camera.position);
   starMat.opacity=smooth(-.045,-.19,alt)*.97;
   const cloudTint=new THREE.Color(0xdde4e6).lerp(new THREE.Color(0xffc29a),sun.golden*.52*day);
-  for(const c of clouds){
-    c.mat.opacity=clamp(.16+cloud*.67+(c.weight-.4)*.09,0,.89);
-    c.mat.color.copy(cloudTint).multiplyScalar(.72+day*.27);
-    c.group.visible=cloud>.035;
-    c.group.position.x=((c.baseX+elapsed*c.velocity+6000)%12000)-6000;
-    c.group.position.z=c.baseZ+Math.sin(elapsed*.02+c.drift)*110;
-    c.group.position.y+=Math.sin(elapsed*.003+c.drift)*.07;
-  }
+  cloudField.update(elapsed,cloud,day,cloudTint);
   sunHalo.position.copy(sunOrb.position);sunHalo.visible=sunOrb.visible;
   sunHalo.material.opacity=clamp(day*(1-cloud*.7),0,1);
   moonHalo.position.copy(moonOrb.position);moonHalo.visible=moonOrb.visible;
@@ -505,13 +500,15 @@ function animate(now){
   ecosystem.update(elapsed,sun.daylight,weatherState.cloud,position,weatherState.rain,camera.position);
   atmospherics.update(elapsed,camera,position,sun.daylight,weatherState);
   directCamera(position,dt);
+  forestVisibility.update(camera.position,elapsed);
   regionalBirds.update(elapsed,position,camera.position,sun.daylight,weatherState.rain);
   riverHabitat.update(elapsed,camera.position);
   treeDetail.update(camera.position,elapsed);
   groundDetail.update(elapsed,camera,position,sun.daylight,weatherState.rain,climate.weather?.temperature??18);
   updateSea(elapsed,dt,sun);
   renderer.render(scene,camera);
-  status.frames++;renderFrames++;fpsTimer+=dt;
+  if(pendingSnapshot)captureRenderedFrame();
+  status.frames++;renderFrames++;fpsTimer+=Math.min(deltaRaw,.25);
   if(fpsTimer>=1){
     const measuredSeconds=fpsTimer;
     status.fps=Math.round(renderFrames/measuredSeconds);
@@ -549,9 +546,13 @@ function animate(now){
     status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
     fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
+    status.forestVisibility=forestVisibility.stats;
+    status.performanceTarget={fps:30,frameBudgetMs:33.33,
+      p95Ms:status.performance.p95,withinBudget:status.performance.p95<=33.33};
     status.regionalBirds=regionalBirds.stats;
     status.riverLife={...riverHabitat.stats,visibleFish:riverHabitat.visibleFish};
     status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;status.insectCount=groundDetail.insectCount;
+    status.cloudDrawCalls=cloudField.stats.drawCalls;
     status.motion={wind:+windField.strength.toFixed(2),windMaterials:windField.materials,
       clouds:clouds.length,articulatedAnimals:ecosystem.actors.length,motes:atmospherics.activeCount};
     status.sunAccurate=Boolean(solarCoordinates.accurate);
@@ -562,6 +563,7 @@ function animate(now){
     });
     if(quality.changed){
       scaleFactor=quality.scale;
+      forestVisibility.setQuality(scaleFactor/adaptiveResolution.snapshot().maxScale);
       renderer.setPixelRatio(scaleFactor);onResize();
     }
     status.adaptiveQuality=quality;
@@ -580,7 +582,16 @@ async function audioToggle(){
   }
  }catch(err){showError(err);}
 }
-function png(){try{renderer.render(scene,camera);const a=document.createElement('a');a.download='vuelo-'+new Date(simMs).toISOString().replaceAll(':','-')+'.png';a.href=renderer.domElement.toDataURL('image/png');a.click()}catch(err){showError(err)}}
+function captureRenderedFrame(){
+  pendingSnapshot=false;
+  try{
+    const a=document.createElement('a');
+    a.download='vuelo-'+new Date(simMs).toISOString().replaceAll(':','-')+'.png';
+    a.href=renderer.domElement.toDataURL('image/png');
+    a.click();
+  }catch(err){showError(err);}
+}
+function png(){pendingSnapshot=true;}
 function setHour(h){
   timeOverride=true;
   simMs=withLocalHour(new Date(simMs),h).getTime();
