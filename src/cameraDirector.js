@@ -1,3 +1,4 @@
+import {tropicalRenderHeight} from './tropicalTerrain.js';
 // A cinematographer that stays attached to the bird rather than cutting to
 // fixed coordinates. Predictive framing, damped transitions and terrain clearance.
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -47,6 +48,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   // Read-only deterministic visual inspection mode. Only supplied by main.js
   // with ?selftest=1; normal viewers always get the event-based director.
   const inspectionShot=CAMERA_SHOTS.includes(qaShot)||qaShot==='close'?qaShot:null;
+  const surfaceHeight=(x,z)=>Math.max(terrainHeight(x,z,seed),tropicalRenderHeight(x,z,seed));
   const desired=new THREE.Vector3(),target=new THREE.Vector3(),foodFocus=new THREE.Vector3(),
     birdMotion=new THREE.Vector3();
   const lookMatrix=new THREE.Matrix4(),lookRotation=new THREE.Quaternion();
@@ -73,13 +75,13 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     // Terrain context is inexpensive at ~1 Hz, but the anti-clipping ray is
     // still evaluated each frame for safety at low flight altitude.
     if(clock-contextAt>=1.2||contextAt===-Infinity){
-      const ground=terrainHeight(bird.x,bird.z,seed);
+      const ground=surfaceHeight(bird.x,bird.z);
       const horizon=160;
       const heights=[
-        terrainHeight(bird.x+horizon,bird.z,seed),
-        terrainHeight(bird.x-horizon,bird.z,seed),
-        terrainHeight(bird.x,bird.z+horizon,seed),
-        terrainHeight(bird.x,bird.z-horizon,seed)
+        surfaceHeight(bird.x+horizon,bird.z),
+        surfaceHeight(bird.x-horizon,bird.z),
+        surfaceHeight(bird.x,bird.z+horizon),
+        surfaceHeight(bird.x,bird.z-horizon)
       ];
       context.groundClearance=Math.max(0,bird.y-Math.max(-9,ground));
       context.relief=Math.max(0,Math.max(...heights)-Math.min(...heights));
@@ -174,12 +176,12 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       const f=i/8;
       const sx=bird.x+(desired.x-bird.x)*f,sz=bird.z+(desired.z-bird.z)*f;
       const sightY=bird.y+(desired.y-bird.y)*f;
-      const ground=Math.max(-9,terrainHeight(sx,sz,seed));
+      const ground=Math.max(-9,surfaceHeight(sx,sz));
       const buffer=clearance+(currentShot==='scenic'?6:2);
       needed=Math.max(needed,(ground+buffer-sightY)/f);
     }
     desired.y+=Math.min(140,Math.max(0,needed));
-    desired.y=Math.max(desired.y,Math.max(-9,terrainHeight(desired.x,desired.z,seed))+clearance);
+    desired.y=Math.max(desired.y,Math.max(-9,surfaceHeight(desired.x,desired.z))+clearance);
     target.set(bird.x+plan.leadX,bird.y+Math.max(.08,wingspan*.10),bird.z+plan.leadZ);
     // During foraging, keep food and beak in the same view instead of looking
     // down the flight trajectory and cropping the action. Avoid pulling the
@@ -210,7 +212,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     if(establishTerrainShot)camera.position.copy(desired);
     else camera.position.lerp(desired,k);
     camera.position.y=Math.max(camera.position.y,
-      Math.max(-9,terrainHeight(camera.position.x,camera.position.z,seed))+clearance);
+      Math.max(-9,surfaceHeight(camera.position.x,camera.position.z))+clearance);
     if(establishTerrainShot)smoothedTarget.copy(target);
     else smoothedTarget.lerp(target,1-Math.exp(-delta*3.1));
     camera.up.set(0,1,0);
