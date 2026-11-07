@@ -32,9 +32,7 @@ export function createTropicalRivers(THREE,scene,seed=1988){
     lastWater=null;lastBed=null;continue;
    }
    const half=sample.halfWidth,dy=sample.waterY,depth=sample.bedDepth;
-   const flowUV=t*sample.t*0+ t*sample.halfWidth*0+
-     t*2.8; // relative phase; spacing computed from physical river length below
-   const longitudinal=t*sample.dx*0+t*(TROPICAL_WORLD.extent/2)/48;
+   const longitudinal=t*(TROPICAL_WORLD.extent/2)/48;
    // Water is a smoothly sampled polygon strip, with banks following the
    // actual channel width and three levels of shallow-water coloration.
    const wi=waterPositions.length/3;
@@ -109,9 +107,9 @@ export function createTropicalRivers(THREE,scene,seed=1988){
  material.onBeforeCompile=shader=>{
   shader.uniforms.uRiverFlowTime=flowTime;
   shader.vertexShader=shader.vertexShader.replace('void main() {',
-   'attribute float riverRapid;\\nvarying vec2 vRiverFlowUV;\\nvarying float vRiverRapid;\\nvoid main() {\\n vRiverFlowUV=uv; vRiverRapid=riverRapid;');
+   'attribute float riverRapid;\nvarying vec2 vRiverFlowUV;\nvarying float vRiverRapid;\nvoid main() {\n vRiverFlowUV=uv; vRiverRapid=riverRapid;');
   shader.fragmentShader=shader.fragmentShader.replace('void main() {',
-   'varying vec2 vRiverFlowUV;\\nvarying float vRiverRapid;\\nuniform float uRiverFlowTime;\\nvoid main() {');
+   'varying vec2 vRiverFlowUV;\nvarying float vRiverRapid;\nuniform float uRiverFlowTime;\nvoid main() {');
   shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',
    `#include <color_fragment>
     // Flow follows the river's lengthwise UV; micro-ripples run along the
