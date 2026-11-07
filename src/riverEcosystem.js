@@ -119,7 +119,10 @@ export function createRiverEcosystem(THREE,scene,seed=1988,quality=1){
      const pz=river.z+normalZ*lateral+currentZ*longitudinal;
      const tint=new THREE.Color([0x86b2ac,0xa6a26d,0x7fa69b][Math.floor(rng()*3)]);
      // Fish swim below the physical water surface, but above the carved bed.
-     records.push({x:px,z:pz,y:streamY-Math.min(.78,river.bedDepth*.43),
+     const bed=terrainHeight(px,pz,seed),depth=streamY-bed;
+     if(depth<.42)continue; // no fish inside a dry or shallow sediment bank
+     records.push({x:px,z:pz,surfaceY:streamY,
+      y:bed+Math.min(.61,depth*.46),
       alongX:currentX,alongZ:currentZ,sideX:normalX,sideZ:normalZ,
       phase:rng()*Math.PI*2,scale:.26+rng()*.32,channel:c,tint});
      fish.setColorAt(nFish,tint);
@@ -152,7 +155,12 @@ export function createRiverEcosystem(THREE,scene,seed=1988,quality=1){
    const weave=Math.sin(t*1.3+f.phase)*.82;
    const fx=f.x+f.alongX*travel+f.sideX*weave;
    const fz=f.z+f.alongZ*travel+f.sideZ*weave;
-   const swimY=f.y+Math.sin(t*2.2+f.phase)*.065;
+   // Fast reaches vary in altitude over just a few metres. Check the
+   // local physical bed before drawing; fish never clip through sediment.
+   const currentBed=terrainHeight(fx,fz,seed);
+   if(currentBed>=f.surfaceY-.21)continue;
+   const swimY=Math.max(currentBed+.16,
+     Math.min(f.surfaceY-.15,f.y+Math.sin(t*2.2+f.phase)*.055));
    const heading=Math.atan2(-f.alongX,-f.alongZ)+Math.sin(t*1.7+f.phase)*.20;
    place(fish,count,fx,swimY,fz,f.scale,f.scale,f.scale,heading);
    fish.setColorAt(count,f.tint);
