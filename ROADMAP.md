@@ -32,7 +32,7 @@ Decisiones de producto:
 | Validación | Node, Vite y Playwright/WebGL en CI | No acreditan GPU real, estética ni sesiones de 8–72 h |
 | Publicación | Existe workflow Pages en push a `main` | Verificar último deploy SHA y captura pública después de cada PR |
 
-**Última evidencia de integración comprobada:** PR #20 fusionada, 100 pruebas Node y 7 escenarios WebGL en [Actions #42214762136](https://github.com/akumanomi1988/FlyingFree/actions/runs/42214762136). La publicación definitiva en GitHub Pages y la evaluación perceptiva siguen siendo comprobaciones independientes.
+**Última evidencia de integración comprobada:** PR #24 fusionada, 124 pruebas Node y 7 escenarios WebGL en [Actions #42355678458](https://github.com/akumanomi1988/FlyingFree/actions/runs/42355678458). La publicación definitiva en GitHub Pages y la evaluación perceptiva siguen siendo comprobaciones independientes.
 
 ## Plan priorizado por dependencias
 
@@ -54,7 +54,9 @@ Decisiones de producto:
 - [x] Los tres ríos principales terminan en la costa real de cada semilla; PR #18, con pruebas de desembocadura.
 - [ ] Red hidrológica completa: tributarios, cascadas y desembocaduras con pendientes físicamente plausibles.
 - [x] El océano toma la profundidad del terreno procedural para localizar aguas someras, arrecifes estilizados y espuma; PR #18.
+- [x] Espuma y rompientes calculadas con pendientes costeras en ambos ejes, y bandas animadas en los frentes; PR #24.
 - [ ] Playas, acantilados, coral y manglar con anatomía visual/hidrológica de alta calidad, revisados manualmente.
+- [x] Extensión del detalle arbóreo a 680 m, transición de 220 m y presupuesto adaptativo móvil/escritorio; PR #24.
 - [ ] Selva estratificada por altitud/humedad y distancia, escala y sombra consistentes.
 - [ ] Tres semillas con geografías y rutas muy distintas, revisadas visualmente.
 
@@ -66,6 +68,7 @@ Decisiones de producto:
 - [x] Replay automatizado de 15 minutos × doce especies × dos semillas en CI, con límites de ocupación oceánica y pesca en agua dulce; PR #19.
 - [ ] Auditoría documental 30–60 min y revisión humana en 3+ semillas; fijar umbrales realistas por especie.
 - [x] Restricción de puntos de pesca a agua dulce/mar real según la especie, sin eventos de alimentación sobre bosque o lecho seco; PR #19.
+- [x] Interrupción de rutas por fatiga crítica, reposo aéreo de vencejos, néctar en suspensión y captura de insectos en vuelo; PR #24.
 - [ ] Nidos, dormideros, territorios, peces visibles, salpicaduras de pesca, perchas y recursos persistentes.
 - [ ] Caza/huida, pesca y alimentación con consecuencias observables, no solo selección de estados.
 - [ ] Simulación por nivel de importancia: fauna cercana detallada, población lejana agregada.
@@ -155,3 +158,11 @@ npm run audit:visual -- --seed=1988 --birds=eagle,owl --modes=chase,profile
 Para que el mismo plano se pueda reproducir, el capturador utiliza `?selftest=1&qaShot=profile` (solo diagnóstico explícito): **no** modifica el director normal del espectador ni los perfiles de vuelo. Una captura de WebGL es evidencia visual revisable; que exista no significa que un artista la haya aprobado.
 
 **Procedencia de un despliegue:** el build genera `public/build-info.json` como recurso desplegable. Tras un push a `main` y un workflow Pages correcto, consultar [build-info.json público](https://akumanomi1988.github.io/FlyingFree/build-info.json) y comparar `revision` con el commit que se quería publicar. Si no coincide, declarar despliegue pendiente, no concluido.
+
+## Actualización — 7 noviembre 2026 (PR #24)
+
+- Comportamiento observable mejorado sin incorporar especies nuevas: nutrición aérea de colibríes y golondrinas/vencejos, agotamiento que interrumpe viajes, y lectura de estado más precisa.
+- Reduce enjambres de insectos sin función; mantiene insectos visibles discretos junto a flores en primer plano. Las partículas ambientales artificiales ya estaban desactivadas anteriormente.
+- Ayuda incluye **Generar nueva isla** con una semilla nueva y reproducible en URL. En ausencia de `?seed=`, la isla ya variaba por sesión.
+- Sigue existiendo un solo campo geológico procedural de 12 km, no streaming infinito ni cambios estacionales de topografía.
+- No declarar completados los nidos modelados, captura de presas visible, IK de ramas, cola al posar, biome shader PBR, física marina avanzada o revisión artística en TV.
