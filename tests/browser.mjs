@@ -30,9 +30,13 @@ async function render(name,query,width,height,runChecks){
     await page.waitForTimeout(1100);
     await page.waitForFunction(()=>typeof window.__FLYINGFREE_STATUS__?.motion?.motes==='number',
       null,{timeout:12000});
-    const stats=await page.evaluate(()=>{
+    // Read WebGL pixels inside the next RAF, immediately after the scene's
+    // registered render callback. With preserveDrawingBuffer=false, reading
+    // after compositing produces a black buffer even when the viewer sees
+    // correct pixels. This remains a real WebGL pixel check.
+    const stats=await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>{
       const c=document.querySelector('#viewport canvas'),s=window.__FLYINGFREE_STATUS__;
-      if(!c)return {canvas:false,error:s.error};
+      if(!c){resolve({canvas:false,error:s.error});return;}
       const sample=document.createElement('canvas');sample.width=64;sample.height=36;
       const cx=sample.getContext('2d',{willReadFrequently:true});
       cx.drawImage(c,0,0,64,36);
@@ -44,7 +48,7 @@ async function render(name,query,width,height,runChecks){
         const l=(r+g+b)/3;luminance+=l;variability+=Math.abs(r-b);
         if(r+g+b>60)nonBlack++;
       }
-      return {canvas:true,renderedFrames:s.frames,fps:s.fps,error:s.error,colors:distinct.size,
+      const result={canvas:true,renderedFrames:s.frames,fps:s.fps,error:s.error,colors:distinct.size,
         brightness:Math.round(luminance/(data.length/4)),colorVar:Math.round(variability/(data.length/4)),
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
@@ -59,7 +63,8 @@ async function render(name,query,width,height,runChecks){
           mapExpected:!document.body.classList.contains('tv-mode')&&!document.body.classList.contains('no-ui')},
         particles:s.motion?.motes,
         species:document.querySelectorAll('[data-bird]').length};
-    });
+      resolve(result);
+    })));
     assert.equal(stats.canvas,true,'Canvas ausente');
     assert.equal(stats.error,null,'Excepción del motor');
     assert.equal(stats.species,12,'Selector incompleto');
