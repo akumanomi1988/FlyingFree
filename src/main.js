@@ -10,6 +10,7 @@ import {createWindField} from './worldMotion.js';
 import {createTreeDetail} from './treeDetail.js';
 import {createFrameTelemetry} from './frameTelemetry.js';
 import {createAdaptiveResolution} from './adaptiveResolution.js';
+import {createForestVisibility} from './forestVisibility.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {createHabitatMonitor} from './habitatMonitor.js';
@@ -30,11 +31,12 @@ import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,loc
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
-let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
+let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,forestVisibility,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,regionalBirds,riverHabitat,lastBirdAction=null;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
-let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
+let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
+  pendingSnapshot=false;
 const climate=createLiveClimate();
 let solarCoordinates=approximateSolarCoordinates();
 let timeOverride=opts.hour!=null||Boolean(opts.phase);
@@ -62,10 +64,15 @@ const createMaterial=(color,roughness=1)=>new THREE.MeshStandardMaterial({color,
 
 function init(){
   if(!document.createElement('canvas').getContext('webgl2'))throw new Error('WebGL2 no disponible. Comprueba la aceleración gráfica en tu navegador.');
-  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});
-  scaleFactor=Math.min(window.devicePixelRatio||1,innerWidth<700?1.05:1.4,
+  // The compositor must not retain the previous full-resolution framebuffer.
+  // Snapshots are captured synchronously immediately after the next render.
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:false,powerPreference:'high-performance'});
+  scaleFactor=Math.min(window.devicePixelRatio||1,innerWidth<700?1.0:1.15,
     Math.sqrt(3700000/Math.max(1,innerWidth*innerHeight)));
-  adaptiveResolution=createAdaptiveResolution({maxScale:scaleFactor});
+  adaptiveResolution=createAdaptiveResolution({
+    maxScale:scaleFactor,downFps:29,downP95Ms:44,upFps:38,upP95Ms:29,
+    downHold:3,upHold:24,cooldownSeconds:6
+  });
   renderer.setPixelRatio(scaleFactor);
   renderer.setSize(innerWidth,innerHeight);
   renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -288,6 +295,10 @@ function createForest(){
   }
   forest={leaves:lower,trunks:trunk,trees,count:trees,pines,deciduous,cypresses,olives,birches,palms,
     perches:treeRecords};
+  forestVisibility=createForestVisibility(
+    {trunk,lower,upper,broad,cypress,olive,birch,palmLeaves},
+    treeRecords,worldSeed,{radius:innerWidth<720?2200:2600}
+  );
   treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1,windField);
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
@@ -505,13 +516,15 @@ function animate(now){
   ecosystem.update(elapsed,sun.daylight,weatherState.cloud,position,weatherState.rain,camera.position);
   atmospherics.update(elapsed,camera,position,sun.daylight,weatherState);
   directCamera(position,dt);
+  forestVisibility.update(camera.position,elapsed);
   regionalBirds.update(elapsed,position,camera.position,sun.daylight,weatherState.rain);
   riverHabitat.update(elapsed,camera.position);
   treeDetail.update(camera.position,elapsed);
   groundDetail.update(elapsed,camera,position,sun.daylight,weatherState.rain,climate.weather?.temperature??18);
   updateSea(elapsed,dt,sun);
   renderer.render(scene,camera);
-  status.frames++;renderFrames++;fpsTimer+=dt;
+  if(pendingSnapshot)captureRenderedFrame();
+  status.frames++;renderFrames++;fpsTimer+=Math.min(deltaRaw,.25);
   if(fpsTimer>=1){
     const measuredSeconds=fpsTimer;
     status.fps=Math.round(renderFrames/measuredSeconds);
@@ -549,6 +562,9 @@ function animate(now){
     status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
     fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
+    status.forestVisibility=forestVisibility.stats;
+    status.performanceTarget={fps:30,frameBudgetMs:33.33,
+      p95Ms:status.performance.p95,withinBudget:status.performance.p95<=33.33};
     status.regionalBirds=regionalBirds.stats;
     status.riverLife={...riverHabitat.stats,visibleFish:riverHabitat.visibleFish};
     status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;status.insectCount=groundDetail.insectCount;
@@ -562,6 +578,7 @@ function animate(now){
     });
     if(quality.changed){
       scaleFactor=quality.scale;
+      forestVisibility.setQuality(scaleFactor/adaptiveResolution.snapshot().maxScale);
       renderer.setPixelRatio(scaleFactor);onResize();
     }
     status.adaptiveQuality=quality;
@@ -580,7 +597,16 @@ async function audioToggle(){
   }
  }catch(err){showError(err);}
 }
-function png(){try{renderer.render(scene,camera);const a=document.createElement('a');a.download='vuelo-'+new Date(simMs).toISOString().replaceAll(':','-')+'.png';a.href=renderer.domElement.toDataURL('image/png');a.click()}catch(err){showError(err)}}
+function captureRenderedFrame(){
+  pendingSnapshot=false;
+  try{
+    const a=document.createElement('a');
+    a.download='vuelo-'+new Date(simMs).toISOString().replaceAll(':','-')+'.png';
+    a.href=renderer.domElement.toDataURL('image/png');
+    a.click();
+  }catch(err){showError(err);}
+}
+function png(){pendingSnapshot=true;}
 function setHour(h){
   timeOverride=true;
   simMs=withLocalHour(new Date(simMs),h).getTime();
