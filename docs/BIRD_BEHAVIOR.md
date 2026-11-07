@@ -44,3 +44,12 @@ Se han vuelto a contrastar los **arquetipos**, no doce especies taxonómicas pre
 **Nueva corrección en código:** el agotamiento crítico interrumpe viajes largos; los vencejos pasan a reposo aéreo, otras especies buscan descanso. Colibríes consumen néctar suspendidos, vencejos y golondrinas capturan insectos durante el vuelo. Los insectos visibles quedan ligados a flores cercanas y baja altura, evitando enjambres decorativos. Las aves grandes conservan altura superior al dosel; las pequeñas pueden bajar hacia plantas y corredores entre árboles.
 
 **Pendiente científico/artístico:** reproducción de aleteo con desenfoque temporal auténtico para colibríes, nidos y territorios físicamente representados, picados y capturas con presas visibles, locomoción e IK de patas/posaderos y secuencias documentales examinadas manualmente por especie.
+
+## Acciones observables y fisiología (7 de noviembre de 2026)
+
+- Buscar comida y refugio **no** incrementa saciedad ni energía. Una alimentación se inicia cuando el ave alcanza horizontal y verticalmente la presa o flor; las ganancias de saciedad ocurren durante el estado `feed`, y el contador se incrementa al finalizar la secuencia.
+- Para descansar, las aves terrestres deben completar el aterrizaje y detenerse sobre la superficie o posadero calculado. El vencejo mantiene la excepción etológica del descanso aéreo por planeo; las aves marinas pueden descansar flotando en agua.
+- `src/birdForageVisuals.js` representa una presa, flor, insecto o pez reutilizable en el emplazamiento calculado por el cerebro. `src/flight.js` mueve el conjunto cabeza/pico durante picoteo, pesca y néctar, además del plegado de alas y extensión de patas.
+- `window.__FLYINGFREE_STATUS__` expone `foodVisible`, `foodKind` y `feedingProgress` para auditorías de escena reproducibles.
+
+**Alcance actual:** las presas son representaciones estilizadas, no individuos vivos del ecosistema enlazados mediante colisión o inventario. Faltan peces con IA, impactos, salpicaduras, capturas sostenidas por garras, IK preciso de posadero, caminar sobre el suelo, y la anatomía de ingestión por especie. La mejora pretende eliminar los cambios invisibles de estadísticas y dar continuidad visual observable, no certificar realismo zoológico completo.
