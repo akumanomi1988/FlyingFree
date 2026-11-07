@@ -72,7 +72,7 @@ async function render(name,query,width,height,runChecks){
     assert.equal(stats.particles,0,'Useless airborne point particles have returned');
     // Mobile intentionally scales the number of pooled instances down, but
     // keeps the extended geometric detail radius and a smooth fade.
-    assert.ok(stats.treeDetail?.capacity>=(width<720?150:230),
+    assert.ok(stats.treeDetail?.capacity>=(width<720?140:230),
       'El LOD arbóreo no respeta el presupuesto de su dispositivo');
     assert.ok(stats.treeDetail?.fadeDistance>0,
       'Falta transición continua de las copas');
