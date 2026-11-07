@@ -20,6 +20,7 @@ import {createCameraDirector} from './cameraDirector.js';
 import {createMinimap,sessionIslandSeed} from './minimap.js';
 import {birdSensation} from './birdEcology.js';
 import {createBirdForageVisuals} from './birdForageVisuals.js';
+import {createBirdRestVisuals} from './birdRestVisuals.js';
 import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
 import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from './localClimate.js';
 import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,localDateLabel} from './localTime.js';
@@ -28,7 +29,7 @@ const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
-let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals;
+let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,lastBirdAction=null;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird;
@@ -93,6 +94,7 @@ function init(){
   moonOrb=new THREE.Mesh(new THREE.SphereGeometry(42,16,12),new THREE.MeshBasicMaterial({color:0xc1d2df,fog:false}));scene.add(moonOrb);
   createLandscape();createForest();createClouds();createStars();createBird();
   forageVisuals=createBirdForageVisuals(THREE,scene,worldSeed);
+  restVisuals=createBirdRestVisuals(THREE,scene);
   const qaShot=opts.selftest?new URLSearchParams(location.search).get('qaShot'):null;
   cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed,{qaShot});
   const startSun=sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude);
@@ -425,6 +427,7 @@ function ambient(date,dt){
 function fly(date,dt,sun){
  const day=smooth(-.14,.045,sun.altitude);
  const action=birdBrain.update(elapsed,dt,day,weatherState.rain);
+ lastBirdAction=action;
  birdModel.position.set(action.x,action.y+(action.grounded?0:Math.sin(elapsed*3.2)*currentBird.wingspan*.012),action.z);
  birdModel.rotation.y=action.heading;
  animateBirdRig(birdModel,elapsed,{energy:action.flapping?.89:.40,sleeping:action.wingsFolded,
@@ -432,6 +435,11 @@ function fly(date,dt,sun){
   floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
   state:action.state,food:action.food,feedingProgress:action.feedingProgress},dt);
  const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan},elapsed);
+ const visibleRest=restVisuals?.update(action,camera.position);
+ status.perchVisible=Boolean(visibleRest?.visible);
+ status.restSiteKind=action.restSite?.kind??null;
+ status.rests=action.rests;
+ status.grounded=action.grounded;
  status.foodVisible=Boolean(visibleResource?.visible);
  status.foodKind=visibleResource?.kind??null;
  status.feedingProgress=+action.feedingProgress.toFixed(2);
@@ -448,7 +456,8 @@ function fly(date,dt,sun){
 }
 function directCamera(bird,dt){
   const frame=cameraDirector.update(camera,bird,birdModel.rotation.y,
-    birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,elapsed,dt);
+    birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,elapsed,dt,
+    lastBirdAction?.foodTarget);
   status.cameraShot=frame.shot;
   status.camera={shot:frame.shot,reason:frame.reason,transitions:frame.transitions,
     terrainRelief:Math.round(frame.relief),altitudeAGL:Math.round(frame.groundClearance),
