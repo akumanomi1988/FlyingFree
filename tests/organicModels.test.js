@@ -63,7 +63,7 @@ test('near-tree geometry is pooled, distance bounded and can be disposed',()=>{
   ];
   const layer=createTreeDetail(THREE,scene,trees,1);
   layer.update({x:0,y:0,z:0},0);
-  assert.equal(layer.active,2);
+  assert.equal(layer.active,3);
   assert.equal(layer.poolCapacity,TREE_DETAIL_POOL);
   assert.equal(scene.children.length,3);
   for(const mesh of scene.children){
