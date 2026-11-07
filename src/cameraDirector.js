@@ -159,7 +159,15 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       terrainAwareOffset(plan.x,plan.z,context.slopeX,context.slopeZ,
         context.groundClearance):
       {x:plan.x,z:plan.z,corrected:false};
-    desired.set(bird.x+terrainOffset.x,bird.y+plan.y,bird.z+terrainOffset.z);
+    // Portrait chase shots of tiny birds previously aimed almost horizontally:
+    // mostly plain sky, no recognizable habitat, and an uninformative film.
+    // Lift the observer slightly to see the terrain behind the subject while
+    // retaining a close-enough camera for the animal to remain distinguishable.
+    const portraitSmallBird=clamp((.78-camera.aspect)/.18,0,1)*
+      clamp((.65-wingspan)/.35,0,1)*
+      clamp((context.groundClearance-15)/55,0,1);
+    const scenicLift=portraitSmallBird*2.9;
+    desired.set(bird.x+terrainOffset.x,bird.y+plan.y+scenicLift,bird.z+terrainOffset.z);
     const clearance=currentShot==='close'?.85:2.6;
     let needed=0;
     for(let i=1;i<=8;i++){
