@@ -26,7 +26,9 @@ test('all twelve bird species have curved indexed wings, articulated feathers an
     assert.ok(wing.index.count>=18*4*6, bird.id+' wing segmentation');
     assert.ok(wing.attributes.normal.count>80, bird.id+' smooth vertex normals');
     const group=createBirdRig(THREE,bird);
-    assert.equal(group.userData.geometryVersion,4);
+    assert.equal(group.userData.geometryVersion,5);
+    assert.ok(group.userData.head?.children.length>=3,
+      bird.id+' requires articulated head with beak and eyes');
     assert.equal(group.userData.wingSilhouette,'single-continuous');
     assert.equal(group.userData.left.pivot.children.length,1,'one wing root per side');
     assert.equal(group.userData.right.pivot.children.length,1,'one wing root per side');
