@@ -1,5 +1,5 @@
 import {random,terrainHeight,clamp} from './core.js';
-import {tropicalRiverPoint,TROPICAL_WORLD} from './tropicalTerrain.js';
+import {tropicalRiverFrame,TROPICAL_WORLD} from './tropicalTerrain.js';
 
 // River wildlife and banks are deterministic world objects. Large populations
 // share just four instanced draw calls; the fish CPU pose is updated at 6 Hz,
@@ -48,7 +48,7 @@ export function createRiverEcosystem(THREE,scene,seed=1988,quality=1){
  const fish=new THREE.InstancedMesh(fishGeometry,
   new THREE.MeshStandardMaterial({color:0xb9c4a9,metalness:.18,roughness:.58,
    side:THREE.DoubleSide}),maxFish);
- const records=[],upstream={},downstream={},center={};
+ const records=[],river={};
  let nRocks=0,nReeds=0,nShrubs=0,nFish=0;
  const smallPalette=[0x91a088,0x857d6e,0x9fa89c,0x776f61];
  const foliagePalette=[0x4e8659,0x6ba174,0x83a76f,0x436b50];
@@ -62,35 +62,35 @@ export function createRiverEcosystem(THREE,scene,seed=1988,quality=1){
  for(let c=0;c<TROPICAL_WORLD.riverCount;c++){
   for(let i=0;i<slots;i++){
    const t=.115+(i+rng()*.70)/slots*.80;
-   tropicalRiverPoint(c,t,seed,center);
-   const cy=terrainHeight(center.x,center.z,seed);
-   if(cy<=TROPICAL_WORLD.seaLevel+2)continue;
-   tropicalRiverPoint(c,Math.max(.08,t-.0017),seed,upstream);
-   tropicalRiverPoint(c,Math.min(.995,t+.0017),seed,downstream);
-   const dx=downstream.x-upstream.x,dz=downstream.z-upstream.z;
-   const length=Math.hypot(dx,dz)||1;
-   const normalX=-dz/length,normalZ=dx/length;
-   const currentX=dx/length,currentZ=dz/length;
-   const waterWidth=9+20*t+Math.sin(t*19+c)*2;
-   const streamY=cy+.45;
+   tropicalRiverFrame(c,t,seed,river);
+   const cy=terrainHeight(river.x,river.z,seed);
+   if(river.waterY<=TROPICAL_WORLD.seaLevel+.21||
+      cy<=TROPICAL_WORLD.seaLevel-1)continue;
+   const normalX=river.nx,normalZ=river.nz;
+   const currentX=river.dx,currentZ=river.dz;
+   const waterWidth=river.halfWidth;
+   const streamY=river.waterY;
    for(const side of [-1,1]){
     for(let k=0;k<4;k++){
      const offset=waterWidth+1+rng()*(k===0?5:k===1?13:k===2?23:37);
-     const xx=center.x+normalX*side*offset+
+     const xx=river.x+normalX*side*offset+
        currentX*(rng()-.5)*10;
-     const zz=center.z+normalZ*side*offset+
+     const zz=river.z+normalZ*side*offset+
        currentZ*(rng()-.5)*10;
      const gy=terrainHeight(xx,zz,seed);
      if(gy<=TROPICAL_WORLD.seaLevel||gy>900)continue;
      if(nRocks<maxRocks&&(k<=1||rng()<.65)){
-      const size=k===0?.35+rng()*.55:.6+rng()*1.6;
+      const size=k===0?.38+rng()*.8:
+        rng()<.055?2.1+rng()*2.5:.6+rng()*1.45;
       place(rocks,nRocks,xx,gy+size*.18,zz,
        size*(1+rng()*.45),size*(.36+rng()*.20),size*(.75+rng()*.55),
        rng()*Math.PI*2,(rng()-.5)*.2);
       rocks.setColorAt(nRocks,new THREE.Color(smallPalette[Math.floor(rng()*4)]));
       nRocks++;
      }
-     if(nReeds<maxReeds&&(k===1||k===2)&&rng()<.92){
+     // Reeds prefer alluvial banks; sparse rocky sections remain exposed.
+     if(nReeds<maxReeds&&(k===1||k===2)&&rng()<(.35+
+       .57/(1+river.slope*14))){
       for(let tuft=0;tuft<3&&nReeds<maxReeds;tuft++){
        const height=.7+rng()*2.9;
        const px=xx+(rng()-.5)*3,pz=zz+(rng()-.5)*3;
@@ -115,10 +115,11 @@ export function createRiverEcosystem(THREE,scene,seed=1988,quality=1){
     for(let j=0;j<4&&nFish<maxFish;j++){
      const lateral=(rng()-.5)*waterWidth*.68;
      const longitudinal=(rng()-.5)*7;
-     const px=center.x+normalX*lateral+currentX*longitudinal;
-     const pz=center.z+normalZ*lateral+currentZ*longitudinal;
+     const px=river.x+normalX*lateral+currentX*longitudinal;
+     const pz=river.z+normalZ*lateral+currentZ*longitudinal;
      const tint=new THREE.Color([0x86b2ac,0xa6a26d,0x7fa69b][Math.floor(rng()*3)]);
-     records.push({x:px,z:pz,y:streamY-.17,
+     // Fish swim below the physical water surface, but above the carved bed.
+     records.push({x:px,z:pz,y:streamY-Math.min(.78,river.bedDepth*.43),
       alongX:currentX,alongZ:currentZ,sideX:normalX,sideZ:normalZ,
       phase:rng()*Math.PI*2,scale:.26+rng()*.32,channel:c,tint});
      fish.setColorAt(nFish,tint);
