@@ -31,7 +31,10 @@ test('food search never restores satiety and feedings count only completed event
  let lastHunger=.95,lastFeedings=0,feedingFrames=0,finished=false,visualContact=false;
  for(let i=0;i<14000;i++){
   const s=brain.update(i*.1,.1,.90,0);
-  if(s.state!=='feed')assert.ok(s.hunger>=lastHunger-1e-8,
+  // The final feeding tick can transition straight to takeoff. It still
+  // belongs to the completed feeding action, reflected in the counter.
+  if(s.state!=='feed'&&s.feedings===lastFeedings)
+   assert.ok(s.hunger>=lastHunger-1e-8,
     'hunger fell before a successful food action');
   if(s.state==='feed'){
    feedingFrames++;
