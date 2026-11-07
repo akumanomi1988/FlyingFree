@@ -35,7 +35,7 @@ export function createWildlifePopulation(actors,{seed=1988,initialObserver=null}
   const groups=new Map(TYPES.map(type=>[type,actors.filter(
     actor=>actor.userData.state.type===type)]));
   const cache=new Map();
-  let lastCell=null,lastHero=null,cellUpdates=0,relocated=0,activeAnchors=0;
+  let lastCell=null,lastHero={x:0,z:0},cellUpdates=0,relocated=0,activeAnchors=0;
 
   function cached(type,cx,cz){
     const key=type+':'+cx+':'+cz;
@@ -51,7 +51,10 @@ export function createWildlifePopulation(actors,{seed=1988,initialObserver=null}
     const cx=Math.floor(hero.x/WILDLIFE_CELL_SIZE);
     const cz=Math.floor(hero.z/WILDLIFE_CELL_SIZE);
     const cell=cx+':'+cz;
-    lastHero={x:hero.x,z:hero.z};
+    lastHero.x=hero.x;lastHero.z=hero.z;
+    // A world created without a known observer keeps its existing seeded
+    // residents on first contact; relocating then would look like teleportation.
+    if(lastCell===null&&!initialObserver&&!initial){lastCell=cell;return;}
     if(cell===lastCell&&!initial)return;
     lastCell=cell;cellUpdates++;
     const eye=observer||hero;
@@ -105,7 +108,7 @@ export function createWildlifePopulation(actors,{seed=1988,initialObserver=null}
   return {
     update,
     get stats(){
-      const nearby=lastHero?actors.filter(actor=>
+      const nearby=lastCell!==null?actors.filter(actor=>
         Math.hypot(actor.position.x-lastHero.x,actor.position.z-lastHero.z)<900).length:0;
       return {totalActors:actors.length,nearby,activeAnchors,cellUpdates,
         relocated,cachedCells:cache.size,cell:lastCell};
