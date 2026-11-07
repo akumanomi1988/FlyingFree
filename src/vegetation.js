@@ -63,9 +63,9 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
   mesh.visible=false;mesh.frustumCulled=false;mesh.count=0;scene.add(mesh);
   return {...s,mesh};
  });
- const nBugs=Math.round(145*quality);
+ const nBugs=Math.round(38*quality);
  const insects=new THREE.InstancedMesh(new THREE.TetrahedronGeometry(.55,0),
-  new THREE.MeshBasicMaterial({color:0xf0d58a,transparent:true,opacity:.86}),nBugs);
+  new THREE.MeshBasicMaterial({color:0xf0d58a,transparent:true,opacity:.30,depthWrite:false}),nBugs);
  insects.visible=false;insects.frustumCulled=false;scene.add(insects);
  let cellX=Infinity,cellZ=Infinity,last=-Infinity,lastInsect=-Infinity,active=false;
  const bugs=[],flowers=[];
@@ -95,6 +95,7 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
   bugs.length=0;const rng=makeCellRandom(cx,cz,44^seed);
   for(let i=0;i<nBugs;i++){
    const flower=flowers.length?flowers[Math.floor(rng()*flowers.length)]:null;
+   if(!flower||rng()>.45)continue; // no disconnected decorative insect swarms
    const x=flower?flower.x+(rng()-.5)*1.5:cx+(rng()-.5)*280;
    const z=flower?flower.z+(rng()-.5)*1.5:cz+(rng()-.5)*280;
    const biome=habitatAt(x,z,seed);
@@ -109,7 +110,7 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
    const bug=bugs[i],dx=Math.sin(t*bug.speed+bug.phase)*.35,dz=Math.cos(t*bug.speed*.81+bug.phase)*.35;
    dummy.position.set(bug.x+dx,bug.y+Math.sin(t*bug.speed*1.3+bug.phase)*.13,bug.z+dz);
    dummy.rotation.set(0,t*bug.speed,0);
-   const s=.033+.012*Math.cos(t*bug.speed);dummy.scale.set(s,s,s);dummy.updateMatrix();insects.setMatrixAt(i,dummy.matrix);
+   const s=.016+.004*Math.cos(t*bug.speed);dummy.scale.set(s,s,s);dummy.updateMatrix();insects.setMatrixAt(i,dummy.matrix);
   }
   insects.count=count;insects.instanceMatrix.needsUpdate=true;
  }
@@ -128,7 +129,7 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
   }
   active=true;meshes.forEach(m=>m.mesh.visible=true);
   const activity=insectActivity(day,rain,temperature);
-  insects.visible=activity>.08&&bugs.length>0;
+  insects.visible=activity>.14&&bugs.length>0&&altitude<40;
   if(insects.visible&&t-lastInsect>.35){lastInsect=t;tickInsects(t,activity);}
  }
  return {update,get active(){return active},
