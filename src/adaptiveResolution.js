@@ -4,6 +4,9 @@
 export function createAdaptiveResolution({
   maxScale,
   minScale=Math.min(.48,maxScale),
+  initialScale=null,
+  severeFps=0,
+  severeFactor=.72,
   downFps=23,
   // Optional frame-time trigger. Disabled for legacy clients, used by VUELO's
   // 33.3 ms cinematic budget to react to stutter despite an acceptable average.
@@ -17,7 +20,11 @@ export function createAdaptiveResolution({
   if(!Number.isFinite(maxScale)||maxScale<=0||
      !Number.isFinite(minScale)||minScale<=0||minScale>maxScale)
     throw new RangeError('Invalid resolution range');
-  let scale=maxScale,bad=0,good=0,cooldown=0;
+  const start=initialScale==null?maxScale:initialScale;
+  if(!Number.isFinite(start)||start<minScale||start>maxScale||
+     !Number.isFinite(severeFactor)||severeFactor<=0||severeFactor>=1)
+    throw new RangeError('Invalid initial quality / critical reduction');
+  let scale=start,bad=0,good=0,cooldown=0;
   let reductions=0,restorations=0;
 
   function snapshot() {
@@ -44,7 +51,8 @@ export function createAdaptiveResolution({
     }
     let changed=false,reason=null;
     if(cooldown<=0&&bad>=downHold&&scale>minScale+.005) {
-      const next=Math.max(minScale,Math.round(scale*.86*1000)/1000);
+      const factor=fps<severeFps?severeFactor:.86;
+      const next=Math.max(minScale,Math.round(scale*factor*1000)/1000);
       if(next<scale){scale=next;reductions++;changed=true;reason='degrade';}
     }else if(cooldown<=0&&good>=upHold&&scale<maxScale-.005) {
       const next=Math.min(maxScale,Math.round(scale*1.075*1000)/1000);
