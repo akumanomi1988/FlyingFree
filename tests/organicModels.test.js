@@ -70,12 +70,12 @@ test('near-tree geometry is pooled, distance bounded and can be disposed',()=>{
     assert.ok(mesh.count<=layer.poolCapacity*7);
     assert.ok(mesh.instanceMatrix.version>0);
   }
-  layer.update({x:1000,y:0,z:0},2);
+  layer.update({x:2000,y:0,z:0},2);
   assert.equal(layer.active,0);
   assert.equal(layer.updateCount,2);
-  layer.update({x:1000,y:0,z:0},2.5);
+  layer.update({x:2000,y:0,z:0},2.5);
   assert.equal(layer.updateCount,2,'stationary camera must not rebuild every frame');
-  layer.update({x:1000,y:0,z:0},5.5);
+  layer.update({x:2000,y:0,z:0},5.5);
   assert.equal(layer.updateCount,3,'periodic refresh stays available');
   layer.dispose();
   assert.equal(scene.children.length,0);
