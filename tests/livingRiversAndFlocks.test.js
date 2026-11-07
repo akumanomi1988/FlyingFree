@@ -114,7 +114,10 @@ test('regional wing flaps are evaluated by GPU shader time, not mesh rebuilds',(
 
 test('mammal groups can establish living populations near documentary subject',()=>{
  const s=1988;
- const terrain={x:1050,z:850,y:terrainHeight(1050,850,s)};
+ // A documentary observer should be placed in habitable forest/meadow,
+ // not above an uninhabitable volcanic cliff.
+ const previous=createEcosystem(THREE,new THREE.Scene(),s,1);
+ const terrain=previous.actors[0].position.clone();
  const scene=new THREE.Scene();
  const world=createEcosystem(THREE,scene,s,1,terrain);
  assert.equal(world.actors.length,48);
