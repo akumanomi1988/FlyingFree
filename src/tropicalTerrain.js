@@ -227,6 +227,36 @@ export function tropicalTerrainSample(x,z,seed=1988){
 export function tropicalTerrainHeight(x,z,seed=1988){
   return tropicalTerrainSample(x,z,seed).height;
 }
+
+// The visible land is a 250x250 PlaneGeometry, not the continuous analytic
+// heightfield. Reproduce its exact two-triangle interpolation so camera and
+// animal clearance cannot place the viewer below a rendered mountainside.
+// Vertex heights are cached: adjacent position samples share four vertices.
+const meshVertexCache=new Map();
+export function tropicalRenderHeight(x,z,seed=1988){
+  if(!Number.isFinite(x)||!Number.isFinite(z))return NaN;
+  const segments=250,step=TROPICAL_WORLD.extent/segments;
+  const gx=(x+TROPICAL_WORLD.halfExtent)/step;
+  const gz=(z+TROPICAL_WORLD.halfExtent)/step;
+  if(gx<0||gz<0||gx>segments||gz>segments)
+    return tropicalTerrainHeight(x,z,seed);
+  const ix=Math.min(segments-1,Math.floor(gx)),
+    iz=Math.min(segments-1,Math.floor(gz));
+  const u=gx-ix,v=gz-iz;
+  function vertex(dx,dz){
+    const vx=ix+dx,vz=iz+dz,key=seed+':'+vx+':'+vz;
+    if(meshVertexCache.has(key))return meshVertexCache.get(key);
+    const height=tropicalTerrainHeight(-TROPICAL_WORLD.halfExtent+vx*step,
+      -TROPICAL_WORLD.halfExtent+vz*step,seed);
+    meshVertexCache.set(key,height);
+    if(meshVertexCache.size>4096)meshVertexCache.delete(meshVertexCache.keys().next().value);
+    return height;
+  }
+  const a=vertex(0,0),b=vertex(0,1),c=vertex(1,1),d=vertex(1,0);
+  return u+v<=1?a+(d-a)*u+(b-a)*v:
+    c+(b-c)*(1-u)+(d-c)*(1-v);
+}
+
 export function tropicalLandscapeSeed(date=new Date()){
   const utc=Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate());
   const days=Math.floor(utc/86400000);
