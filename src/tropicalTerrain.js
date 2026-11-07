@@ -64,7 +64,7 @@ export function tropicalRiverPoint(channel,t,seed=1988,out={}){
   return out;
 }
 function riverField(x,z,seed){
-  let influence=0,water=0,riverIndex=-1;
+  let influence=0,water=0,riverIndex=-1,riverT=0,riverLateral=Infinity;
   const phase=(seed%811)*.008;
   for(let i=0;i<3;i++){
     const length=riverLengths(seed)[i],angle=directions[i]+Math.sin(phase+i)*.085;
@@ -76,14 +76,17 @@ function riverField(x,z,seed){
       Math.sin(t*9+phase+i*1.7)*125*Math.sin(Math.PI*t);
     const valleyWidth=80+(1-t)*72;
     const valley=Math.exp(-Math.pow(lateral/valleyWidth,2))*smooth(.08,.19,t)*(1-smooth(.94,1.035,t));
-    if(valley>influence){influence=valley;riverIndex=i;}
-    const flowWidth=15+13*t;
+    if(valley>influence){influence=valley;riverIndex=i;riverT=t;riverLateral=lateral;}
+    const flowWidth=tropicalRiverWidth(i,t,seed);
     const channelInfluence=1-smooth(flowWidth,flowWidth+7,Math.abs(lateral));
     if(channelInfluence>water)water=channelInfluence;
   }
-  return {valley:influence,river:water,channel:riverIndex};
+  return {valley:influence,river:water,channel:riverIndex,
+    t:riverT,lateral:riverLateral};
 }
-export function tropicalTerrainSample(x,z,seed=1988){
+// Unmodified volcanic surface: profiles are derived from this, avoiding
+// recursive terrain -> profile -> terrain calls.
+function baselineTerrainSample(x,z,seed=1988){
   const shape=islandShape(x,z,seed);
   const inland=1-smooth(.78,1.10,shape.radial);
   const coastal=smooth(.91,.66,shape.radial); // 1 inland, 0 outside coast
@@ -115,6 +118,90 @@ export function tropicalTerrainSample(x,z,seed=1988){
   return {height,river:river.river,valley:river.valley,channel:river.channel,
     coast:shape.radial,land:height>TROPICAL_WORLD.seaLevel,
     mountain:highland,humidity:clamp(.69+.21*large+river.valley*.24)};
+}
+// A hydrologically ordered longitudinal water surface. River elevation can
+// never rise along its journey to sea; terrain is carved from the exact same
+// surface subsequently used for both visible water and fish habitat.
+const profileCache=new Map();
+export function tropicalRiverWidth(channel,t,seed=1988){
+  return Math.max(5.5,9.2+17.5*t+Math.sin(t*24+channel*2.37+seed*.001)*2.5+
+    Math.sin(t*58+channel*1.8)*.95);
+}
+function riverProfile(channel,seed){
+  const key=seed+':'+channel;
+  if(profileCache.has(key))return profileCache.get(key);
+  const n=252,first=.10,last=1.035,length=tropicalRiverLength(channel,seed),raw=[];
+  const p={};
+  for(let i=0;i<=n;i++){
+    const t=first+(last-first)*i/n;
+    tropicalRiverPoint(channel,t,seed,p);
+    raw.push(baselineTerrainSample(p.x,p.z,seed).height);
+  }
+  const surface=new Float64Array(n+1);
+  let previous=Infinity;
+  for(let i=0;i<=n;i++){
+    // Five samples suppress visual waterfalls caused by sub-mesh terrain
+    // noise; genuine steep drops remain where the valley actually descends.
+    let avg=0,weight=0;
+    for(let j=-2;j<=2;j++){
+      const ix=clamp(i+j,0,n),w=3-Math.abs(j);
+      avg+=raw[ix]*w;weight+=w;
+    }
+    const smoothed=avg/weight-.45;
+    const fall=length*(last-first)/n*.0021;
+    surface[i]=Math.max(TROPICAL_WORLD.seaLevel+.16,
+      Math.min(smoothed,i===0?smoothed:previous-fall));
+    previous=surface[i];
+  }
+  const profile={surface,first,last,n,length};
+  if(profileCache.size>=48)profileCache.delete(profileCache.keys().next().value);
+  profileCache.set(key,profile);
+  return profile;
+}
+function profileLevel(channel,t,seed){
+  const p=riverProfile(channel,seed);
+  const u=clamp((t-p.first)/(p.last-p.first),0,1)*p.n;
+  const i=Math.min(p.n-1,Math.floor(u));
+  return p.surface[i]+(p.surface[i+1]-p.surface[i])*(u-i);
+}
+export function tropicalRiverFrame(channel,t,seed=1988,out={}){
+  if(!Number.isInteger(channel)||channel<0||channel>=TROPICAL_WORLD.riverCount)
+    throw new RangeError('Unknown river channel');
+  const p={},before={},after={};
+  const tc=clamp(t,.10,1.035);
+  tropicalRiverPoint(channel,tc,seed,p);
+  tropicalRiverPoint(channel,tc-.001,seed,before);
+  tropicalRiverPoint(channel,tc+.001,seed,after);
+  const dx=after.x-before.x,dz=after.z-before.z,length=Math.hypot(dx,dz)||1;
+  out.x=p.x;out.z=p.z;out.t=tc;
+  out.dx=dx/length;out.dz=dz/length;
+  out.nx=-out.dz;out.nz=out.dx;
+  out.halfWidth=tropicalRiverWidth(channel,tc,seed);
+  out.waterY=profileLevel(channel,tc,seed);
+  out.bedDepth=1.6+1.4*tc;
+  const step=.003,up=profileLevel(channel,Math.max(.10,tc-step),seed),
+    down=profileLevel(channel,Math.min(1.035,tc+step),seed);
+  out.slope=clamp((up-down)/(2*step*tropicalRiverLength(channel,seed)),0,2);
+  return out;
+}
+export function tropicalTerrainSample(x,z,seed=1988){
+  const result=baselineTerrainSample(x,z,seed);
+  const river=riverField(x,z,seed);
+  if(river.channel<0||river.t<.10||river.t>1.035)return result;
+  const d=Math.abs(river.lateral),w=tropicalRiverWidth(river.channel,river.t,seed);
+  if(d>w+32||result.height<TROPICAL_WORLD.seaLevel-2)return result;
+  const waterY=profileLevel(river.channel,river.t,seed);
+  const depth=1.6+1.4*river.t;
+  const channelWeight=1-smooth(w+1,w+25,d);
+  const bedShape=1-smooth(0,w+2,d);
+  const desired=waterY-depth*bedShape;
+  // This depression is part of the actual terrain height field, not a
+  // cosmetic river texture floating above an unmodified mountain mesh.
+  const carve=Math.max(0,result.height-desired)*channelWeight;
+  result.height-=carve;
+  result.land=result.height>TROPICAL_WORLD.seaLevel;
+  result.river=Math.max(result.river,1-smooth(w-1,w+6,d));
+  return result;
 }
 export function tropicalTerrainHeight(x,z,seed=1988){
   return tropicalTerrainSample(x,z,seed).height;
