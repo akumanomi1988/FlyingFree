@@ -70,6 +70,12 @@ async function render(name,query,width,height,runChecks){
     assert.equal(stats.metrics?.mapVisible,stats.metrics?.mapExpected,
       'Minimap should be visible in standard UI, hidden for clean TV/broadcast');
     assert.equal(stats.particles,0,'Useless airborne point particles have returned');
+    assert.ok(stats.treeDetail?.capacity>=200,
+      'El detalle de la selva sigue apareciendo demasiado cerca de la cámara');
+    assert.ok(stats.treeDetail?.fadeDistance>0,
+      'Falta transición continua de las copas');
+    assert.equal(await page.locator('#new-island').count(),1,
+      'Falta control para generar otra isla a voluntad');
     assert.ok(stats.fauna?.dolphins>=4,'Falta fauna marina');
     assert.ok(stats.birdDrawCallsSaved>=40,'El plumaje cercano no está agrupado por materiales');
     assert.ok(stats.fauna?.deer>=4,'Falta fauna de tierra');
