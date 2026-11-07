@@ -11,6 +11,7 @@ import {createTreeDetail} from './treeDetail.js';
 import {createFrameTelemetry} from './frameTelemetry.js';
 import {createAdaptiveResolution} from './adaptiveResolution.js';
 import {createForestVisibility} from './forestVisibility.js';
+import {createCloudField} from './cloudField.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {createHabitatMonitor} from './habitatMonitor.js';
@@ -31,7 +32,7 @@ import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,loc
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
-let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,forestVisibility,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
+let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,forestVisibility,cloudField,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,regionalBirds,riverHabitat,lastBirdAction=null;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
@@ -314,26 +315,8 @@ function createForest(){
   rocks.count=j;rocks.instanceMatrix.needsUpdate=true;scene.add(rocks);
 }
 function createClouds(){
-  const rng=random(2405),puff=new THREE.SphereGeometry(1,10,7);
-  const count=innerWidth<720?17:27;
-  for(let i=0;i<count;i++){
-    const group=new THREE.Group();
-    const material=new THREE.MeshLambertMaterial({color:0xe2e5e0,transparent:true,
-      opacity:.73,depthWrite:false,roughness:1});
-    const layers=5+Math.floor(rng()*4),height=.7+rng()*.55;
-    for(let j=0;j<layers;j++){
-      const lobe=new THREE.Mesh(puff,material);
-      const u=(j/(layers-1)-.5)*260;
-      lobe.position.set(u+(rng()-.5)*24,(rng()-.5)*21, (rng()-.5)*75);
-      lobe.scale.set(45+rng()*45,20+rng()*24,40+rng()*38);
-      group.add(lobe);
-    }
-    group.position.set((rng()-.5)*11000,900+rng()*1500,(rng()-.5)*10200);
-    group.rotation.y=rng()*TAU;
-    clouds.push({group,mat:material,baseX:group.position.x,baseZ:group.position.z,
-      velocity:2+rng()*5,drift:rng()*TAU,weight:rng()});
-    scene.add(group);
-  }
+  cloudField=createCloudField(THREE,scene,{mobile:innerWidth<720});
+  clouds=cloudField.clouds;
 }
 function createStars(){
   const rand=random(773),pts=[];
@@ -425,14 +408,7 @@ function ambient(date,dt){
   stars.position.copy(camera.position);
   starMat.opacity=smooth(-.045,-.19,alt)*.97;
   const cloudTint=new THREE.Color(0xdde4e6).lerp(new THREE.Color(0xffc29a),sun.golden*.52*day);
-  for(const c of clouds){
-    c.mat.opacity=clamp(.16+cloud*.67+(c.weight-.4)*.09,0,.89);
-    c.mat.color.copy(cloudTint).multiplyScalar(.72+day*.27);
-    c.group.visible=cloud>.035;
-    c.group.position.x=((c.baseX+elapsed*c.velocity+6000)%12000)-6000;
-    c.group.position.z=c.baseZ+Math.sin(elapsed*.02+c.drift)*110;
-    c.group.position.y+=Math.sin(elapsed*.003+c.drift)*.07;
-  }
+  cloudField.update(elapsed,cloud,day,cloudTint);
   sunHalo.position.copy(sunOrb.position);sunHalo.visible=sunOrb.visible;
   sunHalo.material.opacity=clamp(day*(1-cloud*.7),0,1);
   moonHalo.position.copy(moonOrb.position);moonHalo.visible=moonOrb.visible;
@@ -568,6 +544,7 @@ function animate(now){
     status.regionalBirds=regionalBirds.stats;
     status.riverLife={...riverHabitat.stats,visibleFish:riverHabitat.visibleFish};
     status.renderScale=scaleFactor;status.groundDetail=groundDetail.active;status.insectCount=groundDetail.insectCount;
+    status.cloudDrawCalls=cloudField.stats.drawCalls;
     status.motion={wind:+windField.strength.toFixed(2),windMaterials:windField.materials,
       clouds:clouds.length,articulatedAnimals:ecosystem.actors.length,motes:atmospherics.activeCount};
     status.sunAccurate=Boolean(solarCoordinates.accurate);
