@@ -53,9 +53,9 @@ export function createTropicalRivers(THREE,scene,seed=1988){
   material.onBeforeCompile=shader=>{
     shader.uniforms.uRiverFlowTime=flowTime;
     shader.vertexShader=shader.vertexShader.replace('void main() {',
-      'varying vec2 vRiverFlowUV;\\nvoid main() {\\n vRiverFlowUV=uv;');
+      'varying vec2 vRiverFlowUV;\nvoid main() {\n vRiverFlowUV=uv;');
     shader.fragmentShader=shader.fragmentShader.replace('void main() {',
-      'varying vec2 vRiverFlowUV;\\nuniform float uRiverFlowTime;\\nvoid main() {');
+      'varying vec2 vRiverFlowUV;\nuniform float uRiverFlowTime;\nvoid main() {');
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',
       `#include <color_fragment>
       float streamPhase=vRiverFlowUV.y*2.7-uRiverFlowTime*1.7;
