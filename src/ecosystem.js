@@ -2,6 +2,7 @@ import { random,terrainHeight,TAU,clamp } from './core.js';
 import {FAUNA_SCALE} from './worldScale.js';
 import {createFaunaLODFactory,faunaPathAngle,shouldAnimateFauna,terrainSlopeAngles} from './faunaLOD.js';
 import {createQuadrupedLegRig} from './faunaLegRig.js';
+import {createWildlifePopulation} from './wildlifePopulation.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
 export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=null){
@@ -150,6 +151,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
   addActor('deer',Math.round(15*quality),950);
   addActor('fox',Math.round(9*quality),1050);
   addActor('rabbit',Math.round(24*quality),900);
+  const population=createWildlifePopulation(actors,{seed,initialObserver});
   const foxes=actors.filter(g=>g.userData.state.type==='fox');
   const rabbits=actors.filter(g=>g.userData.state.type==='rabbit');
   const flowers=[];
@@ -238,6 +240,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
     dolphins.push({group,phase:rng()*TAU,radius:5450+rng()*400,period:11+rng()*12,offset:i});
   }
   function update(t,daylight=1,wind=0,hero=null,precipitation=0,observer=null){
+    population.update(t,hero,observer);
     for(const g of actors){
       const s=g.userData.state;
       const cycle=(t+s.seed)/s.cycle,phase=cycle%1;
@@ -343,6 +346,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
     return {point:butterflies[0]?.g.position.clone()||new THREE.Vector3(0,150,0),kind:'flowers'};
   }
   return {root,actors,birds,dolphins,butterflies,flowers,update,focus,
+    get populationStats(){return population.stats;},
     get lodStats(){return {prototypes:faunaLOD.prototypes,farDrawCalls:faunaLOD.farDrawCalls,
       nearAnimated:actors.filter(g=>g.userData.motionDetailed).length,totalActors:actors.length};},
     stats:{deer:actors.filter(a=>a.userData.state.type==='deer').length,fox:actors.filter(a=>a.userData.state.type==='fox').length,rabbits:actors.filter(a=>a.userData.state.type==='rabbit').length,gulls:birds.length,dolphins:dolphins.length,butterflies:butterflies.length}};
