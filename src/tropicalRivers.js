@@ -102,7 +102,7 @@ export function createTropicalRivers(THREE,scene,seed=1988){
  const flowTime={value:0};
  const material=new THREE.MeshStandardMaterial({
   vertexColors:true,roughness:.29,metalness:.05,
-  transparent:false,side:THREE.DoubleSide,depthWrite:true
+  transparent:true,opacity:.90,side:THREE.DoubleSide,depthWrite:false
  });
  material.onBeforeCompile=shader=>{
   shader.uniforms.uRiverFlowTime=flowTime;
@@ -115,6 +115,10 @@ export function createTropicalRivers(THREE,scene,seed=1988){
     // Flow follows the river's lengthwise UV; micro-ripples run along the
     // current and shallows show smaller, faster patterns than deep pools.
     float v=vRiverFlowUV.y, u=vRiverFlowUV.x;
+    float shallow=pow(abs(u*2.0-1.0),3.2);
+    // See the shallow sediment and wildlife below the surface. The middle
+    // channel stays deeper and darker, and naturally occludes the bed.
+    diffuseColor.a*=mix(1.0,.69,shallow);
     float drift=uRiverFlowTime;
     float longWave=sin(v*3.9-drift*1.65+sin(u*23.0+v*.37)*1.4);
     float crossWave=sin(v*8.4-drift*2.9+u*35.0)*.25;
