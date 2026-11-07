@@ -15,7 +15,7 @@ import {createCloudField} from './cloudField.js';
 import {createAtmospherics} from './atmospherics.js';
 import {habitatAt} from './ecology.js';
 import {createHabitatMonitor} from './habitatMonitor.js';
-import {tropicalTerrainSample,tropicalLandscapeSeed,TROPICAL_WORLD} from './tropicalTerrain.js';
+import {tropicalTerrainSample,tropicalLandscapeSeed,tropicalRenderHeight,TROPICAL_WORLD} from './tropicalTerrain.js';
 import {createTropicalRivers} from './tropicalRivers.js';
 import {createCoastalCliffs} from './coastalCliffs.js';
 import {createCameraDirector} from './cameraDirector.js';
@@ -116,7 +116,7 @@ function init(){
   forageVisuals=createBirdForageVisuals(THREE,scene,worldSeed);
   restVisuals=createBirdRestVisuals(THREE,scene);
   const qaShot=opts.selftest?new URLSearchParams(location.search).get('qaShot'):null;
-  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed,{qaShot});
+  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed,{qaShot,renderedHeight:tropicalRenderHeight});
   const startSun=sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude);
   const startPos=birdBrain.update(0,0,startSun.daylight,0);
   birdModel.position.set(startPos.x,startPos.y,startPos.z);
