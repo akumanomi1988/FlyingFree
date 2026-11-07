@@ -284,7 +284,8 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    hunger,energy,food:food?.kind||null,feedingHabitat:food?.biome||null,
    // A single concrete site drives both the decision and the visible prop.
    foodTarget:food&&!landingRest&&['seek_food','approach','landing','feed'].includes(state)?
-     {x:food.x,y:food.y,z:food.z,kind:food.kind,biome:food.biome}:null,
+     {x:food.x,y:food.y,z:food.z,kind:food.kind,biome:food.biome,
+      contactY:clearance(food.x,food.z,'hunt')}:null,
    feedingProgress:state==='feed'?clamp((t-activityChangedAt)/Math.max(.1,until-activityChangedAt)):0,
    roosting:grounded&&Boolean(roost),aerialFeeding,landings,feedings};
  },
