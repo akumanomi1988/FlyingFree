@@ -23,8 +23,8 @@ export function createBirdRestVisuals(THREE,scene){
    Number.isFinite(site.anchorY)&&Number.isFinite(site.anchorZ)&&
    Number.isFinite(site.branchY);
   const close=site&&Math.hypot(action.x-site.x,action.z-site.z)<180;
-  const cameraNear=!cameraPosition||
-    Math.hypot(cameraPosition.x-site.x,cameraPosition.z-site.z)<240;
+  const cameraNear=Boolean(site&&(!cameraPosition||
+    Math.hypot(cameraPosition.x-site.x,cameraPosition.z-site.z)<240));
   root.visible=Boolean(same&&close&&cameraNear);
   if(!root.visible)return {visible:false,kind:site?.kind??null};
   const key=[site.x,site.y,site.z,site.anchorX,site.anchorY,site.anchorZ].join(':');
