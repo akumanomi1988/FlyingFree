@@ -42,8 +42,9 @@ test('three seeded rivers cut continuous valleys into the same terrain heightfie
  const scene=new THREE.Scene(),rivers=createTropicalRivers(THREE,scene,1988);
  assert.equal(rivers.channels,3);
  assert.ok(rivers.segments>130,'rivers are too short to see from flight');
- assert.equal(scene.children.length,1);
+ assert.equal(scene.children.length,2); // water and actual geomorphic bed
  assert.ok(rivers.mesh.geometry.index.count>300);
+ assert.ok(rivers.bed.geometry.index.count>1000);
  rivers.dispose();assert.equal(scene.children.length,0);
 });
 
