@@ -53,12 +53,20 @@ export function tropicalRiverLength(channel,seed=1988){
     throw new RangeError('Unknown river channel');
   return riverLengths(seed)[channel];
 }
+// Several seed-shifted wavelengths form a non-periodic-looking course.
+// The same expression drives terrain valley carving and water geometry.
+function riverMeander(t,phase,channel){
+ return Math.sin(Math.PI*t)*(
+  Math.sin(t*8.7+phase+channel*1.7)*89+
+  Math.sin(t*19.3+phase*1.46+channel*2.4)*31+
+  Math.sin(t*35.9+phase*.73-channel*1.19)*12);
+}
 export function tropicalRiverPoint(channel,t,seed=1988,out={}){
   const bearing=directions[channel];
   if(bearing===undefined)throw new RangeError('Unknown river channel');
   const phase=(seed%811)*.008,length=tropicalRiverLength(channel,seed);
   const angle=bearing+Math.sin(phase+channel)*.085;
-  const along=length*clamp(t,0,1.05),bend=Math.sin(t*9+phase+channel*1.7)*125*Math.sin(Math.PI*t);
+  const along=length*clamp(t,0,1.05),bend=riverMeander(t,phase,channel);
   out.x=Math.cos(angle)*along-Math.sin(angle)*bend+140;
   out.z=Math.sin(angle)*along+Math.cos(angle)*bend-110;
   return out;
@@ -73,7 +81,7 @@ function riverField(x,z,seed){
     const t=along/length;
     if(t<.08||t>1.035)continue;
     const lateral=-px*Math.sin(angle)+pz*Math.cos(angle)-
-      Math.sin(t*9+phase+i*1.7)*125*Math.sin(Math.PI*t);
+      riverMeander(t,phase,i);
     const valleyWidth=80+(1-t)*72;
     const valley=Math.exp(-Math.pow(lateral/valleyWidth,2))*smooth(.08,.19,t)*(1-smooth(.94,1.035,t));
     if(valley>influence){influence=valley;riverIndex=i;riverT=t;riverLateral=lateral;}
