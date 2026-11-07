@@ -113,3 +113,18 @@ test('mobile retains the same cloud shape complexity with a lower fixed budget',
  assert.equal(c.stats.drawCalls,1);
  c.dispose();
 });
+
+test('30fps governor starts at a cheaper resolution and restores it on fast hardware',()=>{
+ const q=createAdaptiveResolution({
+  maxScale:1.15,minScale:.48,initialScale:.84,
+  downFps:29,downP95Ms:44,upFps:38,upP95Ms:29,
+  downHold:2,upHold:3,cooldownSeconds:0,
+  severeFps:22,severeFactor:.74
+ });
+ assert.equal(q.snapshot().scale,.84);
+ for(let i=0;i<2;i++)q.observe({fps:11,p95Ms:130,seconds:1});
+ assert.equal(q.snapshot().scale,.622);
+ for(let i=0;i<3;i++)q.observe({fps:50,p95Ms:18,seconds:1});
+ assert.ok(q.snapshot().scale>.622);
+ assert.throws(()=>createAdaptiveResolution({maxScale:1,initialScale:.3}),RangeError);
+});
