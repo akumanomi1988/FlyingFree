@@ -52,3 +52,25 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify the published main commit
+        shell: bash
+        timeout-minutes: 6
+        env:
+          PUBLIC_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PUBLIC_URL"
+          for attempt in $(seq 1 24); do
+            endpoint="${PUBLIC_URL%/}/build-info.json?revision=${EXPECTED_SHA}&attempt=${attempt}"
+            actual=$(curl -fsSL --max-time 15 -H 'Cache-Control: no-cache' "$endpoint" |
+              python3 -c 'import json,sys; print(json.load(sys.stdin).get("revision",""))' 2>/dev/null || true)
+            if [[ "$actual" == "$EXPECTED_SHA" ]]; then
+              echo "Published Pages SHA verified: $EXPECTED_SHA"
+              exit 0
+            fi
+            echo "Published SHA not yet synchronized (attempt $attempt/24): ${actual:-unavailable}"
+            sleep 10
+          done
+          echo "::error::GitHub Pages does not serve expected SHA $EXPECTED_SHA"
+          exit 1
