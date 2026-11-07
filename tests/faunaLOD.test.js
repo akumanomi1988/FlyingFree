@@ -23,7 +23,7 @@ test('fauna LOD uses cached 3D silhouettes and keeps animated heads',()=>{
   const scene=new THREE.Scene();
   const world=createEcosystem(THREE,scene,1988,1);
   const stats=world.lodStats;
-  assert.equal(stats.totalActors,24);
+  assert.equal(stats.totalActors,48);
   assert.ok(stats.prototypes>=3&&stats.prototypes<=4);
   for(const [type,drawCalls] of Object.entries(stats.farDrawCalls)){
     assert.ok(drawCalls>=1&&drawCalls<=3,type+' low LOD should be batched');
