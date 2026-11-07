@@ -117,10 +117,11 @@ export function createRiverEcosystem(THREE,scene,seed=1988,quality=1){
      const longitudinal=(rng()-.5)*7;
      const px=center.x+normalX*lateral+currentX*longitudinal;
      const pz=center.z+normalZ*lateral+currentZ*longitudinal;
+     const tint=new THREE.Color([0x86b2ac,0xa6a26d,0x7fa69b][Math.floor(rng()*3)]);
      records.push({x:px,z:pz,y:streamY-.17,
       alongX:currentX,alongZ:currentZ,sideX:normalX,sideZ:normalZ,
-      phase:rng()*Math.PI*2,scale:.26+rng()*.32,channel:c});
-     fish.setColorAt(nFish,new THREE.Color([0x86b2ac,0xa6a26d,0x7fa69b][Math.floor(rng()*3)]));
+      phase:rng()*Math.PI*2,scale:.26+rng()*.32,channel:c,tint});
+     fish.setColorAt(nFish,tint);
      nFish++;
     }
    }
@@ -153,11 +154,15 @@ export function createRiverEcosystem(THREE,scene,seed=1988,quality=1){
    const swimY=f.y+Math.sin(t*2.2+f.phase)*.065;
    const heading=Math.atan2(-f.alongX,-f.alongZ)+Math.sin(t*1.7+f.phase)*.20;
    place(fish,count,fx,swimY,fz,f.scale,f.scale,f.scale,heading);
+   fish.setColorAt(count,f.tint);
    count++;
   }
   fish.count=count;
   fish.visible=count>0;
-  if(count>0||lastVisible!==count)fish.instanceMatrix.needsUpdate=true;
+  if(count>0||lastVisible!==count){
+   fish.instanceMatrix.needsUpdate=true;
+   if(fish.instanceColor)fish.instanceColor.needsUpdate=true;
+  }
   lastVisible=count;
  }
  update(0,null);
