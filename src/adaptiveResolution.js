@@ -5,6 +5,9 @@ export function createAdaptiveResolution({
   maxScale,
   minScale=Math.min(.48,maxScale),
   downFps=23,
+  // Optional frame-time trigger. Disabled for legacy clients, used by VUELO's
+  // 33.3 ms cinematic budget to react to stutter despite an acceptable average.
+  downP95Ms=Infinity,
   upFps=48,
   upP95Ms=24,
   downHold=8,
@@ -31,7 +34,7 @@ export function createAdaptiveResolution({
     const elapsed=Math.min(2,seconds);
     cooldown=Math.max(0,cooldown-elapsed);
     const clearlyFast=fps>=upFps&&(!Number.isFinite(p95Ms)||p95Ms<=upP95Ms);
-    if(fps<downFps) {
+    if(fps<downFps||(Number.isFinite(p95Ms)&&p95Ms>downP95Ms)) {
       bad+=elapsed;good=0;
     }else if(clearlyFast) {
       good+=elapsed;bad=0;
