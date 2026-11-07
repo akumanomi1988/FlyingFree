@@ -307,6 +307,7 @@ function createForest(){
     {trunk,lower,upper,broad,cypress,olive,birch,palmLeaves},
     treeRecords,worldSeed,{radius:innerWidth<720?2200:2600}
   );
+  forestVisibility.setQuality(scaleFactor/adaptiveResolution.snapshot().maxScale);
   treeDetail=createTreeDetail(THREE,scene,treeRecords,innerWidth<720?.60:1,windField);
   const rockMaterial=foliage('#7c8679');
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
