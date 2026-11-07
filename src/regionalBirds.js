@@ -7,7 +7,7 @@ import {habitatAt} from './ecology.js';
 export function createRegionalBirds(THREE,scene,seed=1988,quality=1){
  const root=new THREE.Group();root.name='regional-wild-bird-populations';
  scene.add(root);
- const max=Math.round(270*clamp(quality,.5,1.2)),spacing=170,range=4;
+ const max=Math.round(300*clamp(quality,.5,1.2)),spacing=95,range=4;
  const bodyGeo=new THREE.SphereGeometry(1,9,7);
  bodyGeo.scale(.13,.115,.36);
  const headGeo=new THREE.SphereGeometry(1,9,7);
@@ -54,7 +54,7 @@ export function createRegionalBirds(THREE,scene,seed=1988,quality=1){
   for(let cz=iz-range;cz<=iz+range;cz++){
    for(let cx=ix-range;cx<=ix+range;cx++){
     const rng=seedCell(cx,cz);
-    const patches=1+Math.floor(rng()*3);
+    const patches=2+Math.floor(rng()*3);
     for(let j=0;j<patches&&records.length<max;j++){
      const x=(cx+.15+rng()*.70)*spacing,z=(cz+.15+rng()*.70)*spacing;
      const habitat=habitatAt(x,z,seed);
@@ -62,10 +62,11 @@ export function createRegionalBirds(THREE,scene,seed=1988,quality=1){
      if(!coastal&&habitat.height<4)continue;
      const active=coastal?1:region==='forest'?.94:region==='rock'?.36:.82;
      if(rng()>active)continue;
-     const large=coastal?rng()<.70:rng()<.16;
+     const large=coastal?rng()<.62:rng()<.12;
      const wingspan=large?.9+rng()*.7:.24+rng()*.22;
      const altitude=coastal?12+rng()*55:
-       region==='forest'?19+rng()*35:14+rng()*75;
+       large?80+rng()*140:
+       region==='forest'?12+rng()*35:12+rng()*75;
      const palette=colors[region]||colors.meadow;
      const color=palette[Math.floor(rng()*palette.length)];
      records.push({x,z,y:(coastal&&habitat.height<0?0:habitat.height)+altitude,
