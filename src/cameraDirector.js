@@ -166,7 +166,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     const portraitSmallBird=clamp((.78-camera.aspect)/.18,0,1)*
       clamp((.65-wingspan)/.35,0,1)*
       clamp((context.groundClearance-15)/55,0,1);
-    const scenicLift=portraitSmallBird*2.9;
+    const scenicLift=portraitSmallBird*5.4;
     desired.set(bird.x+terrainOffset.x,bird.y+plan.y+scenicLift,bird.z+terrainOffset.z);
     const clearance=currentShot==='close'?.85:2.6;
     let needed=0;
