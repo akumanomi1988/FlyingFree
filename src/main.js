@@ -25,6 +25,7 @@ import {createBirdForageVisuals} from './birdForageVisuals.js';
 import {createBirdRestVisuals} from './birdRestVisuals.js';
 import {createRegionalBirds} from './regionalBirds.js';
 import {createRiverEcosystem} from './riverEcosystem.js';
+import {createWildlifeObservatory} from './wildlifeObservatory.js';
 import {birdCameraDistance,TREE_HEIGHT_M} from './worldScale.js';
 import {createLiveClimate,approximateSolarCoordinates,WEATHER_REFRESH_MS} from './localClimate.js';
 import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,localDateLabel} from './localTime.js';
@@ -33,7 +34,7 @@ const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
 let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,forestVisibility,cloudField,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
-let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,regionalBirds,riverHabitat,lastBirdAction=null;
+let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,regionalBirds,riverHabitat,wildlifeObservatory,lastBirdAction=null;
 const windField=createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
@@ -126,6 +127,7 @@ function init(){
   cameraLook.set(startPos.x,startPos.y,startPos.z);
   camera.lookAt(cameraLook);
   ecosystem=createEcosystem(THREE,scene,worldSeed,innerWidth<720?.65:1,startPos);
+  wildlifeObservatory=createWildlifeObservatory(THREE);
   regionalBirds.update(0,startPos,camera.position,startSun.daylight,0);
   groundDetail=createGroundDetail(THREE,scene,innerWidth<720?.5:1,windField,worldSeed);
   atmospherics=createAtmospherics(THREE,scene,innerWidth<720?.56:1);
@@ -455,10 +457,10 @@ function fly(date,dt,sun){
  if(occupancy)status.habitatUse=occupancy;
  return birdModel.position;
 }
-function directCamera(bird,dt){
+function directCamera(bird,dt,wildlifeFocus=null){
   const frame=cameraDirector.update(camera,bird,birdModel.rotation.y,
     birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,elapsed,dt,
-    lastBirdAction?.foodTarget);
+    lastBirdAction?.foodTarget,wildlifeFocus);
   status.cameraShot=frame.shot;
   status.camera={shot:frame.shot,reason:frame.reason,transitions:frame.transitions,
     terrainRelief:Math.round(frame.relief),altitudeAGL:Math.round(frame.groundClearance),
@@ -499,7 +501,8 @@ function animate(now){
   const position=fly(date,dt,sun);
   ecosystem.update(elapsed,sun.daylight,weatherState.cloud,position,weatherState.rain,camera.position);
   atmospherics.update(elapsed,camera,position,sun.daylight,weatherState);
-  directCamera(position,dt);
+  const wildlifeFrame=wildlifeObservatory.update(elapsed,ecosystem.actors,camera,position,innerHeight);
+  directCamera(position,dt,wildlifeFrame.focus);
   forestVisibility.update(camera.position,elapsed);
   regionalBirds.update(elapsed,position,camera.position,sun.daylight,weatherState.rain);
   riverHabitat.update(elapsed,camera.position);
@@ -546,6 +549,8 @@ function animate(now){
     status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
     fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
+    status.wildlifePopulation=ecosystem.populationStats;
+    status.wildlifeVisibility=wildlifeObservatory.stats;
     status.forestVisibility=forestVisibility.stats;
     status.performanceTarget={fps:30,frameBudgetMs:33.33,
       p95Ms:status.performance.p95,withinBudget:status.performance.p95<=33.33};

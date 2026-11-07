@@ -54,6 +54,7 @@ async function render(name,query,width,height,runChecks){
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,regionalBirds:s.regionalBirds,riverLife:s.riverLife,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
         forestVisibility:s.forestVisibility,performanceTarget:s.performanceTarget,
+         wildlifePopulation:s.wildlifePopulation,wildlifeVisibility:s.wildlifeVisibility,
         world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
         metrics:{energy:document.querySelector('#bird-energy')?.value,
@@ -97,6 +98,12 @@ async function render(name,query,width,height,runChecks){
       'Las riberas no muestran rocas y vegetación');
     assert.ok(stats.riverLife?.fish>=18,
       'El río no dispone de peces simulados');
+    assert.ok(stats.wildlifePopulation?.cellUpdates>=1,'El gestor de poblaciones no recorre celdas');
+    assert.ok(stats.wildlifePopulation?.nearby>=0,'Falta la población próxima');
+    assert.ok(stats.wildlifePopulation?.cachedCells<=256,'Cache de fauna crece sin límite');
+    assert.ok(stats.wildlifeVisibility?.inFrustum>=0,'No se mide proyección de animales');
+    assert.ok(stats.wildlifeVisibility?.recognizableProjected<=stats.wildlifeVisibility?.inFrustum,
+      'Reconocibles no pueden superar sujetos dentro del frustum');
     assert.ok(stats.faunaLOD?.prototypes>=3,'Falta la reutilización del LOD de fauna');
     assert.ok(stats.faunaLOD?.totalActors>=15,'Faltan animales con niveles de detalle');
     assert.ok(Object.values(stats.faunaLOD.farDrawCalls).every(n=>n>0&&n<=3),

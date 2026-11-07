@@ -59,7 +59,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false,slopeX:0,slopeZ:0};
   let lastReason='initial';
 
-  function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt,focus=null){
+  function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt,focus=null,wildlife=null){
     const delta=clamp(dt,0,.1),clock=Number.isFinite(time)?time:0;
     if(clock<lastTime){
       shotSince=clock;contextAt=-Infinity;turnRate=0;
@@ -183,6 +183,14 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       const maxDistance=Math.max(.45,wingspan*1.55);
       if(distance>maxDistance)foodFocus.lerp(bird,1-maxDistance/distance);
       target.lerp(foodFocus,.24);
+    }
+    // Blend nearby wildlife into the look target without discontinuous cuts.
+    if(!close&&!inspectionShot&&wildlife&&Number.isFinite(wildlife.x)&&
+       Number.isFinite(wildlife.y)&&Number.isFinite(wildlife.z)&&
+       Math.hypot(wildlife.x-bird.x,wildlife.z-bird.z)<45&&
+       Math.abs(wildlife.y-bird.y)<60){
+      foodFocus.set(wildlife.x,wildlife.y,wildlife.z);
+      target.lerp(foodFocus,.17);
     }
     const k=1-Math.exp(-delta*(currentShot==='scenic'||currentShot==='high-reveal'?1.35:2.6));
     // Establish a new small-bird documentary shot on its viable hillside
