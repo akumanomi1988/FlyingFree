@@ -603,12 +603,13 @@ function sampleRenderedFrame(){
   try{
     const gl=renderer.getContext(),width=gl.drawingBufferWidth,
       height=gl.drawingBufferHeight;
-    const tile=Math.min(16,Math.floor(width/5),Math.floor(height/5));
+    const tile=Math.min(8,Math.floor(width/10),Math.floor(height/7));
     if(tile<1)throw new Error('WebGL framebuffer is empty');
     const rgba=new Uint8Array(tile*tile*4);
     const distinct=new Set();
     let luminance=0,variability=0,nonBlack=0,samples=0;
-    for(const fy of [.18,.5,.82])for(const fx of [.18,.5,.82]){
+    for(let row=0;row<5;row++)for(let column=0;column<8;column++){
+      const fy=(row+.5)/5,fx=(column+.5)/8;
       const x=Math.max(0,Math.min(width-tile,Math.floor(width*fx-tile/2)));
       const y=Math.max(0,Math.min(height-tile,Math.floor(height*fy-tile/2)));
       gl.readPixels(x,y,tile,tile,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
