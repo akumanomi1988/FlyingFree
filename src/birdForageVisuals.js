@@ -50,6 +50,13 @@ export function createBirdForageVisuals(THREE,scene,seed=1988){
  part(models.carrion,sphere,mats.carrion,[0,0,0],[.64,.22,.39],[0,.35,0]);
  part(models.carrion,sphere,mats.prey,[-.40,.10,.20],[.20,.13,.15]);
  for(const group of Object.values(models)){root.add(group);group.visible=false;}
+ // A small animated wake makes the fish strike readable without particles or
+ // per-frame allocations. It is not displayed for terrestrial prey.
+ const rippleGeo=new THREE.TorusGeometry(1,.032,5,28);
+ const rippleMaterial=new THREE.MeshBasicMaterial({color:0xb5d9d9,transparent:true,
+   opacity:.36,depthWrite:false,side:THREE.DoubleSide});
+ const ripple=new THREE.Mesh(rippleGeo,rippleMaterial);
+ ripple.rotation.x=-Math.PI/2;ripple.visible=false;root.add(ripple);
  let currentKind=null;
  function update(action,t=0){
   const target=action?.foodTarget;
@@ -58,10 +65,10 @@ export function createBirdForageVisuals(THREE,scene,seed=1988){
   const visible=Boolean(target&&approaching&&distance<95&&
     (action.state!=='feed'||(action.feedingProgress??0)<.88));
   root.visible=visible;
-  if(!visible)return {visible:false,kind:null};
+  if(!visible){ripple.visible=false;return {visible:false,kind:null};}
   const kind=target.kind;
   const model=models[kind];
-  if(!model){root.visible=false;return {visible:false,kind:null};}
+  if(!model){root.visible=false;ripple.visible=false;return {visible:false,kind:null};}
   if(currentKind!==kind){
    for(const [name,group] of Object.entries(models))group.visible=name===kind;
    currentKind=kind;
@@ -69,12 +76,16 @@ export function createBirdForageVisuals(THREE,scene,seed=1988){
   const ground=terrainHeight(target.x,target.z,seed);
   let height=ground+.23;
   if(kind==='fish')height=target.biome==='ocean'?
-    oceanSurfaceHeight(target.x,target.z,t,0)+.12:ground+.42;
-  if(kind==='nectar')height=ground+1.15;
+    oceanSurfaceHeight(target.x,target.z,t,action.rain??0)+.08:ground+.18;
+  // A tiny hummingbird must meet a small flower at its true contact height.
+  if(kind==='nectar')height=(target.contactY??ground+2.2)-.05;
   if(kind==='insect')height=target.contactY??ground+7;
   root.position.set(target.x,height,target.z);
-  const scale=kind==='nectar'?.82:kind==='insect'?.63:
-    clamp((action.wingspan??1.2)*.45,.42,1.5);
+  const span=action.wingspan??1.2;
+  const scale=kind==='nectar'?clamp(span*.8,.095,.55):
+    kind==='insect'?clamp(span*.33,.06,.22):
+    kind==='fish'?clamp(span*.30,.07,.88):
+    clamp(span*.27,.12,.75);
   root.scale.setScalar(scale);
   model.rotation.y=t*.22;
   model.position.y=kind==='insect'?.23*Math.sin(t*10):
@@ -85,11 +96,26 @@ export function createBirdForageVisuals(THREE,scene,seed=1988){
   // intervals while the bird is still looking for it.
   const captured=action.state==='feed'?clamp(((action.feedingProgress??0)-.55)/.30):0;
   model.scale.setScalar(Math.max(.001,1-captured));
+  const splash=kind==='fish'&&action.state==='feed'&&
+    (action.feedingProgress??0)<.60;
+  ripple.visible=splash;
+  if(splash){
+    const progress=clamp((action.feedingProgress??0)/.60);
+    ripple.scale.setScalar(scale*(1.1+progress*2.4));
+    ripple.material.opacity=.34*(1-progress);
+    ripple.position.y=-.03;
+  }
   return {visible:true,kind,distance};
  }
  return {root,update,dispose(){
   scene.remove(root);
-  for(const group of Object.values(models))group.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
+  // Most models share the same sphere/cone/cylinder buffers.
+  const uniqueGeometries=new Set();
+  for(const group of Object.values(models))group.traverse(o=>{
+   if(o.isMesh)uniqueGeometries.add(o.geometry);
+  });
+  for(const geometry of uniqueGeometries)geometry.dispose();
+  rippleGeo.dispose();rippleMaterial.dispose();
   for(const material of Object.values(mats))material.dispose();
  }};
 }
