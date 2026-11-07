@@ -6,7 +6,7 @@ Fecha de revisión: 2026-11-06. Documento operativo; un check técnico verde **n
 
 1. `main` es la única versión integrada. Una rama abierta o un PR verde no se presenta como producción.
 2. Cada cambio visual contiene una prueba con semilla y un artefacto de antes/después; para una regresión de encuadre registrar especie, semilla, meteorología, hora, resolución y FPS.
-3. La URL pública debe servir `/FlyingFree/build-info.json` con la revisión esperada; comparar SHA después del workflow Pages. No inferir publicación a partir de un merge.
+3. La URL pública debe servir `/FlyingFree/build-info.json` con la revisión esperada. El job `deploy` de Pages verifica ese SHA por HTTP con cache-busting y reintentos; el workflow solo termina correctamente si producción sirve exactamente el commit de `main`. No inferir publicación a partir de un merge.
 4. Los informes CI obtenidos con SwiftShader sirven para reproducir fallos funcionales y de composición; **no** representan FPS de una GPU de usuario.
 
 ## Puertas automáticas (bloquean integración)
