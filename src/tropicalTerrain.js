@@ -116,6 +116,7 @@ function baselineTerrainSample(x,z,seed=1988){
   // field used by physics and ecology (no decorative floating river-only lines).
   height-=river.valley*(20+52*highland+highland*ridgeSharp*30);
   return {height,river:river.river,valley:river.valley,channel:river.channel,
+    riverT:river.t,riverLateral:river.lateral,
     coast:shape.radial,land:height>TROPICAL_WORLD.seaLevel,
     mountain:highland,humidity:clamp(.69+.21*large+river.valley*.24)};
 }
@@ -186,12 +187,11 @@ export function tropicalRiverFrame(channel,t,seed=1988,out={}){
 }
 export function tropicalTerrainSample(x,z,seed=1988){
   const result=baselineTerrainSample(x,z,seed);
-  const river=riverField(x,z,seed);
-  if(river.channel<0||river.t<.10||river.t>1.035)return result;
-  const d=Math.abs(river.lateral),w=tropicalRiverWidth(river.channel,river.t,seed);
+  if(result.channel<0||result.riverT<.10||result.riverT>1.035)return result;
+  const d=Math.abs(result.riverLateral),w=tropicalRiverWidth(result.channel,result.riverT,seed);
   if(d>w+32||result.height<TROPICAL_WORLD.seaLevel-2)return result;
-  const waterY=profileLevel(river.channel,river.t,seed);
-  const depth=1.6+1.4*river.t;
+  const waterY=profileLevel(result.channel,result.riverT,seed);
+  const depth=1.6+1.4*result.riverT;
   const channelWeight=1-smooth(w+1,w+25,d);
   const bedShape=1-smooth(0,w+2,d);
   const desired=waterY-depth*bedShape;
