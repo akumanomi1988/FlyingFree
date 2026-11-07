@@ -34,7 +34,8 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  let x=finite(initial?.x,spawnX),
  z=finite(initial?.z,spawnZ),
  y=finite(initial?.y,marine?Math.max(25,terrainHeight(x,z,seed)+46):
-   Math.max(terrainHeight(x,z,seed)+95,profile.alt)),
+   Math.max(flightAltitude(profile,habitatAt(x,z,seed),
+     terrainHeight(x,z,seed))+8,profile.alt)),
  heading=finite(initial?.heading,startA),
  velocity=clamp(finite(initial?.velocity,cruise*.55),0,110);
  let state='patrol',until=0,tx=x,tz=z,ty=y,
@@ -90,7 +91,10 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   if(!marine&&best<.18){
    bestX=homeX;bestZ=homeZ;lastPatrolBiome=habitatAt(homeX,homeZ,seed).type;
   }
-  target(bestX,bestZ,clearance(bestX,bestZ,'cruise')+rng()*32);
+  // Nectar feeders stay around tree crowns, not 80–100 m above their food.
+  const patrolClimb=profile.id==='hummingbird'||profile.id==='kingfisher'?12:
+    profile.id==='swallow'||profile.id==='owl'?20:32;
+  target(bestX,bestZ,clearance(bestX,bestZ,'cruise')+rng()*patrolClimb);
  }
  function selectRoost(){
   roost=null;
