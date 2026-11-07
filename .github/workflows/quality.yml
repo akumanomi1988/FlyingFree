@@ -1,9 +1,10 @@
 name: Visual and browser QA
 on:
-  push:
-    branches: ['improve/**', 'feature/**']
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: visual-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
