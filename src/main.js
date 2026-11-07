@@ -596,33 +596,30 @@ async function audioToggle(){
  }catch(err){showError(err);}
 }
 function sampleRenderedFrame(){
-  // Reading the default WebGL framebuffer synchronously after render avoids
-  // Chromium/SwiftShader blank 2D drawImage() copies when preserveDrawingBuffer
-  // is disabled. This QA-only probe samples nine small tiles, not the whole
-  // framebuffer; normal animation never invokes readPixels.
+  // QA-only synchronous readback of the exact WebGL framebuffer, not a
+  // canvas-to-canvas copy that can be cleared by Chromium/SwiftShader.
+  // Uniform 64x36 sampling covers the whole image, including small subjects,
+  // without changing the production renderer or preserving its framebuffer.
   try{
     const gl=renderer.getContext(),width=gl.drawingBufferWidth,
       height=gl.drawingBufferHeight;
-    const tile=Math.min(8,Math.floor(width/10),Math.floor(height/7));
-    if(tile<1)throw new Error('WebGL framebuffer is empty');
-    const rgba=new Uint8Array(tile*tile*4);
+    if(width<1||height<1)throw new Error('WebGL framebuffer is empty');
+    const rgba=new Uint8Array(width*height*4);
+    gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
+    const error=gl.getError();
+    if(error!==gl.NO_ERROR)throw new Error('WebGL readPixels error '+error);
     const distinct=new Set();
     let luminance=0,variability=0,nonBlack=0,samples=0;
-    for(let row=0;row<5;row++)for(let column=0;column<8;column++){
-      const fy=(row+.5)/5,fx=(column+.5)/8;
-      const x=Math.max(0,Math.min(width-tile,Math.floor(width*fx-tile/2)));
-      const y=Math.max(0,Math.min(height-tile,Math.floor(height*fy-tile/2)));
-      gl.readPixels(x,y,tile,tile,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
-      const error=gl.getError();
-      if(error!==gl.NO_ERROR)throw new Error('WebGL readPixels error '+error);
-      for(let i=0;i<rgba.length;i+=4){
-        const red=rgba[i],green=rgba[i+1],blue=rgba[i+2];
-        distinct.add([red>>4,green>>4,blue>>4].join(':'));
-        const light=(red+green+blue)/3;
-        luminance+=light;variability+=Math.abs(red-blue);
-        if(red+green+blue>60)nonBlack++;
-        samples++;
-      }
+    for(let sy=0;sy<36;sy++)for(let sx=0;sx<64;sx++){
+      const x=Math.min(width-1,Math.floor((sx+.5)*width/64));
+      const y=Math.min(height-1,Math.floor((sy+.5)*height/36));
+      const i=(y*width+x)*4;
+      const red=rgba[i],green=rgba[i+1],blue=rgba[i+2];
+      distinct.add([red>>4,green>>4,blue>>4].join(':'));
+      const light=(red+green+blue)/3;
+      luminance+=light;variability+=Math.abs(red-blue);
+      if(red+green+blue>60)nonBlack++;
+      samples++;
     }
     return {colors:distinct.size,brightness:Math.round(luminance/samples),
       colorVar:Math.round(variability/samples),
