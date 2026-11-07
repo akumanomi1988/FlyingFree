@@ -4,7 +4,7 @@ import {createFaunaLODFactory,faunaPathAngle,shouldAnimateFauna,terrainSlopeAngl
 import {createQuadrupedLegRig} from './faunaLegRig.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
-export function createEcosystem(THREE,scene,seed=1988,quality=1){
+export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=null){
   const rng=random(seed^0x5ade9);
   const root=new THREE.Group();scene.add(root);
   const mat=(color)=>new THREE.MeshStandardMaterial({color,roughness:.94,flatShading:false});
@@ -32,11 +32,20 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
     let fallback=null,bestPenalty=Infinity;
     // Search tropical foothills, river margins and low forests, not only the
     // volcanic summit. The old 950 m sampling window stranded mammals on peaks.
-    for(let i=0;i<110;i++){
-      const theta=rng()*TAU,radius=1250+rng()*(1800+maxRadius*.5);
-      const x=Math.cos(theta)*radius,z=Math.sin(theta)*radius*.82;
+    const useLocal=initialObserver&&rng()<.76;
+    for(let i=0;i<140;i++){
+      const theta=rng()*TAU;
+      // The old 1.25-3.5 km ring produced virtually no wildlife along the
+      // selected bird's path. Persistent animals now occupy suitable habitats
+      // in the initial observation region, with remaining herds elsewhere.
+      const nearby=useLocal&&i<104;
+      const radius=nearby?45+rng()*(160+maxRadius*.45):
+        1250+rng()*(1800+maxRadius*.5);
+      const x=(nearby?initialObserver.x:0)+Math.cos(theta)*radius;
+      const z=(nearby?initialObserver.z:0)+Math.sin(theta)*radius*(nearby?1:.82);
       const y=terrainHeight(x,z,seed);
-      if(y>=minElevation&&y<=maxElevation)return [x,y,z];
+      if(y>=minElevation&&y<=maxElevation&&
+          (nearby||y>0))return [x,y,z];
       const penalty=Math.abs(y-clamp(y,minElevation,maxElevation));
       if(y>0&&penalty<bestPenalty){bestPenalty=penalty;fallback=[x,y,z];}
     }
@@ -138,9 +147,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
       root.add(g);actors.push(g);
     }
   }
-  addActor('deer',Math.round(8*quality),950);
-  addActor('fox',Math.round(4*quality),1050);
-  addActor('rabbit',Math.round(12*quality),900);
+  addActor('deer',Math.round(15*quality),950);
+  addActor('fox',Math.round(9*quality),1050);
+  addActor('rabbit',Math.round(24*quality),900);
   const foxes=actors.filter(g=>g.userData.state.type==='fox');
   const rabbits=actors.filter(g=>g.userData.state.type==='rabbit');
   const flowers=[];
@@ -163,7 +172,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   const butterflies=[];
   const wingGeom=new THREE.SphereGeometry(1,6,4);
   const wingMat=mat(0xf1c97e);
-  for(let i=0;i<Math.round(30*quality);i++){
+  for(let i=0;i<Math.round(45*quality);i++){
     const flower=flowers[Math.floor(rng()*flowers.length)];
     const g=new THREE.Group();const left=create(g,wingGeom,wingMat,-.47,0,0,.58,.13,.38);
     const right=create(g,wingGeom,wingMat,.47,0,0,.58,.13,.38);
@@ -180,7 +189,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1){
   const gullDark=mat(0x667681),gullBill=mat(0xd8ad5b);
   // Secondary birds have a 3D silhouette nearby, but revert to two triangles
   // after the camera moves away. Each LOD is selected by the renderer.
-  for(let i=0;i<Math.round(22*quality);i++){
+  for(let i=0;i<Math.round(34*quality);i++){
     const high=new THREE.Group();
     create(high,sphere,gullMat,0,0,0,.17,.14,.45);
     create(high,sphere,gullMat,0,.14,-.38,.14,.14,.16);

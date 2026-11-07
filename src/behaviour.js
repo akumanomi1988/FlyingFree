@@ -41,22 +41,20 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  energy=clamp(finite(initial?.energy,.76)),hunger=clamp(finite(initial?.hunger,.79));
  let food=null,activityChangedAt=0,landings=0,feedings=0,landingRest=false;
  const perches=Array.isArray(world.perches)?world.perches:[];
- let roost=null;
+ let roost=null,restSite=null,rests=0;
  let currentTime=0,currentRain=0;
  const buoyancy={};
  function clearance(px,pz,kind){
   const ground=terrainHeight(px,pz,seed);
   if(marine){
-   if(ground>-7)return ground+45;
+   if(ground>-7)return kind==='land'?ground+Math.max(.18,profile.wingspan*.32):ground+45;
    return kind==='land'?oceanSurfaceHeight(px,pz,currentTime,currentRain)+
      Math.max(.045,profile.wingspan*.042):kind==='hunt'?10:40;
   }
   if(swift)return Math.max(ground+70,95);
-  if(kind==='land'){
-   const biome=habitatAt(px,pz,seed);
-   const canopy=biome.type==='forest'?18:biome.type==='wetland'?6:0;
-   return ground+Math.max(.18,profile.wingspan*.32)+(ecology.rest==='branch'?canopy*.66:0);
-  }
+  // The ground is not a tree canopy: branch height comes only from a
+  // specific tree record chosen by selectRoost().
+  if(kind==='land')return ground+Math.max(.18,profile.wingspan*.32);
   // Fishing approaches descend to the actual waterline. Merely crossing a
   // fish habitat 10-14 m above it must not count as a successful catch.
   if(kind==='hunt'&&food?.kind==='fish'&&['approach','feed'].includes(state)){
@@ -74,7 +72,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  }
  let lastPatrolBiome=null;
  function selectPatrol(){
-  roost=null;
+  roost=null;restSite=null;
   let bestX=x,bestZ=z,best=-Infinity;
   // Marine birds may circle coastal bays or open water, but raptors and forest
   // birds strongly favor terrestrial habitat at every waypoint.
@@ -96,27 +94,63 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  }
  function selectRoost(){
   roost=null;
-  // Cliff-resting raptors also use tall tree perches when available.
-  if(!ecology.canPerch||ecology.rest==='water')return null;
+  if(!ecology.canPerch||!['branch','cliff'].includes(ecology.rest))return null;
   let best=null,cost=Infinity;
-  // Actual instanced tree records ensure that perching birds finish near a
-  // particular canopy, not at a random floating point above empty terrain.
+  // Perching requires a real instanced tree, not an invented point over
+  // terrain. Herons and sea birds do not use this generic tree search.
   for(const tree of perches){
-   if(tree.kind==='palm'||tree.kind==='cypress')continue;
+   if(['palm','cypress'].includes(tree.kind))continue;
    const d2=(tree.x-x)**2+(tree.z-z)**2;
    if(d2<cost){cost=d2;best=tree;}
   }
   if(best&&cost<2000*2000){
-   roost={x:best.x,z:best.z,y:Math.max(best.y+best.height*.70,
-     clearance(best.x,best.z,'land')+1.5)};
+   const direction=best.angle??0;
+   const extent=Math.max(1.1,Math.min(best.height*.18,5));
+   const branchY=best.y+best.height*.68;
+   roost={kind:'branch',
+    x:best.x+Math.sin(direction)*extent,
+    z:best.z+Math.cos(direction)*extent,
+    y:branchY+Math.max(.18,profile.wingspan*.32),
+    branchY,
+    anchorX:best.x,anchorY:best.y+best.height*.50,anchorZ:best.z};
+   restSite=roost;
    return roost;
   }
   return null;
  }
+ function selectGroundRest(){
+  let best=null,bestScore=-Infinity;
+  const preferences=marine?['ocean']:ecology.rest==='wetland'?
+   ['wetland','shore']:ecology.rest==='cliff'?
+   ['rock','highland','meadow']:['forest','meadow','wetland','highland'];
+  for(let i=0;i<48;i++){
+   const a=rng()*TAU,dist=i===0?0:55+rng()*(marine?700:440);
+   const px=x+Math.cos(a)*dist,pz=z+Math.sin(a)*dist;
+   const habitat=habitatAt(px,pz,seed);
+   const acceptable=marine?habitat.type==='ocean':
+     habitat.type!=='ocean'&&habitat.slope<.82;
+   if(!acceptable)continue;
+   const match=preferences.indexOf(habitat.type);
+   const preference=match<0?-.6:1-match*.16;
+   const score=preference-dist/1100+rng()*.12;
+   if(score>bestScore){
+    bestScore=score;
+    best={x:px,z:pz,kind:marine?'water':'ground',
+      y:clearance(px,pz,'land')};
+   }
+  }
+  if(!best){
+   // A valid terrestrial site is preferable to indefinitely hovering at a
+   // branch-free home coordinate. Marine fallbacks seek the seeded ocean.
+   const px=marine?homeX:x,pz=marine?homeZ:z;
+   best={x:px,z:pz,kind:marine?'water':'ground',y:clearance(px,pz,'land')};
+  }
+  restSite=best;
+  return best;
+ }
  function returnToRest(){
-  const chosen=selectRoost();
-  const px=marine?x:(chosen?.x??homeX),pz=marine?z:(chosen?.z??homeZ);
-  target(px,pz,chosen?.y??clearance(px,pz,'land'));
+  const site=selectRoost()??selectGroundRest();
+  target(site.x,site.z,site.y);
  }
  function transition(next,t){state=next;activityChangedAt=t;}
  function chooseAction(t,day,rain){
@@ -162,7 +196,8 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   // Intent is not an action: seeking shelter/food and descending do not
   // replenish either need. A perching bird must stop and make contact first.
   const floorAtRest=Math.max(roost?.y??clearance(x,z,'land'),clearance(x,z,'land'));
-  const restContact=state==='rest'&&velocity<.85&&Math.abs(y-floorAtRest)<1.0;
+  const restContact=state==='rest'&&velocity<.85&&
+    Math.hypot(tx-x,tz-z)<4&&Math.abs(y-floorAtRest)<.85;
   const resting=state==='aerial_rest'||restContact;
   const feeding=state==='feed';
   energy=clamp(energy+(resting?.022:feeding?.008:-.0029*ecology.fatigueDrain)*dt);
@@ -206,10 +241,14 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   else if(state==='landing'){
    const perchFloor=clearance(x,z,'land');
    const perchContact=Math.max(roost?.y??perchFloor,perchFloor);
-   if(Math.hypot(tx-x,tz-z)<12&&Math.abs(y-perchContact)<3.4){
+   if(Math.hypot(tx-x,tz-z)<3.2&&Math.abs(y-perchContact)<.75&&velocity<.85){
     transition(landingRest?'rest':'feed',t);
     until=t+(landingRest?20+rng()*14:5+rng()*6);
     landings++;
+    if(landingRest)rests++;
+   }else if(t-activityChangedAt>105){
+    // A blocked touchdown must not strand a subject at a frozen location.
+    transition('patrol',t);selectPatrol();until=t+10;
    }
   }
   else if(state==='feed'&&t>=until){
@@ -217,7 +256,8 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    feedings++;food=null;transition('takeoff',t);selectPatrol();until=t+3;
   }
   else if(state==='return'&&Math.hypot(tx-x,tz-z)<15){
-   landingRest=true;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
+   landingRest=true;transition('landing',t);
+   target(tx,tz,Math.max(roost?.y??clearance(tx,tz,'land'),clearance(tx,tz,'land')));
   }
   else if(state==='shelter'&&Math.hypot(tx-x,tz-z)<15){
    landingRest=true;transition('landing',t);
@@ -249,6 +289,9 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
     cruise*(state==='aerial_rest'?.42:state==='feed'&&food?.kind==='insect'?.72:
       state==='seek_food'?1.08:state==='patrol'?1:state==='takeoff'?.9:slowing?.62:.78);
   if(slowing&&dist<80)wanted*=clamp(dist/80,.12,1);
+  // Actively brake before contact; otherwise the .12 minimum speed keeps
+  // the landing state sliding over a branch or along the ground forever.
+  if(state==='landing'&&dist<3.2)wanted=0;
   const acceleration=onGround?65:profile.flight==='dash'?38:29;
   velocity+=clamp(wanted-velocity,-acceleration*dt,acceleration*dt);
   const step=Math.min(dist,Math.max(0,velocity)*dt);
@@ -275,7 +318,9 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
     y=Math.max(wave.y,y-2.6*dt);
     waterPitch=wave.pitch;waterRoll=wave.roll;
   }
-  const grounded=onGround&&velocity<.8&&!floating;
+  const grounded=onGround&&velocity<.8&&!floating&&
+    Math.hypot(tx-x,tz-z)<4&&Math.abs(y-Math.max(roost?.y??clearance(x,z,'land'),
+      clearance(x,z,'land')))<.85;
   return {x,y,z,heading,bank:clamp(diff*.22,-.48,.48),pitch:clamp(dy*1.4,-.30,.30),
    floating,waterPitch,waterRoll,
    state,mode:state,speed:velocity,velocity,
@@ -287,10 +332,13 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
      {x:food.x,y:food.y,z:food.z,kind:food.kind,biome:food.biome,
       contactY:clearance(food.x,food.z,'hunt')}:null,
    feedingProgress:state==='feed'?clamp((t-activityChangedAt)/Math.max(.1,until-activityChangedAt)):0,
-   roosting:grounded&&Boolean(roost),aerialFeeding,landings,feedings};
+   roosting:grounded&&Boolean(roost),aerialFeeding,landings,feedings,rests,
+   restSite:restSite&&['return','shelter','landing','rest'].includes(state)?
+    restSite:null};
  },
  get state(){return state;},
  get snapshot(){return {x,y,z,heading,velocity,energy,hunger};},
- get diagnostics(){return {state,energy,hunger,landings,feedings,lastPatrolBiome,home:{x:homeX,z:homeZ}};}
+ get diagnostics(){return {state,energy,hunger,landings,feedings,rests,
+   restSite,lastPatrolBiome,home:{x:homeX,z:homeZ}};}
  };
 }

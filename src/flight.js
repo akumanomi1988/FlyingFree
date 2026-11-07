@@ -86,7 +86,7 @@ export function createBirdRig(THREE,profile) {
   const sph=new THREE.SphereGeometry(1,22,14);
   const feather=createContourFeatherGeometry(THREE);
   const cylinder=new THREE.CylinderGeometry(.055,.08,.58,9);
-  const legs=[];
+  const legs=[],eyeMeshes=[];
   const add=(geo,mat,parent,xyz,scl,rot)=>{
     const mesh=new THREE.Mesh(geo,mat);mesh.position.set(...xyz);
     if(scl)mesh.scale.set(...scl);
@@ -98,7 +98,8 @@ export function createBirdRig(THREE,profile) {
   const longTail=profile.id==='swallow'||profile.id==='swift';
   const compact=isHumming||profile.id==='kingfisher';
   const neck=isHeron?1.20:.43;
-  add(sph,plumage,root,[0,0,.10],[compact?.36:.43,.37,isHeron?1.20:1.10]);
+  const torso=add(sph,plumage,root,[0,0,.10],
+    [compact?.36:.43,.37,isHeron?1.20:1.10]);
   add(sph,light,root,[0,.09,-.59],[.34,.27,.57]);
   if(isHeron){
     add(sph,plumage,root,[0,.35,-.93],[.20,.48,.22],[-.37,0,0]);
@@ -133,8 +134,9 @@ export function createBirdRig(THREE,profile) {
       [.08,.14,.17]);
     add(sph,iris,root,[ex,ey,headZ-.19],
       [isOwl?.125:.085,isOwl?.13:.087,.053]);
-    add(sph,eyes,root,[ex,ey,headZ-.23],
+    const pupil=add(sph,eyes,root,[ex,ey,headZ-.23],
       [isOwl?.066:.052,isOwl?.073:.052,.048]);
+    pupil.userData.openEyeY=pupil.scale.y;eyeMeshes.push(pupil);
     if(profile.id!=='swift'&&profile.id!=='swallow'){
       const leg=add(cylinder,bill,root,[side*.22,-.48,.32],[1,isHeron?1.85:.90,1],[.2,0,0]);
       leg.userData.restScaleY=isHeron?1.85:.90;
@@ -209,13 +211,15 @@ export function createBirdRig(THREE,profile) {
   if(profile.id==='kingfisher')add(sph,material(0x0d8fa6),root,[0,.20,.24],[.29,.22,.63]);
   if(profile.id==='swallow')add(sph,material(0x9a493c),root,[0,-.15,-.59],[.24,.12,.30]);
   root.scale.setScalar(birdRigScale(profile));
-  root.userData={profile,left,right,tail,legs,head,fold:0,flap:0,headTurn:0,geometryVersion:5,wingSilhouette:'single-continuous',
+  root.userData={profile,left,right,tail,legs,head,torso,eyeMeshes,fold:0,flap:0,
+    headTurn:0,geometryVersion:5,wingSilhouette:'single-continuous',
     plumageDrawCallsSaved:left.drawCallsSaved+right.drawCallsSaved};
   return root;
 }
 
 export function animateBirdRig(group,elapsed,activity,dt=1/60){
-  const {profile,left,right,tail,legs,head}=group.userData,flight=profile.flight;
+  const {profile,left,right,tail,legs,head,torso,eyeMeshes}=group.userData,
+    flight=profile.flight;
   const grounded=Boolean(activity.grounded);
   const resting=Boolean(activity.sleeping||grounded||activity.floating||activity.state==='rest');
   const foldWanted=resting?1:0;
@@ -267,6 +271,14 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
     feeding?.045*Math.sin(elapsed*2.2):.065*Math.sin(elapsed*.63);
   head.rotation.x+=(headPeck-head.rotation.x)*k;
   head.rotation.y+=(headTurn-head.rotation.y)*k;
+  // Quiet respiration and eyelid closure make a landed bird visibly at rest.
+  // There are no additional render meshes or skeleton allocations.
+  const sleepy=activity.state==='rest';
+  const breath=.012*Math.sin(elapsed*(sleepy?1.1:2.0)+profile.id.length);
+  torso.scale.y=.37*(1+(sleepy?breath:breath*.25));
+  const blinkWindow=Math.pow(Math.max(0,Math.sin(elapsed*.81+profile.id.length)),32);
+  const eyelid=sleepy?.74+.10*blinkWindow:blinkWindow*.92;
+  for(const eye of eyeMeshes)eye.scale.y=eye.userData.openEyeY*(1-eyelid);
   // Floating sea birds keep feet below their body, but never use the
   // exaggerated ground-landing extension below the waterline.
   const legsOut=grounded||activity.state==='landing'&&!activity.floating||
