@@ -49,6 +49,7 @@ async function render(name,query,width,height,runChecks){
         nonBlack:Math.round(nonBlack/(data.length/4)*100),
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,regionalBirds:s.regionalBirds,riverLife:s.riverLife,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
+        forestVisibility:s.forestVisibility,performanceTarget:s.performanceTarget,
         world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
         metrics:{energy:document.querySelector('#bird-energy')?.value,
@@ -122,6 +123,14 @@ async function render(name,query,width,height,runChecks){
       'Resolución adaptativa por debajo de su presupuesto');
     assert.ok(stats.adaptiveQuality.scale<=stats.adaptiveQuality.maxScale,
       'Resolución adaptativa sobrepasa el límite del dispositivo');
+    assert.equal(stats.performanceTarget?.fps,30,
+      'No hay objetivo explícito de 30 FPS');
+    assert.ok(stats.forestVisibility?.visible>10,
+      'El bosque optimizado ha desaparecido del plano');
+    assert.ok(stats.forestVisibility?.visible<stats.forestVisibility?.total,
+      'Se siguen enviando todos los árboles a la GPU aunque no sean visibles');
+    assert.equal(stats.forestVisibility?.drawCalls,8,
+      'El streaming de copas multiplicó las llamadas de dibujo');
     if(name==='05-mobile-selector'){
       assert.ok(stats.framing&&Math.abs(stats.framing.y)<.95&&Math.abs(stats.framing.x)<.95,
         'Subject fell outside mobile portrait framing: '+JSON.stringify(stats.framing));
