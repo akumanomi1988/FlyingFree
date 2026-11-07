@@ -2,6 +2,7 @@ import {terrainHeight,random,clamp,TAU} from './core.js';
 import {resourcePoint,foodType,habitatAt,birdHabitatScore} from './ecology.js';
 import {oceanSurfaceHeight,oceanFloatPose} from './oceanMotion.js';
 import {birdEcology,flightAltitude} from './birdEcology.js';
+import {tropicalRenderHeight} from './tropicalTerrain.js';
 
 // Deterministic, species-aware utility AI. The bird has physiological drives and
 // explicit take-off, approach, landing, foraging, resting and sheltered states.
@@ -28,14 +29,15 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   if(score>spawnScore){spawnScore=score;spawnX=px;spawnZ=pz;}
  }
  const homeX=spawnX,homeZ=spawnZ;
+ const renderFloor=(px,pz)=>Math.max(terrainHeight(px,pz,seed),tropicalRenderHeight(px,pz,seed));
  // Species changes retain continuous world-space motion rather than respawning.
  // The new species still chooses fresh habitat-specific targets and flight dynamics.
  const finite=(v,fallback)=>Number.isFinite(v)?v:fallback;
  let x=finite(initial?.x,spawnX),
  z=finite(initial?.z,spawnZ),
- y=finite(initial?.y,marine?Math.max(25,terrainHeight(x,z,seed)+46):
+ y=finite(initial?.y,marine?Math.max(25,renderFloor(x,z)+46):
    Math.max(flightAltitude(profile,habitatAt(x,z,seed),
-     terrainHeight(x,z,seed))+8,profile.alt)),
+     renderFloor(x,z))+8,profile.alt)),
  heading=finite(initial?.heading,startA),
  velocity=clamp(finite(initial?.velocity,cruise*.55),0,110);
  let state='patrol',until=0,tx=x,tz=z,ty=y,
@@ -46,7 +48,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  let currentTime=0,currentRain=0;
  const buoyancy={};
  function clearance(px,pz,kind){
-  const ground=terrainHeight(px,pz,seed);
+  const ground=renderFloor(px,pz);
   if(marine){
    if(ground>-7)return kind==='land'?ground+Math.max(.18,profile.wingspan*.32):ground+45;
    return kind==='land'?oceanSurfaceHeight(px,pz,currentTime,currentRain)+
@@ -286,7 +288,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   heading+=clamp(diff,-maxTurn*dt,maxTurn*dt);
   const aerialFeeding=state==='feed'&&['fish','nectar','insect'].includes(food?.kind);
   const onGround=state==='rest'||(state==='feed'&&!aerialFeeding);
-  const overOcean=marine&&terrainHeight(x,z,seed)<-12;
+  const overOcean=marine&&renderFloor(x,z)<-12;
   const floating=overOcean&&state==='rest';
   const slowing=state==='approach'||state==='landing'||state==='return'||state==='shelter';
   let wanted=onGround?0:state==='feed'&&food?.kind==='nectar'?1.6:
