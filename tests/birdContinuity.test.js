@@ -46,3 +46,17 @@ test('invalid incoming state falls back to deterministic finite values',()=>{
   assert.equal(action.hunger,1);
   assert.equal(action.energy,0);
 });
+
+test('canopy-feeding birds spawn at viable forest flight height instead of raptor altitude',async()=>{
+ const {terrainHeight}=await import('../src/core.js');
+ const {habitatAt}=await import('../src/ecology.js');
+ const {flightAltitude}=await import('../src/birdEcology.js');
+ for(const id of ['hummingbird','kingfisher']){
+  const bird=species(id),brain=createBirdBrain(bird,1988);
+  const point=brain.update(0,0,1,0);
+  const ground=terrainHeight(point.x,point.z,1988);
+  const ideal=flightAltitude(bird,habitatAt(point.x,point.z,1988),ground);
+  assert.ok(point.y>=ideal,'starts below habitat clearance: '+id);
+  assert.ok(point.y-ground<75,'canopy bird starts above the canopy: '+id);
+ }
+});
