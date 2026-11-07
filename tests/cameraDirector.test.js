@@ -181,3 +181,20 @@ test('terrain-aware mobile orbit does not override landscape and TV direction',(
    'wide-screen raptor/TV camera must not orbit for portrait-only hillside fix');
  assert.ok(camera.position.distanceTo(bird)<100);
 });
+
+
+test('storm over high mountain establishes a terrain-revealing shot without a cut',()=>{
+ const camera=new THREE.PerspectiveCamera(55,16/9,.15,12500);
+ const bird=new THREE.Vector3(0,600,0);
+ camera.position.set(1,602,12);camera.lookAt(bird);
+ const director=createCameraDirector(THREE,()=>510,1988);
+ const result=director.update(camera,bird,0,40,'patrol',2.3,0,1/60,
+   null,null,{rain:.9,cloud:.85,fog:.6});
+ assert.equal(result.shot,'scenic');
+ assert.equal(result.transitions,0,'initial composition should not be a jump cut');
+ assert.equal(result.reason,'storm-highland');
+ // Stable weather should hold the same composition rather than flicker.
+ for(let i=1;i<=90;i++)director.update(camera,bird,0,40,'patrol',2.3,
+   i/60,1/60,null,null,{rain:.9,cloud:.85,fog:.6});
+ assert.equal(director.shot,'scenic');
+});

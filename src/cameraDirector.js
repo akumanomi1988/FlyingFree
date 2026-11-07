@@ -59,7 +59,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false,slopeX:0,slopeZ:0};
   let lastReason='initial';
 
-  function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt,focus=null,wildlife=null){
+  function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt,focus=null,wildlife=null,weather=null){
     const delta=clamp(dt,0,.1),clock=Number.isFinite(time)?time:0;
     if(clock<lastTime){
       shotSince=clock;contextAt=-Infinity;turnRate=0;
@@ -89,7 +89,16 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       contextAt=clock;
     }
     context.speed=speed;context.turnRate=turnRate;
-    const proposed=inspectionShot??cameraShotAt(clock,behaviour,context);
+    // Storms over steep highlands previously began with a flat, almost
+    // monochrome chase view. Establish a terrain-revealing composition from
+    // the first frame; ordinary shots still obey the continuity hold.
+    const terrainElevation=bird.y-context.groundClearance;
+    const stormHighland=!inspectionShot&&terrainElevation>260&&
+      context.groundClearance>40&&(weather?.rain>.45||weather?.fog>.48);
+    if(!hasPrevious&&stormHighland){
+      currentShot='scenic';shotSince=clock;lastReason='storm-highland';
+    }
+    const proposed=inspectionShot??(stormHighland?'scenic':cameraShotAt(clock,behaviour,context));
     const close=['approach','landing','feed','rest','shelter','return'].includes(behaviour);
     const leavingClose=currentShot==='close'&&!close;
     // Active behaviours get priority, but ordinary scenery/turn changes must

@@ -460,7 +460,7 @@ function fly(date,dt,sun){
 function directCamera(bird,dt,wildlifeFocus=null){
   const frame=cameraDirector.update(camera,bird,birdModel.rotation.y,
     birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,elapsed,dt,
-    lastBirdAction?.foodTarget,wildlifeFocus);
+    lastBirdAction?.foodTarget,wildlifeFocus,weatherState);
   status.cameraShot=frame.shot;
   status.camera={shot:frame.shot,reason:frame.reason,transitions:frame.transitions,
     terrainRelief:Math.round(frame.relief),altitudeAGL:Math.round(frame.groundClearance),
