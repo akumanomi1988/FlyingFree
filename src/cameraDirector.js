@@ -1,4 +1,3 @@
-import {tropicalRenderHeight} from './tropicalTerrain.js';
 // A cinematographer that stays attached to the bird rather than cutting to
 // fixed coordinates. Predictive framing, damped transitions and terrain clearance.
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -44,11 +43,12 @@ export function cameraPlanAt(yaw,wingspan,speed,shot='chase'){
     y:elevation*d,z:forwardZ*back*d+sideZ*lateral*d,
     leadX:forwardX*lead,leadZ:forwardZ*lead,fov,distance:d};
 }
-export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}={}){
+export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null,renderedHeight=null}={}){
   // Read-only deterministic visual inspection mode. Only supplied by main.js
   // with ?selftest=1; normal viewers always get the event-based director.
   const inspectionShot=CAMERA_SHOTS.includes(qaShot)||qaShot==='close'?qaShot:null;
-  const surfaceHeight=(x,z)=>Math.max(terrainHeight(x,z,seed),tropicalRenderHeight(x,z,seed));
+  const surfaceHeight=(x,z)=>Math.max(terrainHeight(x,z,seed),
+    renderedHeight?renderedHeight(x,z,seed):-Infinity);
   const desired=new THREE.Vector3(),target=new THREE.Vector3(),foodFocus=new THREE.Vector3(),
     birdMotion=new THREE.Vector3();
   const lookMatrix=new THREE.Matrix4(),lookRotation=new THREE.Quaternion();
