@@ -47,7 +47,8 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   // Read-only deterministic visual inspection mode. Only supplied by main.js
   // with ?selftest=1; normal viewers always get the event-based director.
   const inspectionShot=CAMERA_SHOTS.includes(qaShot)||qaShot==='close'?qaShot:null;
-  const desired=new THREE.Vector3(),target=new THREE.Vector3(),birdMotion=new THREE.Vector3();
+  const desired=new THREE.Vector3(),target=new THREE.Vector3(),foodFocus=new THREE.Vector3(),
+    birdMotion=new THREE.Vector3();
   const lookMatrix=new THREE.Matrix4(),lookRotation=new THREE.Quaternion();
   const lastBird=new THREE.Vector3(),smoothedTarget=new THREE.Vector3();
   let hasPrevious=false,currentShot=inspectionShot??'chase',shotSince=0,transitions=0;
@@ -58,7 +59,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   const context={groundClearance:100,relief:0,speed:0,turnRate:0,water:false,slopeX:0,slopeZ:0};
   let lastReason='initial';
 
-  function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt){
+  function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt,focus=null){
     const delta=clamp(dt,0,.1),clock=Number.isFinite(time)?time:0;
     if(clock<lastTime){
       shotSince=clock;contextAt=-Infinity;turnRate=0;
@@ -172,6 +173,17 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     desired.y+=Math.min(140,Math.max(0,needed));
     desired.y=Math.max(desired.y,Math.max(-9,terrainHeight(desired.x,desired.z,seed))+clearance);
     target.set(bird.x+plan.leadX,bird.y+Math.max(.08,wingspan*.10),bird.z+plan.leadZ);
+    // During foraging, keep food and beak in the same view instead of looking
+    // down the flight trajectory and cropping the action. Avoid pulling the
+    // subject outside the frame for tiny species by limiting focus distance.
+    if(close&&focus&&['approach','landing','feed'].includes(behaviour)&&
+       Number.isFinite(focus.x)&&Number.isFinite(focus.contactY)&&Number.isFinite(focus.z)){
+      foodFocus.set(focus.x,focus.contactY,focus.z);
+      const distance=foodFocus.distanceTo(bird);
+      const maxDistance=Math.max(.45,wingspan*1.55);
+      if(distance>maxDistance)foodFocus.lerp(bird,1-maxDistance/distance);
+      target.lerp(foodFocus,.24);
+    }
     const k=1-Math.exp(-delta*(currentShot==='scenic'||currentShot==='high-reveal'?1.35:2.6));
     // Establish a new small-bird documentary shot on its viable hillside
     // vantage from the very first frame. Otherwise, moving the orbit across
