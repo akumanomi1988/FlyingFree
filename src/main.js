@@ -127,7 +127,7 @@ function init(){
   cameraLook.set(startPos.x,startPos.y,startPos.z);
   camera.lookAt(cameraLook);
   ecosystem=createEcosystem(THREE,scene,worldSeed,innerWidth<720?.65:1,startPos);
-  wildlifeObservatory=createWildlifeObservatory(THREE);
+  wildlifeObservatory=createWildlifeObservatory(THREE,{terrainHeight,seed:worldSeed});
   regionalBirds.update(0,startPos,camera.position,startSun.daylight,0);
   groundDetail=createGroundDetail(THREE,scene,innerWidth<720?.5:1,windField,worldSeed);
   atmospherics=createAtmospherics(THREE,scene,innerWidth<720?.56:1);

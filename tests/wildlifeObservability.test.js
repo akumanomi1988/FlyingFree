@@ -79,3 +79,23 @@ test('projected animals are measured without equating instances with visibility'
  assert.equal(c.stats.recognizableProjected,0);
  assert.equal(c.focus,null);
 });
+
+test('terrain-hidden wildlife cannot drive a documentary focus',()=>{
+ const camera=new THREE.PerspectiveCamera(55,16/9,.1,1200);
+ camera.position.set(0,5,14);camera.lookAt(0,1,0);camera.updateMatrixWorld();
+ const actor=new THREE.Group();actor.position.set(0,0,0);
+ actor.userData={state:{type:'deer'},behaviour:'foraging',populationKey:'hidden-deer'};
+ const terrainHeight=(x,z)=>z>5&&z<10?12:-10;
+ const obs=createWildlifeObservatory(THREE,{minPixels:10,terrainHeight,seed:1988});
+ const result=obs.update(1,[actor],camera,{x:0,y:7,z:0},900);
+ assert.equal(result.stats.inFrustum,1);
+ assert.equal(result.stats.recognizableProjected,1);
+ assert.equal(result.stats.terrainOccluded,1);
+ assert.equal(result.stats.actionCandidates,0);
+ assert.equal(result.focus,null);
+ const visible=createWildlifeObservatory(THREE,{minPixels:10,
+   terrainHeight:()=>-10}).update(1,[actor],camera,{x:0,y:7,z:0},900);
+ assert.equal(visible.stats.terrainOccluded,0);
+ assert.equal(visible.stats.actionCandidates,1);
+ assert.equal(visible.focus.type,'deer');
+});

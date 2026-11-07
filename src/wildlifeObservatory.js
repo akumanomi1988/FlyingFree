@@ -3,16 +3,32 @@
 const BODY_HEIGHT={deer:1.65,fox:.72,rabbit:.38};
 const ACTION_SCORE={hunt:9,flee:9,alert:5,foraging:3,travelling:1};
 
-export function createWildlifeObservatory(THREE,{minPixels=9}={}){
+export function createWildlifeObservatory(THREE,{minPixels=9,terrainHeight=null,seed=1988}={}){
+  // Screen-space visibility is not equivalent to line-of-sight. Sample only
+  // nearby, recognizable candidates: the broad-phase remains GPU-independent.
+  function occluded(eye,subject){
+    if(!terrainHeight)return false;
+    const dx=subject.x-eye.x,dz=subject.z-eye.z;
+    const horizontal=Math.hypot(dx,dz);
+    if(horizontal<8)return false;
+    const steps=Math.min(12,Math.max(4,Math.ceil(horizontal/28)));
+    for(let i=1;i<steps;i++){
+      const t=i/steps;
+      const ground=terrainHeight(eye.x+dx*t,eye.z+dz*t,seed);
+      if(Number.isFinite(ground)&&ground+.45>eye.y+(subject.y-eye.y)*t)
+        return true;
+    }
+    return false;
+  }
   const point=new THREE.Vector3(),projected=new THREE.Vector3();
   let lastUpdate=-Infinity,focus=null,focusUntil=-Infinity;
-  let stats={nearby:0,inFrustum:0,recognizableProjected:0,
+  let stats={nearby:0,inFrustum:0,recognizableProjected:0,terrainOccluded:0,
     actionCandidates:0,focus:null,lastSampleAt:null};
 
   function update(time,actors,camera,hero,height=900){
     if(time-lastUpdate<.45)return {focus,stats};
     lastUpdate=time;
-    let nearby=0,inFrustum=0,recognizableProjected=0,actionCandidates=0;
+    let nearby=0,inFrustum=0,recognizableProjected=0,terrainOccluded=0,actionCandidates=0;
     const eligible=[];
     const focal=height/(2*Math.tan(camera.fov*Math.PI/360));
     for(const actor of actors){
@@ -31,6 +47,7 @@ export function createWildlifeObservatory(THREE,{minPixels=9}={}){
       const pixels=BODY_HEIGHT[state.type]*focal/distance;
       if(pixels<minPixels)continue;
       recognizableProjected++;
+      if(occluded(camera.position,point)){terrainOccluded++;continue;}
       const horizontal=Math.hypot(actor.position.x-hero.x,
         actor.position.z-hero.z);
       if(horizontal>65||Math.abs(hero.y-point.y)>75)continue;
@@ -48,7 +65,7 @@ export function createWildlifeObservatory(THREE,{minPixels=9}={}){
       focus=eligible[0]||null;
       focusUntil=time+7;
     }
-    stats={nearby,inFrustum,recognizableProjected,actionCandidates,
+    stats={nearby,inFrustum,recognizableProjected,terrainOccluded,actionCandidates,
       focus:focus?{type:focus.type,behaviour:focus.behaviour,
         pixels:Math.round(focus.pixels)}:null,
       lastSampleAt:+time.toFixed(1)};
