@@ -229,7 +229,9 @@ function createForest(){
   for(let attempt=0;attempt<n*8&&trees<n;attempt++){
     const x=(rng()-.5)*9950,z=(rng()-.5)*8600;
     const candidate=tropicalTerrainSample(x,z,worldSeed),y=candidate.height;
-    if(y<12||y>730||rng()<smooth(430,700,y)*.48)continue;
+    // A submerged channel must not contain forest trunks; riparian trees
+    // occupy the damp banks, outside the actual flowing-water boundary.
+    if(candidate.river>.23||y<12||y>730||rng()<smooth(430,700,y)*.48)continue;
     const habitat=habitatAt(x,z,worldSeed);
     if(habitat.type==='rock'||habitat.slope>1.02)continue;
     const s=.78+rng()*.50,a=rng()*TAU;
