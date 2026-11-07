@@ -106,6 +106,7 @@ export function createBirdRig(THREE,profile) {
   }
   const headY=isHeron?.71:.22;
   const headZ=isHeron?-1.20:-1.04;
+  const headPartsStart=root.children.length;
   add(sph,crown,root,[0,headY,headZ],[isOwl?.39:.30,isOwl?.36:.28,.34]);
   if(isOwl){
     for(const side of [-1,1]){
@@ -143,6 +144,15 @@ export function createBirdRig(THREE,profile) {
     }
   }
 
+  // Give the head (eyes + beak included) its own pivot. This preserves the
+  // original rig dimensions while making pecking, swallowing and looking
+  // around possible without rotating the entire flying bird.
+  const head=new THREE.Group();head.position.set(0,headY,headZ);
+  for(const mesh of root.children.slice(headPartsStart)){
+    if(legs.includes(mesh))continue;
+    root.remove(mesh);mesh.position.sub(head.position);head.add(mesh);
+  }
+  root.add(head);
   const plan=wingPlanform(profile),wingGeo=createWingSurfaceGeometry(THREE,profile.wings,plan);
   function wing(side) {
     const pivot=new THREE.Group();pivot.position.set(side*.29,.12,-.07);root.add(pivot);
@@ -199,13 +209,13 @@ export function createBirdRig(THREE,profile) {
   if(profile.id==='kingfisher')add(sph,material(0x0d8fa6),root,[0,.20,.24],[.29,.22,.63]);
   if(profile.id==='swallow')add(sph,material(0x9a493c),root,[0,-.15,-.59],[.24,.12,.30]);
   root.scale.setScalar(birdRigScale(profile));
-  root.userData={profile,left,right,tail,legs,fold:0,flap:0,headTurn:0,geometryVersion:4,wingSilhouette:'single-continuous',
+  root.userData={profile,left,right,tail,legs,head,fold:0,flap:0,headTurn:0,geometryVersion:5,wingSilhouette:'single-continuous',
     plumageDrawCallsSaved:left.drawCallsSaved+right.drawCallsSaved};
   return root;
 }
 
 export function animateBirdRig(group,elapsed,activity,dt=1/60){
-  const {profile,left,right,tail,legs}=group.userData,flight=profile.flight;
+  const {profile,left,right,tail,legs,head}=group.userData,flight=profile.flight;
   const grounded=Boolean(activity.grounded);
   const resting=Boolean(activity.sleeping||grounded||activity.floating||activity.state==='rest');
   const foldWanted=resting?1:0;
@@ -247,6 +257,16 @@ export function animateBirdRig(group,elapsed,activity,dt=1/60){
   tail.rotation.x=-fold*.13+(1-fold)*Math.sin(elapsed*.95)*.052+
     (resting?.018*Math.sin(elapsed*.72):0);
   tail.scale.x=1+(activity.state==='landing'?.23:.07)*Math.abs(bank);
+  // Perched feeding uses a deliberate peck / tear-and-swallow rhythm, while
+  // airborne fishers and nectar eaters incline their head toward the resource.
+  const headPeck=feeding&&grounded?-.22-.17*Math.sin(elapsed*8.2):
+    feeding&&activity.food==='nectar'?-.18-.07*Math.sin(elapsed*10):
+    feeding&&activity.food==='fish'?-.28-.13*Math.sin(elapsed*5.2):
+    resting?.06*Math.sin(elapsed*.77):.035*Math.sin(elapsed*1.2);
+  const headTurn=resting?.13*Math.sin(elapsed*.31):
+    feeding?.045*Math.sin(elapsed*2.2):.065*Math.sin(elapsed*.63);
+  head.rotation.x+=(headPeck-head.rotation.x)*k;
+  head.rotation.y+=(headTurn-head.rotation.y)*k;
   // Floating sea birds keep feet below their body, but never use the
   // exaggerated ground-landing extension below the waterline.
   const legsOut=grounded||activity.state==='landing'&&!activity.floating||

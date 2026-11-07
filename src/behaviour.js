@@ -57,6 +57,12 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    const canopy=biome.type==='forest'?18:biome.type==='wetland'?6:0;
    return ground+Math.max(.18,profile.wingspan*.32)+(ecology.rest==='branch'?canopy*.66:0);
   }
+  // Fishing approaches descend to the actual waterline. Merely crossing a
+  // fish habitat 10-14 m above it must not count as a successful catch.
+  if(kind==='hunt'&&food?.kind==='fish'&&['approach','feed'].includes(state)){
+    return ground<-7?oceanSurfaceHeight(px,pz,currentTime,currentRain)+
+      Math.max(.5,profile.wingspan*.18):ground+Math.max(.35,profile.wingspan*.18);
+  }
   if(kind==='hunt')return ground+(profile.id==='hummingbird'?2.2:
     profile.id==='swallow'?Math.max(7,ecology.forageHeight):
     profile.id==='swift'?Math.max(25,ecology.forageHeight):
@@ -153,7 +159,12 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  update(t,dt,day=1,rain=0){
   dt=clamp(dt,0,.10);day=clamp(day);rain=clamp(rain);
   currentTime=t;currentRain=rain;
-  const resting=['rest','shelter','aerial_rest'].includes(state),feeding=state==='feed';
+  // Intent is not an action: seeking shelter/food and descending do not
+  // replenish either need. A perching bird must stop and make contact first.
+  const floorAtRest=Math.max(roost?.y??clearance(x,z,'land'),clearance(x,z,'land'));
+  const restContact=state==='rest'&&velocity<.85&&Math.abs(y-floorAtRest)<1.0;
+  const resting=state==='aerial_rest'||restContact;
+  const feeding=state==='feed';
   energy=clamp(energy+(resting?.022:feeding?.008:-.0029*ecology.fatigueDrain)*dt);
   hunger=clamp(hunger+(feeding?-.105:.0017)*dt);
   // Critical fatigue interrupts hunting and wandering instead of allowing
@@ -174,12 +185,15 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    else if(t>=until)chooseAction(t,day,rain);
   }
   else if(state==='approach'){
-   if(Math.hypot(tx-x,tz-z)<21){
+   const contactAltitude=clearance(food.x,food.z,'hunt');
+   // Do not award fish/nectar/insects when the subject is still tens of
+   // metres above the resource; allow the approach to finish descending.
+   if(Math.hypot(tx-x,tz-z)<13&&Math.abs(y-contactAltitude)<3.0){
      landingRest=false;
      if(['fish','nectar','insect'].includes(food?.kind)){
        // Nectar eaters hover at blossoms; swifts and swallows catch insects
        // in flight; fishers skim/dive. None lands on empty terrain to feed.
-       transition('feed',t);until=t+3+rng()*3;feedings++;
+       transition('feed',t);until=t+3+rng()*3;
        if(food.kind==='insect'){
          const px=x-Math.sin(heading)*100,pz=z-Math.cos(heading)*100;
          target(px,pz,Math.max(y,clearance(px,pz,'hunt')));
@@ -193,10 +207,15 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
    const perchFloor=clearance(x,z,'land');
    const perchContact=Math.max(roost?.y??perchFloor,perchFloor);
    if(Math.hypot(tx-x,tz-z)<12&&Math.abs(y-perchContact)<3.4){
-    transition(landingRest?'rest':'feed',t);until=t+(landingRest?20+rng()*14:5+rng()*6);landings++;if(!landingRest)feedings++;
+    transition(landingRest?'rest':'feed',t);
+    until=t+(landingRest?20+rng()*14:5+rng()*6);
+    landings++;
    }
   }
-  else if(state==='feed'&&t>=until){transition('takeoff',t);selectPatrol();until=t+3;}
+  else if(state==='feed'&&t>=until){
+   // Count a feeding only after the observable feeding interval has finished.
+   feedings++;food=null;transition('takeoff',t);selectPatrol();until=t+3;
+  }
   else if(state==='return'&&Math.hypot(tx-x,tz-z)<15){
    landingRest=true;transition('landing',t);target(tx,tz,clearance(tx,tz,'land'));
   }
@@ -259,9 +278,15 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   const grounded=onGround&&velocity<.8&&!floating;
   return {x,y,z,heading,bank:clamp(diff*.22,-.48,.48),pitch:clamp(dy*1.4,-.30,.30),
    floating,waterPitch,waterRoll,
-   state,mode:state,speed:velocity,velocity,resting:grounded||floating,grounded,
-   wingsFolded:grounded||floating||state==='rest'||state==='landing',flapping:state==='takeoff'||flight==='hover',
+   state,mode:state,speed:velocity,velocity,
+   resting:(state==='rest'&&(grounded||floating))||state==='aerial_rest',grounded,
+   wingsFolded:grounded||floating||state==='rest',flapping:state==='takeoff'||flight==='hover',
    hunger,energy,food:food?.kind||null,feedingHabitat:food?.biome||null,
+   // A single concrete site drives both the decision and the visible prop.
+   foodTarget:food&&!landingRest&&['seek_food','approach','landing','feed'].includes(state)?
+     {x:food.x,y:food.y,z:food.z,kind:food.kind,biome:food.biome,
+      contactY:clearance(food.x,food.z,'hunt')}:null,
+   feedingProgress:state==='feed'?clamp((t-activityChangedAt)/Math.max(.1,until-activityChangedAt)):0,
    roosting:grounded&&Boolean(roost),aerialFeeding,landings,feedings};
  },
  get state(){return state;},
