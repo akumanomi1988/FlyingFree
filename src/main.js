@@ -40,6 +40,7 @@ let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
 const worldSeed=opts.seed??sessionIslandSeed();
 const habitatMonitor=createHabitatMonitor(worldSeed);
 const minimap=createMinimap($('map-canvas'),worldSeed);
+$('mini-map').title='Isla · semilla '+worldSeed;
 let climatePending=false,climateInitialRestore=false,climateAttempt=0,climateMessage='Clima simulado · activar datos reales',tvActive=false,controlsTimeout=null,wakeLock=null;
 
 let currentBird=opts.bird||chooseBird(new Date(simMs));
@@ -687,6 +688,15 @@ function bindUI(){
  $('weather-btn').addEventListener('click',()=>void connectClimate(false));
  $('tv-consent').addEventListener('click',()=>void connectClimate(false));
  $('help-btn').addEventListener('click',()=>$('help').classList.toggle('hidden'));
+ $('new-island').addEventListener('click',()=>{
+   // New session geography, explicitly shareable in the URL. Fixed-seed QA
+   // still works unchanged and no geolocation data goes into the address.
+   let next=sessionIslandSeed();
+   if(next===worldSeed)next=(next%2147483647)+1;
+   const url=new URL(location.href);
+   url.searchParams.set('seed',String(next));
+   location.assign(url.href);
+ });
  const toggleMap=()=>{
    const hidden=$('mini-map').classList.toggle('hidden');
    $('map-btn').setAttribute('aria-pressed',String(!hidden));
