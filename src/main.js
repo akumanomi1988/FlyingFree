@@ -68,11 +68,18 @@ function init(){
   // The compositor must not retain the previous full-resolution framebuffer.
   // Snapshots are captured synchronously immediately after the next render.
   renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:false,powerPreference:'high-performance'});
-  scaleFactor=Math.min(window.devicePixelRatio||1,innerWidth<700?1.0:1.15,
-    Math.sqrt(3700000/Math.max(1,innerWidth*innerHeight)));
+  const maxScale=Math.min(window.devicePixelRatio||1,innerWidth<700?1:1.15,
+    Math.sqrt(3_000_000/Math.max(1,innerWidth*innerHeight)));
+  const minScale=Math.min(.48,maxScale);
+  // Start with a sane raster budget, then restore detail only on hardware
+  // that actually proves it can maintain a smooth documentary framerate.
+  scaleFactor=Math.max(minScale,Math.min(maxScale,innerWidth<700?.86:.84,
+    Math.sqrt(1_450_000/Math.max(1,innerWidth*innerHeight))));
   adaptiveResolution=createAdaptiveResolution({
-    maxScale:scaleFactor,downFps:29,downP95Ms:44,upFps:38,upP95Ms:29,
-    downHold:3,upHold:24,cooldownSeconds:6
+    maxScale,minScale,initialScale:scaleFactor,
+    downFps:29,downP95Ms:44,upFps:38,upP95Ms:29,
+    severeFps:22,severeFactor:.74,
+    downHold:2,upHold:24,cooldownSeconds:3
   });
   renderer.setPixelRatio(scaleFactor);
   renderer.setSize(innerWidth,innerHeight);
