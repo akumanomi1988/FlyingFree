@@ -76,7 +76,9 @@ export function createGroundDetail(THREE,scene,quality=1,windField=null,seed=198
   for(let i=0;i<item.n*7&&count<item.n;i++){
    const x=cx+(rng()-.5)*350,z=cz+(rng()-.5)*350;
    const h=habitatAt(x,z,seed),density=foliageDensity(h,item.name);
-   if(rng()>density)continue;
+   // Meadows may border a stream, but grass and flowers cannot grow
+   // through its moving water. Bank reeds are handled separately.
+   if(h.river>.22||rng()>density)continue;
    const scale=(.55+rng()*1.55)*GROUND_DETAIL_SCALE[item.name];
    dummy.position.set(x,h.height+.025,z);
    dummy.rotation.set(0,rng()*Math.PI*2,item.name==='grass'?(rng()-.5)*.17:0);
