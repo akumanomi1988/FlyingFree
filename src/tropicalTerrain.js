@@ -162,7 +162,20 @@ function riverProfile(channel,seed){
       Math.min(smoothed,i===0?smoothed:previous-fall));
     previous=surface[i];
   }
-  const profile={surface,first,last,n,length};
+  // A running minimum alone creates abrupt, artificial ramps whenever the
+  // noisy volcanic surface dips. Smooth that *monotone* course with a compact
+  // triangular low-pass kernel (~500 m of river) to distribute relief into
+  // natural reaches without introducing any uphill water.
+  const shaped=new Float64Array(n+1),radius=13;
+  for(let i=0;i<=n;i++){
+    let sum=0,weights=0;
+    for(let d=-radius;d<=radius;d++){
+      const index=clamp(i+d,0,n),w=radius+1-Math.abs(d);
+      sum+=surface[index]*w;weights+=w;
+    }
+    shaped[i]=sum/weights;
+  }
+  const profile={surface:shaped,first,last,n,length};
   if(profileCache.size>=48)profileCache.delete(profileCache.keys().next().value);
   profileCache.set(key,profile);
   return profile;
