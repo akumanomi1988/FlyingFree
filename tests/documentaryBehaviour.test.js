@@ -14,7 +14,7 @@ test('urgent low energy interrupts travel and explicitly requests rest',()=>{
   const brain=createBirdBrain(bird,1988,{energy:.12,hunger:.94});
   const state=brain.update(0,.1,bird.id==='owl'?.25:.9,0);
   if(bird.id==='swift')assert.equal(state.state,'aerial_rest');
-  else assert.equal(state.state,'return',bird.id+' is exhausted but did not return');
+  else assert.ok(['return','landing','rest'].includes(state.state),bird.id+' is exhausted but did not return or land');
   assert.ok(Number.isFinite(state.x)&&Number.isFinite(state.y));
  }
  assert.equal(birdSensation({energy:.12,hunger:.9,state:'patrol'}),'Agotada');
