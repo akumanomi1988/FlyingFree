@@ -30,29 +30,18 @@ async function render(name,query,width,height,runChecks){
     await page.waitForTimeout(1100);
     await page.waitForFunction(()=>typeof window.__FLYINGFREE_STATUS__?.motion?.motes==='number',
       null,{timeout:12000});
-    // Read WebGL pixels inside the next RAF, immediately after the scene's
-    // registered render callback. With preserveDrawingBuffer=false, reading
-    // after compositing produces a black buffer even when the viewer sees
-    // correct pixels. This remains a real WebGL pixel check.
-    const stats=await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>{
+    // Ask the engine for a one-shot sample immediately after renderer.render().
+    // With preserveDrawingBuffer=false Chromium may clear the buffer *before*
+    // a separate RAF callback, especially under mobile SwiftShader load.
+    const stats=await page.evaluate(async()=>{
+      const pixels=await window.__FLYINGFREE_RENDER_PROBE__();
       const c=document.querySelector('#viewport canvas'),s=window.__FLYINGFREE_STATUS__;
-      if(!c){resolve({canvas:false,error:s.error});return;}
-      const sample=document.createElement('canvas');sample.width=64;sample.height=36;
-      const cx=sample.getContext('2d',{willReadFrequently:true});
-      cx.drawImage(c,0,0,64,36);
-      const data=cx.getImageData(0,0,64,36).data;
-      const distinct=new Set();let luminance=0,variability=0,nonBlack=0;
-      for(let i=0;i<data.length;i+=4){
-        const r=data[i],g=data[i+1],b=data[i+2];
-        distinct.add([r>>4,g>>4,b>>4].join(':'));
-        const l=(r+g+b)/3;luminance+=l;variability+=Math.abs(r-b);
-        if(r+g+b>60)nonBlack++;
-      }
-      const result={canvas:true,renderedFrames:s.frames,fps:s.fps,error:s.error,colors:distinct.size,
-        brightness:Math.round(luminance/(data.length/4)),colorVar:Math.round(variability/(data.length/4)),
-        nonBlack:Math.round(nonBlack/(data.length/4)*100),
+      if(!c)return {canvas:false,error:s.error};
+      const result={canvas:true,renderedFrames:s.frames,fps:s.fps,error:s.error,colors:pixels.colors,
+        brightness:pixels.brightness,colorVar:pixels.colorVar,
+        nonBlack:pixels.nonBlack,
         scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
-        treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,regionalBirds:s.regionalBirds,riverLife:s.riverLife,performance:s.performance,adaptiveQuality:s.adaptiveQuality,
+        treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,regionalBirds:s.regionalBirds,riverLife:s.riverLife,performance:s.performance,adaptiveQuality:s.adaptiveQuality,riverGeometry:s.riverGeometry,
         forestVisibility:s.forestVisibility,performanceTarget:s.performanceTarget,
         world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
@@ -63,8 +52,8 @@ async function render(name,query,width,height,runChecks){
           mapExpected:!document.body.classList.contains('tv-mode')&&!document.body.classList.contains('no-ui')},
         particles:s.motion?.motes,
         species:document.querySelectorAll('[data-bird]').length};
-      resolve(result);
-    })));
+      return result;
+    });
     assert.equal(stats.canvas,true,'Canvas ausente');
     assert.equal(stats.error,null,'Excepción del motor');
     assert.equal(stats.species,12,'Selector incompleto');
@@ -109,6 +98,12 @@ async function render(name,query,width,height,runChecks){
       'Océano y relieve usan semillas diferentes: arrecifes y espuma no coincidirían con la costa');
     assert.ok(stats.world?.coastResolution>=256,'Costa oceánica excesivamente poco detallada');
     assert.ok(stats.world.riverSegments>130,'Los cauces son demasiado cortos');
+    assert.ok(stats.riverGeometry?.waterVertices>1200,
+      'El agua ha vuelto a ser una cinta sin secciones transversales');
+    assert.ok(stats.riverGeometry?.bankVertices>2200,
+      'No hay lecho y orillas modelados a lo largo del río');
+    assert.equal(stats.riverGeometry?.drawCalls,2,
+      'El cauce supera el presupuesto de draw calls');
     assert.ok(['chase','shoulder','scenic','profile','high-reveal','close'].includes(stats.cameraShot),
       'Cámara cinematográfica sin director activo');
     assert.ok(Number.isInteger(stats.cameraDirector?.transitions),
