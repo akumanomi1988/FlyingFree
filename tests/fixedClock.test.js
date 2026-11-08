@@ -1,4 +1,6 @@
 import test from 'node:test';
+import * as THREE from 'three';
+import {createEcosystem} from '../src/ecosystem.js';
 import assert from 'node:assert/strict';
 import {createFixedStepClock,FIXED_SIMULATION_DT} from '../src/runtime/fixedClock.js';
 import {captureSimulationSnapshot} from '../src/runtime/simulationSnapshot.js';
@@ -58,4 +60,18 @@ test('VE-02: portable snapshots reject non-finite values and contain no scene ob
   assert.equal(result.fauna[0].species,'deer');
   assert.deepEqual(JSON.parse(JSON.stringify(result)),result);
   assert.throws(()=>captureSimulationSnapshot({...input,bird:{...input.bird,x:NaN}}),/Non-finite/);
+});
+
+test('VE-02: wildlife assignments are invariant to render-camera placement',()=>{
+  const hero={x:650,y:180,z:510};
+  const one=createEcosystem(THREE,new THREE.Scene(),1988,.25,{x:220,y:150,z:180});
+  const two=createEcosystem(THREE,new THREE.Scene(),1988,.25,{x:220,y:150,z:180});
+  one.update(3,.8,.1,hero,0,{x:-1400,y:300,z:-1100});
+  two.update(3,.8,.1,hero,0,{x:1400,y:500,z:900});
+  const snap=world=>world.actors.map(actor=>({
+    type:actor.userData.state.type,
+    x:actor.position.x,y:actor.position.y,z:actor.position.z,
+    phase:actor.userData.state.phase,behaviour:actor.userData.behaviour
+  }));
+  assert.deepEqual(snap(one),snap(two));
 });

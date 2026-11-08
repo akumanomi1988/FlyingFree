@@ -245,8 +245,10 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
   const marinePopulation=createMarinePopulation(birds,dolphins,{seed,initialObserver});
   const observableAnimals=[...actors,...dolphins.map(d=>d.group)];
   function update(t,daylight=1,wind=0,hero=null,precipitation=0,observer=null){
-    population.update(t,hero,observer);
-    marinePopulation.update(t,hero,observer);
+    // Reassignment is ecological state: it must not depend on camera framing.
+    // The camera still controls visual LOD/visibility below, not population identity.
+    population.update(t,hero,hero);
+    marinePopulation.update(t,hero,hero);
     for(const g of actors){
       const s=g.userData.state;
       const cycle=(t+s.seed)/s.cycle,phase=cycle%1;
