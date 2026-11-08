@@ -30,7 +30,8 @@ for(const lod of manifest.lods){
     'Breast_rufous','Eye_L','Eye_R'])assert.ok(names.has(name),lod.file+': '+name);
   assert.equal([...bones].filter(b=>/^Wing_[LR]$/.test(b.name)).length,2,
     'exactly two anatomical wing roots');
-  assert.ok(skinned>=2,'glTF export must contain real skins, not only named groups');
+  assert.ok(skinned>=3,'glTF must include wing skins and complete anatomical keel skin');
+  assert.ok(bones.length>=12,'Head, Tail, Wing, Leg and Foot must all import as real THREE.Bone nodes');
   assert.ok(surfaces.length>=2,'single wing surface for each side');
   assert.ok(triangles>150,'Anatomical geometry missing');
   const bounds=new THREE.Box3().setFromObject(object);
