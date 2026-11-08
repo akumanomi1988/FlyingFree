@@ -1,168 +1,144 @@
-# VUELO · Roadmap vivo de ingeniería y calidad documental
+# VUELO · Roadmap operativo para agentes
 
-**Dirección adoptada:** VUELO debe ser un documental autónomo de naturaleza estilizada; no un juego de pilotaje ni una colección de funciones aisladas. El espectador debe poder observar durante varios minutos sin intervención y encontrar un mundo coherente.
+**Última revisión del plan:** 2026-11-08. **Repositorio:** [FlyingFree](https://github.com/akumanomi1988/FlyingFree). **Rama de verdad:** `main`.  
+**Guía de ejecución obligatoria:** [AGENTS.md](./AGENTS.md). **Puertas QA:** [docs/QUALITY_GATES.md](./docs/QUALITY_GATES.md). **Arquitectura y límites:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).  
+**Historia del roadmap anterior:** [docs/ROADMAP_HISTORY_20261108.md](./docs/ROADMAP_HISTORY_20261108.md). **Atlas histórico:** [public/roadmap/index.html](./public/roadmap/index.html).
 
-**Atlas visual interactivo:** [Abrir el atlas](./public/roadmap/index.html) · [Versión publicada tras pasar CI y desplegar Pages](https://akumanomi1988.github.io/FlyingFree/roadmap/)  
-**Registro técnico:** [docs/NEXT_SESSION.md](./docs/NEXT_SESSION.md).  
-**Fecha de adopción de la directriz:** 2026-11-06.
+> **Objetivo:** una simulación *autónoma*, documental, tropical y observable durante horas. No es un juego de pilotaje. Priorizar credibilidad, continuidad, belleza visual, rendimiento y estabilidad; no nuevas features sin evidencias. Este archivo es la **única cola ordenada** de hitos de desarrollo. Las anotaciones históricas y porcentajes del atlas no son indicadores de CI ni justifican cerrar tareas.
 
-> El atlas es una reconstrucción histórica del corte de 2026-11-06. Sus cifras (por ejemplo, el 39 % de madurez estimada) son valoración técnica ilustrativa, **no KPIs medidos ni progreso actualizado automáticamente**. Este `ROADMAP.md` es la fuente principal para el trabajo futuro.
+## Cómo elegir el siguiente trabajo (sin interpretación)
 
-## Norte de producto — criterio vinculante
+1. Sincronizar `main`; comprobar PR abiertas y Actions. Si existe una PR de un hito, **continuarla antes de crear otra**.
+2. Leer de arriba abajo la tabla de hitos. Elegir **el primer ID con `[ ]`** cuya dependencia esté completada en `main`. El siguiente hoy es **VE-01**.
+3. Implementar **solamente ese hito** como vertical slice integrado, incluyendo pruebas, capturas/evidencias, actualización de documentación y rollback si hay regresión.
+4. En el **mismo push que contiene el código validado** marcar `[x]` en la rama de trabajo y adjuntar debajo del hito evidencia de commit/PR, tests y riesgos. **No marcar `[x]` solo por escribir código, por pasar tests parciales o por abrir una PR.**
+5. Fusionar a `main` solo con la CI del último HEAD verde. Tras la fusión, comprobar workflow de Pages y la igualdad de `build-info.json.revision` con el SHA de `main`. Si no se puede verificar, registrar **despliegue pendiente**, no «publicado»; reabrir/corregir mediante PR si el hito no es funcional.
+6. No empezar el siguiente ID hasta que el actual conste en `main`. Si está bloqueado, **no saltarlo silenciosamente**: registrar impedimento reproducible en su sección y comunicar el bloqueo. No modificar otros checkboxes.
 
-**Prueba de verdad:** producir una secuencia reproducible de **cuatro minutos** sin controles ni narración externa que muestre paisaje, vuelo, conducta animal, composición de cámara y sonido agradables y coherentes. La aceptación requiere revisión humana; las pruebas Node y WebGL solo establecen mínimos técnicos.
+**Semántica:** `[ ]` = pendiente en `main`; `[x]` = código, pruebas y documentación aprobados por PR e integrados en `main` (si aún falla Pages debe constar explícitamente). Durante una PR el marcado `[x]` es **propuesto**, no hecho efectivo hasta el merge. GitHub Pages solo se considera publicado cuando su workflow verifica el SHA. **No cambiar porcentajes de madurez porque se instaló una librería.**
 
-Decisiones de producto:
+## Arquitectura objetivo y decisiones vinculantes
 
-1. **Credibilidad antes que más especies:** corregir primero anatomía, vuelo y comportamiento de las doce actuales.
-2. **Geografía reconocible antes que extensión ilimitada:** una región tropical sobresaliente, topografía/hidrología coherentes, después chunks y LOD progresivo.
-3. **Cámara por acontecimientos, no por reloj:** documentar aproximación, vuelo, caza, descanso y revelaciones de paisaje sin cortes gratuitos.
-4. **Ecología observada, no inferida:** medir tiempo por bioma y eventos completados; navegación motivada por recursos y especie.
-5. **Calidad medida en dispositivo objetivo:** FPS P95/P99, memoria, fugas de GPU/WebGL, audio en TV, estabilidad prolongada.
-6. **Privacidad y sostenibilidad comercial:** geolocalización consentida, proveedor meteorológico compatible con monetización, sin LLM innecesario por animal.
+Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por un benchmark. No migrar a otro motor en bloque. **El ecosistema es el núcleo de producto y sigue siendo propio.**
 
-## Estado según evidencias
-
-| Área | Estado verificable | Brecha de aceptación |
+| Capa | Responsabilidad | Herramienta / regla |
 | --- | --- | --- |
-| Mundo | Isla tropical procedural de 12 km por semilla, tres ríos, montañas, selva y humedales; PR #16 | Terreno en una sola malla, falta streaming/LOD espacial y coherencia visual de costas/tributarios |
-| Fauna | 12 aves y otros animales con IA determinista y LOD | Conductas largas, hábitats medidos, interacciones emergentes, fotografía validada |
-| Cámara | Sigue al protagonista, evita terreno; esta iteración añade composición por eventos | Revisión perceptiva de secuencia de 4 minutos y árboles/oclusión |
-| Audio | Sintetizador atmosférico y corrección de subgraves; PR #14 | Prueba auditiva A/B con auriculares y televisor |
-| Validación | Node, Vite y Playwright/WebGL en CI | No acreditan GPU real, estética ni sesiones de 8–72 h |
-| Publicación | Existe workflow Pages en push a `main` | Verificar último deploy SHA y captura pública después de cada PR |
+| Simulation Core | Semilla, estado de individuos, necesidades, decisiones y recursos; no acceso a WebGL/DOM | JS modular + reloj de simulación fijo |
+| World & Spatial | Malla y alturas compatibles; consultas de suelo, normales, obstáculos, visibilidad | `three-mesh-bvh` para geometría estática; API `WorldQuery` propia |
+| Physics | Contactos físicos cercanos, restricciones y cuerpos cinemáticos | `@dimforge/rapier3d-compat` solo si piloto y coste pasan; no miles de rigid bodies |
+| Animation | Jerarquía anatómica, clips, blending, IK de contacto, LOD | `THREE.AnimationMixer` + glTF/GLB; fallback procedural explícito |
+| Documentary | Elegir sujetos, planos, continuidad y ritmo por eventos | `cameraDirector` propio; evaluar `camera-controls` **solo como ejecutor de movimiento**, no como director |
+| Steering | Navegación, evasión y grupos, sin sustituir hambre/caza/ecología | Piloto A/B con Yuka; integrar solo si aporta valor y se mantiene determinismo |
+| Presentation | Render, océano, vegetación, shaders, instancing, UI, clima, audio | Three.js + LOD + resolución adaptativa |
+| Integration & QA | Estado diagnóstico, procedencia de build, escenas reproducibles | Node, Vite, Playwright/WebGL, auditoría documental y benchmark físico |
 
-**Última evidencia de integración comprobada:** PR #24 fusionada, 124 pruebas Node y 7 escenarios WebGL en [Actions #42355678458](https://github.com/akumanomi1988/FlyingFree/actions/runs/42355678458). La publicación definitiva en GitHub Pages y la evaluación perceptiva siguen siendo comprobaciones independientes.
+**Contratos que cada cambio debe preservar:** (a) una misma semilla reproduce biomas, posiciones iniciales, recursos, costa y ríos; (b) decisiones/estado no dependen de FPS de render; (c) `WorldQuery` representa la superficie *visible* también para contactos y oclusiones, sin supuestos incompatibles entre heightfield y triángulos; (d) sin contaminación del estado de simulación con objetos `THREE.Mesh` o DOM salvo adaptadores explícitos; (e) agentes lejanos agregados, mallas cercanas detalladas; (f) no se introducen servicios, LLM por animal ni backend para problemas locales; (g) audio por gesto, clima consentido y TV sin controles intrusivos.
 
-## Plan priorizado por dependencias
+**Política de dependencias:** verificar versión, licencia, mantenimiento, tamaño/arranque y compatibilidad actuales antes de añadir cada paquete; registrar alternativa, medición antes/después, riesgo y rollback. No instalar Yuka/Rapier/camera-controls todos a la vez. No confundir una demo con mejora observada. Rapier no gobierna alas en vuelo; `AnimationMixer` no decide acciones ecológicas; `camera-controls` no sustituye al director de eventos.
 
-### Fase 00 — Verdad observable · P0
+## Cola de hitos (el primer `[ ]` es el siguiente)
 
-- [x] Documentar visión, cronología, decisiones y riesgos en el atlas HTML; vincularlo desde producto y README.
-- [x] Introducir métricas de ocupación por hábitat derivadas de posiciones reales de aves.
-- [x] Eliminar cortes de cámara temporizados sin contexto y documentar motivo/transiciones.
-- [ ] Verificar que Pages sirve el SHA del último `main` desplegado y registrar screenshot.
-- [ ] Montar contact sheet de **12 aves × varios ángulos × fases de vuelo**, con defectos antes/después.
-- [ ] Grabar y evaluar una secuencia de 4 minutos (audio/cámara/mundo) con una semilla fija.
-- [ ] Baseline P50/P95/P99 de frame time, memoria, draw calls y GPU en equipo real.
+- [ ] **VE-01 — Separar runtime y orquestación.** Dependencias: ninguna. Entrega: tests de wiring, escenas existentes sin regresión.
+- [ ] **VE-02 — Reloj fijo y snapshots deterministas.** Dependencia: VE-01. Entrega: mismas trayectorias a 15/30/60/120 FPS.
+- [ ] **VE-03 — WorldQuery y raycasts BVH.** Dependencia: VE-02. Entrega: altura/contacto/visibilidad sobre malla real.
+- [ ] **VE-04 — Física local selectiva con Rapier.** Dependencia: VE-03. Entrega: contactos reales sin dobles simulaciones ni coste masivo.
+- [ ] **VE-05 — Pipeline de assets GLB/glTF.** Dependencia: VE-01. Entrega: un ave detallada importable, con LOD y fallback.
+- [ ] **VE-06 — Animación esquelética piloto.** Dependencias: VE-05, VE-02. Entrega: un ave con clips combinados y contactos creíbles.
+- [ ] **VE-07 — Adaptación de las 12 aves.** Dependencia: VE-06. Entrega: doce siluetas, alas y estados revisados con evidencia visual.
+- [ ] **VE-08 — Movimiento de cámara desacoplado.** Dependencias: VE-02, VE-03. Entrega: cámara documental sin clipping, tirones o pérdida de sujeto.
+- [ ] **VE-09 — Evaluación de steering con Yuka.** Dependencias: VE-02, VE-03. Entrega: prueba A/B reproducible y decisión integrar/descartar documentada.
+- [ ] **VE-10 — Chunks/LOD y presupuestos del mundo.** Dependencias: VE-03, VE-04. Entrega: streaming sin grietas y perfiles P95/P99.
+- [ ] **VE-11 — Auditoría documental integrada.** Dependencias: VE-07–VE-10. Entrega: cuatro minutos, varias semillas, revisión humana y rendimiento.
+- [ ] **VE-12 — Operación TV prolongada.** Dependencia: VE-11. Entrega: pruebas progresivas 30 min→72 h y recuperación sin operador.
 
-**Salida:** tres defectos perceptivos principales con evidencia reproducible y responsables; no cerrar solo por CI verde.
+> **Paralelismo:** la tabla indica orden canónico de ejecución para agentes que reciben «siguiente hito». Las dependencias permiten ejecución paralela **solo** con coordinación explícita y PR sin colisión, nunca saltando el primer pendiente por iniciativa propia. Si faltan activos, hardware o revisión humana, registrar el bloqueo; no fingir que se ha cumplido.
 
-### Fase 01 — Escenario tropical sobresaliente · P0
+## Alcance y aceptación por hito
 
-- [ ] Chunks/LOD del terreno determinista, más tessellation cerca, horizonte estable y menor popping.
-- [x] Los tres ríos principales terminan en la costa real de cada semilla; PR #18, con pruebas de desembocadura.
-- [ ] Red hidrológica completa: tributarios, cascadas y desembocaduras con pendientes físicamente plausibles.
-- [x] El océano toma la profundidad del terreno procedural para localizar aguas someras, arrecifes estilizados y espuma; PR #18.
-- [x] Espuma y rompientes calculadas con pendientes costeras en ambos ejes, y bandas animadas en los frentes; PR #24.
-- [ ] Playas, acantilados, coral y manglar con anatomía visual/hidrológica de alta calidad, revisados manualmente.
-- [x] Extensión del detalle arbóreo a 680 m, transición de 220 m y presupuesto adaptativo móvil/escritorio; PR #24.
-- [ ] Selva estratificada por altitud/humedad y distancia, escala y sombra consistentes.
-- [ ] Tres semillas con geografías y rutas muy distintas, revisadas visualmente.
+### VE-01 — Separar runtime y orquestación
+**Archivos iniciales:** `src/main.js` (~879 líneas al aprobar este plan), `src/behaviour.js`, `src/ecosystem.js`, `src/cameraDirector.js`.  
+**Hacer:** extraer el bucle y estado del simulador a módulos con responsabilidades explícitas (`src/runtime/` o equivalentes); crear adaptadores de entorno, escena y UI; mantener `main.js` como bootstrap. No refactorizar de golpe toda la ecología ni modificar la estética. Inyectar reloj, semilla y servicios para pruebas; conservar `window.__FLYINGFREE_STATUS__`.  
+**Aceptar:** inicialización y destrucción limpias, una sola instancia del bucle, selector, clima, audio y TV intactos; tests de ciclo de vida/wiring, `npm test`, `npm run build`, `npm run test:browser` verdes. Añadir diagrama textual de dependencias reales.  
+**Evidencia/PR/CI:** pendiente.
 
-**Salida:** vuelo prolongado sobre una isla atractiva sin bordes evidentes, colisiones ni distancias absurdas; P95 dentro de presupuesto.
+### VE-02 — Reloj fijo y snapshots deterministas
+**Hacer:** timestep fijo inicial 1/30 s con acumulador, límite de substeps y política al volver de pestaña suspendida; separar tiempo de pared (hora y clima) del tiempo simulado y de la interpolación del render. No acelerar meteorología real con la velocidad de demo. Capturar snapshots de movimiento/estados ecológicos sin objetos Three.js.  
+**Aceptar:** replay de misma semilla y eventos equivalentes con frames de entrada 15/30/60/120 Hz, sin `NaN`, saltos de cámara ni duplicación de decisiones tras una pausa; pruebas con seed fija y test browser.  
+**Evidencia/PR/CI:** pendiente.
 
-### Fase 02 — Ecología por especie · P0
+### VE-03 — WorldQuery y BVH
+**Hacer:** crear `WorldQuery` con `sampleSurface`, `raycast`, `lineOfSight` y consultas de normal/material/hábitat. Integrar `three-mesh-bvh` en geometría estática cercana. Basar oclusión, aterrizajes y contactos en la malla triangulada visible; coordinar renovación de índices si el terreno cambia por chunks. No construir BVH de toda la vegetación animada.  
+**Aceptar:** pruebas en costa, pendientes, orillas y agua con 3 semillas; tolerancia medida entre malla y collider, y ausencia de falsos apoyos o sujetos detrás de crestas. Perfil antes/después de tiempo de consulta y memoria.  
+**Evidencia/PR/CI:** pendiente.
 
-- [x] Telemetría de tiempo sobre océano frente a hábitats interiores, separando vuelo y reposo.
-- [x] Replay automatizado de 15 minutos × doce especies × dos semillas en CI, con límites de ocupación oceánica y pesca en agua dulce; PR #19.
-- [ ] Auditoría documental 30–60 min y revisión humana en 3+ semillas; fijar umbrales realistas por especie.
-- [x] Restricción de puntos de pesca a agua dulce/mar real según la especie, sin eventos de alimentación sobre bosque o lecho seco; PR #19.
-- [x] Interrupción de rutas por fatiga crítica, reposo aéreo de vencejos, néctar en suspensión y captura de insectos en vuelo; PR #24.
-- [ ] Nidos, dormideros, territorios, peces visibles, salpicaduras de pesca, perchas y recursos persistentes.
-- [ ] Caza/huida, pesca y alimentación con consecuencias observables, no solo selección de estados.
-- [ ] Simulación por nivel de importancia: fauna cercana detallada, población lejana agregada.
+### VE-04 — Física local selectiva con Rapier
+**Hacer:** pequeño adaptador `PhysicsWorld` con `@dimforge/rapier3d-compat` (o sustitución justificada), instanciación y liberación de WASM seguras. Prototipo de cuerpo cinemático cercano: aterrizaje, posado o animal terrestre con terreno de VE-03. Lejos, mantener movimiento analítico y población agregada; no duplicar integración de movimiento.  
+**Aceptar:** contactos físicamente coherentes en relieve inclinado; cuerpo nunca atraviesa suelo ni agua por un collider obsoleto; memoria estable en sucesivos mundos regenerados; tests deterministas/fixtures y benchmark CPU para decidir ampliar o limitar Rapier.  
+**Evidencia/PR/CI:** pendiente.
 
-**Salida:** seguir un ave 30 minutos y poder explicar de forma consistente dónde se mueve, qué busca y qué consigue.
+### VE-05 — Pipeline de assets GLB/glTF
+**Hacer:** adoptar una convención de ejes/unidades (metros, Z/Y coherentes), nombres de huesos, materiales, variantes y LOD; carga asíncrona/caché/liberación. Preparar un ave de referencia (p. ej. águila) con silueta anatómica reconocible, esqueleto y al menos dos LOD, manteniendo fallback procedural y sin assets de origen/licencia inciertos. Documentar exportación Blender→GLB y optimizaciones del formato.  
+**Aceptar:** ave visible en navegador y TV, escala correcta frente a árboles, no se ven cuatro alas, fallback si falla carga, recursos liberados al cambiar especie. Tests y comparativas multiángulo. Un cubo de prueba no cuenta como ave completa.  
+**Evidencia/PR/CI:** pendiente.
 
-### Fase 03 — Anatomía y cine · P1
+### VE-06 — Animación esquelética piloto
+**Hacer:** clips/estados `flap`, `glide`, `takeoff`, `landing`, `perch`, `rest` enlazados con `THREE.AnimationMixer` y blending; el estado procede del `BirdBrain`, no del renderer. Resolver contacto de patas con una capa limitada de IK/ajuste al `WorldQuery`. Mantener versión procedural para comparación.  
+**Aceptar:** secuencias sin torsiones, alas extra, vibraciones, pops o penetraciones; 4 minutos de vuelo piloto, 15/30/60 FPS y pruebas de transición con snapshots.  
+**Evidencia/PR/CI:** pendiente.
 
-- [x] Director de planos basado en comportamiento, relieve, altura y giros, con histéresis.
-- [x] Giro de cámara suavizado en posición y orientación, con aceleración/velocidad angular limitada y continuidad entre especies; PR #20.
-- [x] Alas replegadas hacia atrás durante el reposo, respiración y pequeñas oscilaciones de alas/cola; PR #20.
-- [x] Flotación de gaviotas/albatros sobre la triangulación real de las olas y distinción entre reposo acuático y apoyo en tierra; PR #20.
-- [ ] Revisión visual de cámara, reposo y flotación en TV: secuencia completa con capturas y aceptación artística.
-- [ ] Revisión multiángulo de alas de doce especies; contacto de patas, plegado, planeo y aleteo.
-- [ ] Cine por acontecimientos con composición, selección de sujeto, ritmo y continuidad.
-- [ ] Microeventos distinguibles (caza/pesca, descanso, despegue y costa/valle) en una misma secuencia.
-- [ ] Revisión auditiva A/B de música + ambiente, con prioridades en mezclas.
+### VE-07 — Adaptación de las 12 aves
+**Hacer:** extender la pipeline probada a doce arquetipos sin mezclar anatomía incompatibles; agrupación por locomoción (rapaces, planeadoras marinas, pequeñas, zancudas y especializadas). Introducir diferencias de envergadura/frecuencia y LOD de animación; documentar excepción biológica por especie.  
+**Aceptar:** `npm run audit:visual -- --seed=1988` y hoja 12×3 revisada por persona, filmación por estado, sin cuatro alas, tamaños coherentes, reposo y flotación específicos. Si falta revisión humana, **no cerrar**.  
+**Evidencia/PR/CI:** pendiente.
 
-**Salida:** un fragmento documental de cuatro minutos atractivo para un observador externo.
+### VE-08 — Movimiento de cámara desacoplado
+**Hacer:** mantener `cameraDirector` para elección de plano/eventos, crear ejecutor de movimiento/collision/constraints desacoplado. Evaluar `camera-controls` con A/B; integrarlo solo si resuelve seguimiento cinematográfico y no introduce orientación artificial o pérdida del protagonista. Evitar saltos de posición, velocidades angulares bruscas y cámara bajo terreno (VE-03).  
+**Aceptar:** escenarios estrechos, rapaces sobre relieve, niebla móvil 390×844, costa y TV; progresión continua y sujeto encuadrado en la prueba documental; no relajar aserciones visuales.  
+**Evidencia/PR/CI:** pendiente.
 
-### Fase 04 — Resistencia, TV y comercialización · P1
+### VE-09 — Evaluación de steering con Yuka
+**Hacer:** prueba acotada para un zorro y su presa o un grupo de aves: separación, evasión y persecución. Comparar con motor actual mediante idéntica semilla y eventos ecológicos, coste por agente, memoria y calidad visible. La selección de acciones, necesidad de comer y recursos queda en el núcleo.  
+**Aceptar:** informe A/B y tests de continuidad/performance; **resultado válido puede ser descartar Yuka** si aporta más acoplamiento que beneficio. No adoptar navegación de un videojuego como sustituto de ecología.  
+**Evidencia/PR/CI:** pendiente.
 
-- [ ] Sesiones 30 min → 2 h → 8 h → 24 h → 72 h; memoria, FPS y errores sin degradación sostenida.
-- [ ] Recuperación ante pérdida del contexto WebGL/renderer y desconexiones de climatología.
-- [ ] Verificación de geolocalización consentida y ausencia de filtraciones de ubicación.
-- [ ] Condiciones comerciales de Open-Meteo, atribuciones y, si procede, caché/proxy.
-- [ ] Si hay emisión 24/7, supervisor de navegador + OBS/RTMP y recuperación automática.
+### VE-10 — Chunks/LOD y presupuestos del mundo
+**Hacer:** dividir malla territorial actualmente monolítica en chunks con determinismo por semilla; colisión y BVH local sincronizados; carga/descarga de vegetación y LOD por distancia; mantener costa/ríos sin grietas y las consultas de bioma correctas.  
+**Aceptar:** ruta reproducible por montaña-valle-río-mar; sin bordes visibles, fugas ni faunas flotantes; P50/P95/P99 y memoria antes/después (en GPU física si disponible), draw calls e instantáneas. Si no hay hardware real, documentar bloqueo de esa puerta.  
+**Evidencia/PR/CI:** pendiente.
 
-**Salida:** experiencia fiable, verificable y sostenible que funciona sin operador.
+### VE-11 — Auditoría documental integrada
+**Hacer:** secuencia de cuatro minutos que muestre mundo, vuelo, alimentación/descanso, fauna, cámara y sonido; ejecutar con tres semillas y escenas fijas, recopilar vídeo/contact sheet y revisión humana independiente. Priorizar defectos observados, no nuevos animales decorativos.  
+**Aceptar:** revisión humana documentada, 0 defectos críticos en secuencia, coherencia de eventos verificable, mezcla de audio revisada en TV/auriculares y baseline medido en dispositivo objetivo. Las capturas automáticas por sí solas **no** cierran el hito.  
+**Evidencia/PR/CI:** pendiente.
 
-## Puertas de calidad para fusionar
+### VE-12 — Operación TV prolongada
+**Hacer:** pruebas escalonadas 30 min, 2 h, 8 h, 24 h, 72 h; instrumentar uso de memoria, contexto WebGL, pérdida/recuperación de clima, audio, pestañas inactivas y regeneración de isla; supervisor externo OBS/RTMP **solo si** se decide emitir 24/7.  
+**Aceptar:** informe por duración y hardware, medidas sostenidas, recuperación sin operador de fallos simulados, consentimiento geográfico intacto y condiciones comerciales de meteorología revisadas. No prometer 72 h si solo se ha ejecutado un test corto.  
+**Evidencia/PR/CI:** pendiente.
 
-1. Tests Node; build Vite; todos los escenarios WebGL sin errores.
-2. Nueva prueba reproducible del defecto que se está corrigiendo y evidencia before/after cuando sea visual.
-3. Presupuestos de CPU/GPU/retenciones no empeorados en equipo objetivo; si no medible, marcar **pendiente**, no «mejorado».
-4. No degradar clima local, consentimiento, modo TV ni escalas entre aves y mundo.
-5. PR enlazada, commit revisable, `main` actualizado y verificación de publicación después del merge.
-6. Registrar decisiones y riesgos en `docs/NEXT_SESSION.md`.
+## Puertas comunes por cada PR
 
-## Comandos de trabajo
+- `npm test` y `npm run build` en último commit; `npm run test:browser` con Chromium instalado; conservar 7 escenas actuales o ampliar sin bajar umbrales.
+- Test de regresión nuevo del comportamiento o defecto cambiado. Si es gráfico, captura **antes/después** de misma `?seed=1988`, estación, cámara y especie. Además usar otra semilla para descubrir sobreajuste.
+- Sin regresiones de FPS/P95, draw calls o memoria según baseline *disponible*; si todavía no hay GPU de referencia, anotar explícitamente «no medido en GPU física».
+- No romper selector de 12 aves, paisaje procedural, mares y ríos coherentes, cámara documental, clima local voluntario, audio sujeto a interacción ni modo TV.
+- Actualizar en **la misma rama** esta tabla, la sección del hito y `docs/NEXT_SESSION.md` con fecha, HEAD, PR, pruebas y riesgos; evitar reescribir historia o declarar deploy prematuramente.
+- Hacer `push`, comprobar que existe PR hacia `main`, revisar CI del último HEAD, merge y luego verificar workflow Pages / `build-info.json` contra SHA de `main`. Si no puede fusionar, dejar PR abierta y comunicar que no está completado en `main`.
+- La calidad visual y ecológica precisa prueba perceptiva, no solo CI. Mantener todo el código anterior hasta validar sustitución y dejar rollback sencillo.
+
+## Comandos y referencias reproducibles
 
 ```bash
 npm install
 npm test
 npm run build
-npm run test:browser
-npm run audit:habitats   # auditoría offline; duración configurable
-```
-
-Reproducir un escenario: `?seed=1988&bird=eagle&phase=dawn&weather=clear&broadcast=1`. Otras semillas, especies y climas ayudan a descubrir defectos que una única captura oculta.
-
-
-## Integración y QA — revisión del 6 de noviembre de 2026
-
-- **PR #21 y PR #22** son alternativas con cambios parcialmente solapados. No deben fusionarse ambas sin revisión diferencial. La PR #22 contiene semilla de sesión, selección de sujeto con hábitat propio, minimapa/HUD opcional, ecología por arquetipos y acantilados sembrados; esto **no** se considera integrado hasta merge a `main` y comprobación del despliegue.
-- Se rescató una capacidad específica de la PR #21 hacia #22: descanso aéreo de vencejos con recuperación de energía y planeo, más alimentación con movimiento de postura. Requiere validación Node, Vite y WebGL en el último HEAD.
-- La cámara conserva desplazamiento horizontal total del ave para evitar retraso acumulativo y amortigua oscilaciones verticales. La aceptación exige proyección del protagonista dentro del encuadre en móvil y a diferentes FPS, no simplemente que el render no lance errores.
-- **Bloqueo visual de referencia:** `?h=8&bird=hummingbird&weather=fog&seed=1988` (390×844) resultó casi monocromático en [CI de PR #22](https://github.com/akumanomi1988/FlyingFree/actions/runs/42260524030). No relajar el test de colores: registrar cámara y posición proyectada, reparar el encuadre/oclusiones y verificar captura nueva.
-- El [contrato de calidad](./docs/QUALITY_GATES.md) y la [arquitectura actual](./docs/ARCHITECTURE.md) fijan métricas, responsabilidades y deuda técnica. La comprobación de despliegue SHA, hardware físico y pruebas 8/24/72 h continúan abiertas.
-
-**Próximo ROI:** superar la reproducción móvil con niebla, revisar contact sheet en múltiples semillas, comprobar PR #21 vs #22 y consolidar una única integración revisable. A continuación abordar coherencia de malla/collision y detalle cercano, sin añadir un motor de IA distribuida.
-
-## Fuentes
-
-- [Atlas de la visión](./public/roadmap/index.html): narrativa histórica y decisiones desde las conversaciones disponibles.
-- [Registro de ingeniería](./docs/NEXT_SESSION.md): PR fusionadas, pruebas y limitaciones.
-- [Repo GitHub](https://github.com/akumanomi1988/FlyingFree) y [Actions](https://github.com/akumanomi1988/FlyingFree/actions).
-- Feedback de usuario documentado en las conversaciones sobre cámara, alas, audio, escala, ecosistema y mundo tropical.
-
-**Regla de gestión:** el roadmap cambia con evidencia y valor de producto; no con el número de features añadidas.
-
-## Auditoría documental reproducible (trabajo operativo)
-
-**Workflow manual:** [Documentary experience audit](https://github.com/akumanomi1988/FlyingFree/actions/workflows/documentary-audit.yml) → Run workflow, indicando semilla y duración.
-
-Este workflow hace una auditoría real del código de simulación: reproduce 12 aves durante 30 minutos simulados por especie (valor predeterminado) y guarda el porcentaje de muestras sobre océano, costas, humedales y tierra interior. A continuación produce capturas de **12 aves × 3 encuadres** de la cámara real WebGL (`chase`, `profile`, `high-reveal`) junto con un `index.html` de revisión visual. El reporte se descarga como artefacto de GitHub Actions.
-
-```bash
-npm run check
-npm run audit:habitats -- --seed=1988 --seconds=1800 --strict
 npx playwright install chromium
+npm run test:browser
+npm run audit:habitats -- --seed=1988 --seconds=1800 --strict
 npm run audit:visual -- --seed=1988
-# Prueba rápida de un subconjunto:
-npm run audit:visual -- --seed=1988 --birds=eagle,owl --modes=chase,profile
 ```
 
-Para que el mismo plano se pueda reproducir, el capturador utiliza `?selftest=1&qaShot=profile` (solo diagnóstico explícito): **no** modifica el director normal del espectador ni los perfiles de vuelo. Una captura de WebGL es evidencia visual revisable; que exista no significa que un artista la haya aprobado.
-
-**Procedencia de un despliegue:** el build genera `public/build-info.json` como recurso desplegable. Tras un push a `main` y un workflow Pages correcto, consultar [build-info.json público](https://akumanomi1988.github.io/FlyingFree/build-info.json) y comparar `revision` con el commit que se quería publicar. Si no coincide, declarar despliegue pendiente, no concluido.
-
-## Actualización — 7 noviembre 2026 (PR #24)
-
-- Comportamiento observable mejorado sin incorporar especies nuevas: nutrición aérea de colibríes y golondrinas/vencejos, agotamiento que interrumpe viajes, y lectura de estado más precisa.
-- Reduce enjambres de insectos sin función; mantiene insectos visibles discretos junto a flores en primer plano. Las partículas ambientales artificiales ya estaban desactivadas anteriormente.
-- Ayuda incluye **Generar nueva isla** con una semilla nueva y reproducible en URL. En ausencia de `?seed=`, la isla ya variaba por sesión.
-- Sigue existiendo un solo campo geológico procedural de 12 km, no streaming infinito ni cambios estacionales de topografía.
-- No declarar completados los nidos modelados, captura de presas visible, IK de ramas, cola al posar, biome shader PBR, física marina avanzada o revisión artística en TV.
+Escena fija: `?seed=1988&bird=eagle&phase=dawn&weather=clear&broadcast=1`. Caso móvil: `?h=8&bird=hummingbird&weather=fog&seed=1988` a 390×844.  
+Publicación: [Actions](https://github.com/akumanomi1988/FlyingFree/actions) · [Sitio](https://akumanomi1988.github.io/FlyingFree/) · [build-info.json](https://akumanomi1988.github.io/FlyingFree/build-info.json).  
+Verificación de verdad: la revisión publicada debe coincidir con el SHA efectivo de `main`, no con la rama ni con un commit histórico.  
+**Snapshot de partida del plan:** `main@f7030ae28e08c8bc9434de946e0f44df028096a0`, CI Pages [#42462516025](https://github.com/akumanomi1988/FlyingFree/actions/runs/42462516025) verde el 2026-11-08. Este identificador es histórico; los agentes futuros deben consultar GitHub en vivo.
