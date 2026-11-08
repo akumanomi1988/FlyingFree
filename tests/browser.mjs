@@ -412,6 +412,29 @@ try{
       const state=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset);
       assert.equal(state.cache.cached,2,'Only two GLB levels may be cached');
       assert.equal(state.cache.active,2,'Two current skins must be retained');
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.performance?.gpuGeometries>0);
+      const before=await page.evaluate(()=>({
+        worldSeed:window.__FLYINGFREE_STATUS__.world.seed,
+        geometries:window.__FLYINGFREE_STATUS__.performance.gpuGeometries,
+        textures:window.__FLYINGFREE_STATUS__.performance.gpuTextures
+      }));
+      // New-island is a full Vite app restart, not a partially reset BVH;
+      // the old WebGL context must not be retained as a hidden world.
+      await page.evaluate(()=>document.getElementById('new-island').click());
+      await page.waitForFunction(previous=>window.__FLYINGFREE_STATUS__?.world?.seed!==previous
+        &&window.__FLYINGFREE_STATUS__?.frames>6
+        &&window.__FLYINGFREE_STATUS__?.asset?.state==='ready',
+        before.worldSeed,{timeout:90000});
+      const after=await page.evaluate(()=>({
+        worldSeed:window.__FLYINGFREE_STATUS__.world.seed,
+        geometries:window.__FLYINGFREE_STATUS__.performance.gpuGeometries,
+        textures:window.__FLYINGFREE_STATUS__.performance.gpuTextures
+      }));
+      assert.notEqual(after.worldSeed,before.worldSeed,'Island seed must change');
+      assert.ok(after.geometries>0&&after.geometries<=before.geometries+60,
+        'Recreating the world must not accumulate uncontrolled GPU geometry: '+JSON.stringify({before,after}));
+      assert.ok(after.textures<=before.textures+8,
+        'Recreating the world must not accumulate GPU textures: '+JSON.stringify({before,after}));
     });
   // Dedicated orthographic inspections. The documentary camera intentionally
   // keeps a 26 cm bird small compared with a 20 m tree; these shots are needed
