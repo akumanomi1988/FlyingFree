@@ -38,20 +38,18 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 
 ## Cola de hitos (el primer `[ ]` es el siguiente)
 
-| Orden | Estado | Hito | Dependencias | Evidencia mínima |
-| --- | --- | --- | --- | --- |
-| 01 | [ ] | **VE-01 — Separar runtime y orquestación** | Ninguna | Sin regresiones; tests de wiring y escenas existentes |
-| 02 | [ ] | **VE-02 — Reloj fijo y snapshots deterministas** | VE-01 | Mismas trayectorias a 15/30/60/120 FPS |
-| 03 | [ ] | **VE-03 — WorldQuery y raycasts BVH** | VE-02 | Altura/contacto/visibilidad sobre malla real |
-| 04 | [ ] | **VE-04 — Física local selectiva con Rapier** | VE-03 | Contactos reales sin coste masivo ni dobles simulaciones |
-| 05 | [ ] | **VE-05 — Pipeline de assets GLB/glTF** | VE-01 | Un ave detallada importable, reproducible, con LOD y fallback |
-| 06 | [ ] | **VE-06 — Animación esquelética piloto** | VE-05, VE-02 | Un ave con clips combinados y contactos creíbles |
-| 07 | [ ] | **VE-07 — Adaptación de las 12 aves** | VE-06 | 12 siluetas, alas y estados verificados por contacto visual |
-| 08 | [ ] | **VE-08 — Movimiento de cámara desacoplado** | VE-02, VE-03 | Cámara documental sin clipping, tirones o pérdida de sujeto |
-| 09 | [ ] | **VE-09 — Evaluación de steering con Yuka** | VE-02, VE-03 | A/B reproducible, decisión integrar o descartar con datos |
-| 10 | [ ] | **VE-10 — Chunks/LOD y presupuestos del mundo** | VE-03, VE-04 | Streaming sin grietas ni pop-in importante; perfiles P95/P99 |
-| 11 | [ ] | **VE-11 — Auditoría documental integrada** | VE-07, VE-08, VE-09, VE-10 | Cuatro minutos, varias semillas, personas y pruebas de rendimiento |
-| 12 | [ ] | **VE-12 — Operación TV prolongada** | VE-11 | 30 min→2 h→8 h→24 h→72 h y recuperación sin operador |
+- [ ] **VE-01 — Separar runtime y orquestación.** Dependencias: ninguna. Entrega: tests de wiring, escenas existentes sin regresión.
+- [ ] **VE-02 — Reloj fijo y snapshots deterministas.** Dependencia: VE-01. Entrega: mismas trayectorias a 15/30/60/120 FPS.
+- [ ] **VE-03 — WorldQuery y raycasts BVH.** Dependencia: VE-02. Entrega: altura/contacto/visibilidad sobre malla real.
+- [ ] **VE-04 — Física local selectiva con Rapier.** Dependencia: VE-03. Entrega: contactos reales sin dobles simulaciones ni coste masivo.
+- [ ] **VE-05 — Pipeline de assets GLB/glTF.** Dependencia: VE-01. Entrega: un ave detallada importable, con LOD y fallback.
+- [ ] **VE-06 — Animación esquelética piloto.** Dependencias: VE-05, VE-02. Entrega: un ave con clips combinados y contactos creíbles.
+- [ ] **VE-07 — Adaptación de las 12 aves.** Dependencia: VE-06. Entrega: doce siluetas, alas y estados revisados con evidencia visual.
+- [ ] **VE-08 — Movimiento de cámara desacoplado.** Dependencias: VE-02, VE-03. Entrega: cámara documental sin clipping, tirones o pérdida de sujeto.
+- [ ] **VE-09 — Evaluación de steering con Yuka.** Dependencias: VE-02, VE-03. Entrega: prueba A/B reproducible y decisión integrar/descartar documentada.
+- [ ] **VE-10 — Chunks/LOD y presupuestos del mundo.** Dependencias: VE-03, VE-04. Entrega: streaming sin grietas y perfiles P95/P99.
+- [ ] **VE-11 — Auditoría documental integrada.** Dependencias: VE-07–VE-10. Entrega: cuatro minutos, varias semillas, revisión humana y rendimiento.
+- [ ] **VE-12 — Operación TV prolongada.** Dependencia: VE-11. Entrega: pruebas progresivas 30 min→72 h y recuperación sin operador.
 
 > **Paralelismo:** la tabla indica orden canónico de ejecución para agentes que reciben «siguiente hito». Las dependencias permiten ejecución paralela **solo** con coordinación explícita y PR sin colisión, nunca saltando el primer pendiente por iniciativa propia. Si faltan activos, hardware o revisión humana, registrar el bloqueo; no fingir que se ha cumplido.
 
