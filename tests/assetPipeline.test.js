@@ -34,6 +34,10 @@ test('VE-05: concurrent loads use a single loader request per LOD, cloned rig pe
   a.release();a.release();
   assert.equal(library.stats.active,2,'second consumer still holds both LODs');
   b.release();assert.equal(library.stats.active,0);
+  // Hot re-acquire of the same bird after another species was selected.
+  const warmed=await library.acquire('kingfisher');
+  assert.equal(files.length,2,'Warm cache should prevent GLB re-fetch');
+  warmed.release();
   library.clearUnused();assert.equal(library.stats.cached,0);
   assert.ok(models.every(m=>m.geometry.attributes.position.count===3));
   library.dispose();
