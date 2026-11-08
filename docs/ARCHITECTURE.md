@@ -8,7 +8,9 @@ Un simulador audiovisual **autónomo** de naturaleza estilizada en el navegador.
 
 | Responsabilidad | Módulos | Contrato vigente / deuda |
 | --- | --- | --- |
-| Orquestación, reloj, UI y estado | `src/main.js`, `src/localTime.js`, `index.html` | `main.js` centraliza demasiadas responsabilidades; extraer por etapas, manteniendo diagnóstico público |
+| Bootstrap y ciclo de vida | `src/main.js`, `src/runtime/app.js`, `src/runtime/frameLoop.js`, `src/runtime/eventScope.js` | Un único RAF y teardown explícito. El paso variable se mantiene hasta VE-02. |
+| Entorno y UI | `src/runtime/browserEnvironment.js`, `src/runtime/browserUI.js`, `src/localTime.js`, `index.html` | Reloj/viewport y servicios inyectables; controles DOM y selector sin lógica ecológica. |
+| Escena y composición | `src/runtime/sceneAdapter.js`, `src/runtime/worldBuilder.js` | WebGL, luces, mundo sembrado y recursos definidos aparte del bootstrap; la simulación aún consume objetos Three para presentación. |
 | Geografía y hábitat | `src/tropicalTerrain.js`, `src/core.js`, `src/ecology.js` | Compartir semilla y función de altura entre malla, IA, agua y colisiones. Terreno sigue siendo una única malla de 250×250 celdas |
 | Agua y relieve costero | `src/renderfx.js`, `src/oceanMotion.js`, `src/coastalBathymetry.js`, `src/tropicalRivers.js`, `src/coastalCliffs.js` | Espuma/costa derivadas del relieve sembrado; shader y flotación CPU han de seguir sincronizados |
 | Agentes de aves | `src/behaviour.js`, `src/birdEcology.js`, `src/flight.js`, `src/speciesAppearance.js` | Agente determinista con hambre, energía y rutas. Reglas por arquetipo, no zoología exacta. El HUD no gobierna la IA |
@@ -17,6 +19,38 @@ Un simulador audiovisual **autónomo** de naturaleza estilizada en el navegador.
 | Vegetación y detalle | `src/vegetation.js`, `src/treeDetail.js`, `src/worldMotion.js` | Instancing y material de viento. Evitar sobrecoste de transparencias y pop-in de detalle |
 | Audio, clima y meteorología | `src/audio.js`, `src/musicDirector.js`, `src/localClimate.js` | El sonido se activa tras gesto, ubicación opcional; proveedor sujeto a licencia comercial |
 | QA | `tests/*.test.js`, `tests/browser.mjs`, `scripts/audit-*.mjs` | Node + Vite + WebGL, habitats y hojas de contacto; sin equivalencia a validación perceptiva |
+
+## VE-01 · Diagrama real de dependencias (PR #40)
+
+```text
+src/main.js (bootstrap único)
+ └─ runtime/app.js (ensamblaje, simulación y diagnóstico público)
+     ├─ runtime/browserEnvironment.js → reloj de pared, performance, viewport, RAF
+     ├─ runtime/frameLoop.js → un solo callback pendiente; stop/dispose
+     ├─ runtime/eventScope.js → suscripciones DOM, teardown
+     ├─ runtime/browserUI.js → controles, teclado, selector, consentimiento
+     ├─ runtime/sceneAdapter.js → WebGLRenderer, Scene, cámara, luces, dispose
+     ├─ runtime/worldBuilder.js → relieve, costa, bosque, nubes, estrellas (seed)
+     ├─ behaviour/ecosystem/ecology → decisiones y agentes existentes
+     └─ audio/localClimate/cameraDirector → servicios y adaptación existentes
+```
+
+`createFlyingFreeApplication({environment,seed,services})` admite inyección
+de un reloj y planificador, semilla, sonido, clima, escena, UI y construcción
+del mundo. `start()` es idempotente; `dispose()` cancela RAF y temporizadores,
+libera suscripciones, sonido y recursos de escena. El diagnóstico
+`window.__FLYINGFREE_STATUS__` permanece disponible, y
+`window.__FLYINGFREE_RUNTIME__` expone snapshot/teardown para pruebas.
+La presentación sigue utilizando Three.js; **no** se introduce simulación
+a timestep fijo, BVH ni motor físico en este hito.
+
+**Aceptación reproducible:** `npm test`, `npm run build`,
+`npm run test:browser`; escenario fijo `?seed=1988&bird=kestrel&h=12.5&weather=clear&broadcast=1`
+y pruebas del selector móvil, clima consentido y TV. Capturas antes:
+[main anterior](https://github.com/akumanomi1988/FlyingFree/actions/runs/42468944998);
+después: [checks PR #40](https://github.com/akumanomi1988/FlyingFree/pull/40/checks).
+No se ha medido GPU física; no se afirma igualdad perceptiva por CI.
+**Rollback:** revertir la PR #40 completa; no existe migración de datos.
 
 ## Reglas de diseño para la próxima iteración
 

@@ -15,7 +15,6 @@ export function createBrowserUI({document,window,location,events,birds,getBird,w
       const name=document.createElement('span');name.className='species-title';name.textContent=bird.name;
       const tag=document.createElement('span');tag.className='species-habitat';tag.textContent=bird.habitat;
       button.append(name,tag);
-      events.on(button,'click',()=>actions.selectBird(bird.id));
       picker.append(button);
     }
     $('bird-habitat').textContent=currentBird.habitat;
@@ -61,6 +60,10 @@ export function createBrowserUI({document,window,location,events,birds,getBird,w
     on($('hud-btn'),'click',toggleVitals);
     on($('close-help'),'click',()=>$('help').classList.add('hidden'));
     const picker=$('bird-picker');
+    on($('bird-options'),'click',event=>{
+      const selected=event.target?.closest?.('[data-bird]');
+      if(selected&&$('bird-options').contains(selected))actions.selectBird(selected.dataset.bird);
+    });
     on($('bird-btn'),'click',()=>picker.classList.toggle('hidden'));
     on($('close-birds'),'click',()=>picker.classList.add('hidden'));
     on(window,'pointermove',actions.revealTVControls,{passive:true});
