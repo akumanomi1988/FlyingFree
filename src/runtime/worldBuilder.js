@@ -8,12 +8,13 @@ import {createForestVisibility} from '../forestVisibility.js';
 import {createTreeDetail} from '../treeDetail.js';
 import {createCloudField} from '../cloudField.js';
 import {TREE_HEIGHT_M} from '../worldScale.js';
+import {createWorldQuery} from '../worldQuery.js';
 
 // World composition is seed-driven; it receives a scene and returns explicit
 // resource handles. The simulation owns their lifetime through sceneAdapter.
 export function buildWorld({THREE,scene,worldSeed,width,windField,adaptiveResolution,scaleFactor}){
   let terrain,water,oceanFX,rivers,cliffs,forest,forestVisibility,treeDetail,
-    cloudField,clouds=[],stars,starMat;
+    cloudField,clouds=[],stars,starMat,worldQuery;
   const temp=new THREE.Object3D();
 function createLandscape(){
   // The former 4.3 km radial patch was a small repeated pancake. A single
@@ -48,6 +49,8 @@ function createLandscape(){
   oceanFX=createOcean(THREE,scene,worldSeed);water=oceanFX.mesh;
   rivers=createTropicalRivers(THREE,scene,worldSeed);
   cliffs=createCoastalCliffs(THREE,scene,worldSeed);
+  // Shared immutable collision topology includes the visible river banks.
+  worldQuery=createWorldQuery({terrain,riverbed:rivers.bed,riverWater:rivers.mesh,seed:worldSeed});
 }
 function createForest(){
   const rng=random(worldSeed);
@@ -90,7 +93,7 @@ function createForest(){
   let pines=0,deciduous=0,cypresses=0,olives=0,birches=0,trees=0;
   for(let attempt=0;attempt<n*8&&trees<n;attempt++){
     const x=(rng()-.5)*9950,z=(rng()-.5)*8600;
-    const candidate=tropicalTerrainSample(x,z,worldSeed),y=candidate.height;
+    const candidate=tropicalTerrainSample(x,z,worldSeed),y=worldQuery.heightAt(x,z)??candidate.height;
     // No trees grow through the current; riparian woodland starts on dry banks.
     if(candidate.river>.23||y<12||y>730||rng()<smooth(430,700,y)*.48)continue;
     const habitat=habitatAt(x,z,worldSeed);
@@ -176,7 +179,7 @@ function createForest(){
   const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rockMaterial,95);
   let j=0;
   for(let attempt=0;attempt<850&&j<95;attempt++){
-    const x=(rng()-.5)*7700,z=(rng()-.5)*7000,y=terrainHeight(x,z,worldSeed);
+    const x=(rng()-.5)*7700,z=(rng()-.5)*7000,y=worldQuery.heightAt(x,z)??terrainHeight(x,z,worldSeed);
     if(y<480)continue;
     const scale=6+rng()*13;
     temp.position.set(x,y-1,z);temp.rotation.set(rng(),rng()*TAU,rng());
@@ -201,6 +204,6 @@ function createStars(){
 }
 
   createLandscape();createForest();createClouds();createStars();
-  return {terrain,water,oceanFX,rivers,cliffs,forest,forestVisibility,
+  return {terrain,water,oceanFX,rivers,cliffs,worldQuery,forest,forestVisibility,
     treeDetail,cloudField,clouds,stars,starMat};
 }
