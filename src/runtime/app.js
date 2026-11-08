@@ -491,28 +491,35 @@ async function audioToggle(){
  }catch(err){showError(err);}
 }
 function sampleRenderedFrame(){
+  // WebGL default buffers may be discarded before a Canvas2D drawImage,
+  // particularly in software-rendered Chromium. Read the actual framebuffer
+  // synchronously in the same task directly after renderer.render(), then
+  // subsample. This is a QA-only probe; no per-frame readbacks in production.
   try{
-    const source=renderer.domElement;
-    const sample=document.createElement('canvas');
-    sample.width=64;sample.height=36;
-    const context=sample.getContext('2d',{willReadFrequently:true});
-    context.drawImage(source,0,0,64,36);
-    const data=context.getImageData(0,0,64,36).data;
+    const gl=renderer.getContext();
+    const width=gl.drawingBufferWidth,height=gl.drawingBufferHeight;
+    if(width<4||height<4)throw Error('Zero-size WebGL drawing buffer');
+    const rgba=new Uint8Array(width*height*4);
+    gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
+    const error=gl.getError();
+    if(error!==gl.NO_ERROR)throw Error('WebGL readPixels error '+error);
     const distinct=new Set();
     let luminance=0,variability=0,nonBlack=0;
-    for(let i=0;i<data.length;i+=4){
-      const r=data[i],g=data[i+1],b=data[i+2];
+    for(let y=0;y<36;y++)for(let x=0;x<64;x++){
+      const i=4*(Math.floor(y*height/36)*width+Math.floor(x*width/64));
+      const r=rgba[i],g=rgba[i+1],b=rgba[i+2];
       distinct.add([r>>4,g>>4,b>>4].join(':'));
-      const l=(r+g+b)/3;
-      luminance+=l;variability+=Math.abs(r-b);
+      const v=(r+g+b)/3;
+      luminance+=v;variability+=Math.abs(r-b);
       if(r+g+b>60)nonBlack++;
     }
-    return {colors:distinct.size,
-      brightness:Math.round(luminance/(data.length/4)),
-      colorVar:Math.round(variability/(data.length/4)),
-      nonBlack:Math.round(nonBlack/(data.length/4)*100)};
-  }catch(error){return {colors:0,brightness:0,colorVar:0,nonBlack:0,
-    error:String(error)};}
+    const count=64*36;
+    return {colors:distinct.size,brightness:Math.round(luminance/count),
+      colorVar:Math.round(variability/count),
+      nonBlack:Math.round(nonBlack/count*100)};
+  }catch(error){
+    return {colors:0,brightness:0,colorVar:0,nonBlack:0,error:String(error)};
+  }
 }
 window.__FLYINGFREE_RENDER_PROBE__=()=>new Promise(resolve=>{
   // One-shot readback. Displaced probes are resolved explicitly rather
