@@ -241,3 +241,13 @@
 - Contactos fluviales y costeros basados en terreno y lecho; agua marina/fluvial se consulta, nunca es una barrera sólida. Faltan benchmark de hardware real, TV y aprobación perceptiva.
 - Tests y bench dedicados, artefactos en Actions de PR. No avanzar a VE-05 mientras no se cierre VE-04 con pruebas y despliegue.
 - Rollback: revertir PR #43.
+
+### Ajuste de alcance y salida VE-04
+
+Tras medir 12 cuerpos, se reduce el máximo a 8 en escritorio y 4 en móvil.
+Se comprueba que la revisión de `WorldQuery` invalida el parche Rapier tras seis
+regeneraciones sucesivas. Primer ciclo íntegro: 189 Node + Vite + 7 WebGL en
+[GitHub Actions #42520789082](https://github.com/akumanomi1988/FlyingFree/actions/runs/42520789082),
+antes del commit documental/de validación final; PR #43 requiere su propio HEAD
+verde, merge y Pages. Coste exacto tras límites reducidos: consultar artefacto
+`artifacts/physics/benchmark.json` de la CI del HEAD final. No iniciar VE-05 antes.

@@ -116,3 +116,15 @@ aislado. Las pruebas cubren pendientes, tres semillas, histéresis de distancia,
 agua, regeneración y destrucción. **Pendiente de aceptación hasta que CI final,
 comparación de costes, revisión de colisiones y Pages resulten verificadas.**
 Rollback de VE-04: revertir PR #43; sin migración de datos.
+
+### VE-04 · Decisión conservadora tras benchmark de Rapier
+
+El piloto se restringe a 8 cuerpos cinemáticos de fauna próxima en escritorio,
+4 en móvil, más un contacto del protagonista cuando se posa en terreno; jamás
+se sustituyen los estados ecológicos ni se agregan cientos de rigid bodies.
+La construcción de colliders locales usa directamente el BVH de VE-03
+(`shapecast`), sin escanear los 160k triángulos completos.
+Con 12 cuerpos, el coste incremental inicial fue 0,76–2,97 ms/tick en GitHub CI;
+la construcción de parche descendió de 27–31 ms a 3–7 ms con BVH. El coste WASM
+de primer arranque y RSS requieren hardware físico antes de ampliar alcance.
+Pruebas definitivas y coste de 8 cuerpos en [checks PR #43](https://github.com/akumanomi1988/FlyingFree/pull/43/checks).

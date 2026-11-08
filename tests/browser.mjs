@@ -61,7 +61,7 @@ async function render(name,query,width,height,runChecks){
     assert.equal(stats.species,12,'Selector incompleto');
     assert.equal(stats.physics?.state,'active','VE-04: Rapier WASM is not active in WebGL');
     assert.ok(stats.physics.ticks>0,'VE-04: Rapier not stepped by fixed clock');
-    assert.ok(stats.physics.activeBodies>=0&&stats.physics.activeBodies<=(width<720?6:12),
+    assert.ok(stats.physics.activeBodies>=0&&stats.physics.activeBodies<=(width<720?4:8),
       'VE-04: nearby body cap violated');
     assert.ok(stats.metrics?.energy>=0&&stats.metrics?.energy<=1,
       'Energy indicator not initialized');

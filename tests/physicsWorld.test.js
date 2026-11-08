@@ -109,3 +109,28 @@ test('The same seed and fixed tick script reproduce identical Rapier contact pos
     assert.deepEqual(histories[0],histories[1]);
   }finally{f.dispose();}
 });
+
+test('Repeated WorldQuery terrain replacement automatically invalidates Rapier patches',async()=>{
+  const world=fixture(1988,.15);
+  const worlds=[];
+  const physics=await createPhysicsWorld({query:world.query,limits:{patchRadius:45}});
+  const a=actor('fox',0,world.query.heightAt(0,0),0);
+  try{
+    for(let cycle=0;cycle<6;cycle++){
+      const next=fixture(1988+cycle,.11+cycle*.08);
+      worlds.push(next);
+      const oldRevision=world.query.surfaceRevision;
+      world.query.replaceSurfaces({terrain:next.mesh});
+      assert.equal(world.query.surfaceRevision,oldRevision+1);
+      const target=world.query.heightAt(cycle*1.7,cycle*.8);
+      a.position.x=cycle*1.7;a.position.z=cycle*.8;a.position.y=target-.6;
+      physics.step([a],{x:a.position.x,y:20,z:a.position.z},DT);
+      assert.equal(physics.stats.activeBodies,1);
+      assert.equal(physics.stats.staticColliders,1);
+      assert.ok(a.position.y>=world.query.heightAt(a.position.x,a.position.z)-.001);
+      assert.ok(a.position.y-world.query.heightAt(a.position.x,a.position.z)<.151);
+      assert.equal(physics.revision,world.query.surfaceRevision);
+    }
+    assert.equal(physics.stats.patches,6);
+  }finally{physics.dispose();world.dispose();for(const w of worlds)w.dispose();}
+});

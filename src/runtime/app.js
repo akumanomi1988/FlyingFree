@@ -149,7 +149,7 @@ function init(){
   };
   if(worldQuery?.sources?.length){
     status.physics={state:'loading',activeBodies:0};
-    physicsPending=createPhysicsWorld({query:worldQuery,limits:{maxBodies:environment.width()<720?6:12}}).then(world=>{
+    physicsPending=createPhysicsWorld({query:worldQuery,limits:{maxBodies:environment.width()<720?4:8}}).then(world=>{
       if(disposed){world.dispose();return;}
       physicsWorld=world;status.physics={state:'active',...world.stats};
     }).catch(error=>{

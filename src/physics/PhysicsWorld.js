@@ -4,7 +4,7 @@ import * as THREE from 'three';
 // Sources are the same visible static triangles indexed by WorldQuery (VE-03).
 export const PHYSICS_LIMITS=Object.freeze({
   activateDistance:145,deactivateDistance:185,patchRadius:345,
-  patchShift:105,maxBodies:12,contactOffset:0.015
+  patchShift:105,maxBodies:8,contactOffset:0.015
 });
 const sizes=Object.freeze({
   deer:{radius:.26,halfHeight:.40},
