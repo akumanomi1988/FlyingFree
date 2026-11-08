@@ -36,10 +36,12 @@ for(const lod of manifest.lods){
   assert.ok(triangles>150,'Anatomical geometry missing');
   const bounds=new THREE.Box3().setFromObject(object);
   const span=bounds.max.x-bounds.min.x;
-  assert.ok(span>=.22&&span<=.32,'wingspan must be physically sized: '+span);
+  assert.ok(Math.abs(span-.26)<.015,'wingspan must match the 26 cm species profile: '+span);
+  const length=bounds.max.z-bounds.min.z;
+  assert.ok(length>=.135&&length<=.16,'kingfisher length must be ~14.5 cm, not 24 cm: '+length);
   assert.ok(Math.abs(triangles-lod.triangles)<5,'manifest geometry mismatch');
   checked.push({lod:lod.lod,triangles:Math.round(triangles),bytes:binary.byteLength,
-    skinned,bones:bones.length,wingspanMetres:+span.toFixed(5),wingSurfaces:surfaces.length});
+    skinned,bones:bones.length,wingspanMetres:+span.toFixed(5),lengthMetres:+length.toFixed(5),wingSurfaces:surfaces.length});
 }
 assert.ok(checked[0].triangles>checked[1].triangles*1.7,'LOD1 must reduce geometry substantially');
 const report={validated:true,species:manifest.species,checked,
