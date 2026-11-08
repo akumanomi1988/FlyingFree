@@ -40,6 +40,16 @@ jobs:
           if-no-files-found: warn
       - name: Production build
         run: npm run build
+      - name: Preserve VE-05 generated models and geometry metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ve05-kingfisher-glb-evidence
+          path: |
+            public/assets/birds/*.glb
+            public/assets/birds/manifest.json
+            artifacts/assets/geometry.json
+          if-no-files-found: warn
       - name: Install browser
         run: npx playwright install --with-deps chromium
       - name: Test interactions, WebGL and visual output

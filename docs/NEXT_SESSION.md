@@ -260,3 +260,10 @@ de parche **1,673–4,579 ms**, RSS de muestra fría **+143,46 MB**
 (no equivalente a fuga ni memoria aislada de Rapier). Coste frío por IS/WASM:
 53,178 ms en este runner. Resta obtener CI verde del HEAD documental, merge
 con lease y publicación comprobada del SHA de `main` vía Pages.
+
+
+## VE-05 — Pipeline GLB/glTF (validado técnicamente; PR #44)
+- 195 Node + build Vite + 24 Playwright/WebGL, [Actions 42530170381](https://github.com/akumanomi1988/FlyingFree/actions/runs/42530170381), HEAD validado cf912cd4be49e6b69e531913fc3de70e1ace0b4b; 10 capturas ortográficas LOD0/LOD1 y evidencia GLB exportada.
+- Martín pescador propio Alcedo atthis: huesos 12, alas 2, 0,260 m de envergadura y 0,144 m de largo, 6.420/1.912 tris (LOD0/LOD1); 24/19 draws aislados. Cargador/cache/escala/fallback/regeneración probados, sin implementar VE-06.
+- docs/ASSET_PIPELINE.md explica licencia, Blender→GLB, límites, modo de rollback (?assets=procedural) y visor QA asset-preview.html.
+- No atribuir hardware real, TV prolongada ni métricas GPU físicas a SwiftShader. Revisar Pages SHA después del merge, y asociar su workflow a este hito.

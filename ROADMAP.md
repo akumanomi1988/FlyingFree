@@ -42,7 +42,7 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 - [x] **VE-02 — Reloj fijo y snapshots deterministas.** Dependencia: VE-01. Entrega: mismas trayectorias a 15/30/60/120 FPS.
 - [x] **VE-03 — WorldQuery y raycasts BVH.** Dependencia: VE-02. Entrega: altura/contacto/visibilidad sobre malla real.
 - [x] **VE-04 — Física local selectiva con Rapier.** Dependencia: VE-03. Entrega: contactos reales sin dobles simulaciones ni coste masivo.
-- [ ] **VE-05 — Pipeline de assets GLB/glTF.** Dependencia: VE-01. Entrega: un ave detallada importable, con LOD y fallback.
+- [x] **VE-05 — Pipeline de assets GLB/glTF.** Dependencia: VE-01. Entrega: un ave detallada importable, con LOD y fallback.
 - [ ] **VE-06 — Animación esquelética piloto.** Dependencias: VE-05, VE-02. Entrega: un ave con clips combinados y contactos creíbles.
 - [ ] **VE-07 — Adaptación de las 12 aves.** Dependencia: VE-06. Entrega: doce siluetas, alas y estados revisados con evidencia visual.
 - [ ] **VE-08 — Movimiento de cámara desacoplado.** Dependencias: VE-02, VE-03. Entrega: cámara documental sin clipping, tirones o pérdida de sujeto.
@@ -80,7 +80,8 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 ### VE-05 — Pipeline de assets GLB/glTF
 **Hacer:** adoptar una convención de ejes/unidades (metros, Z/Y coherentes), nombres de huesos, materiales, variantes y LOD; carga asíncrona/caché/liberación. Preparar un ave de referencia (p. ej. águila) con silueta anatómica reconocible, esqueleto y al menos dos LOD, manteniendo fallback procedural y sin assets de origen/licencia inciertos. Documentar exportación Blender→GLB y optimizaciones del formato.  
 **Aceptar:** ave visible en navegador y TV, escala correcta frente a árboles, no se ven cuatro alas, fallback si falla carga, recursos liberados al cambiar especie. Tests y comparativas multiángulo. Un cubo de prueba no cuenta como ave completa.  
-**Evidencia/PR/CI:** pendiente.
+**Evidencia/PR/CI:** [PR #44](https://github.com/akumanomi1988/FlyingFree/pull/44) — implementación auditada en `cf912cd4be49e6b69e531913fc3de70e1ace0b4b`, [CI verde #42530170381](https://github.com/akumanomi1988/FlyingFree/actions/runs/42530170381): 195 tests Node, Vite, benchmark WorldQuery/BVH y Rapier, 24 escenarios Playwright/WebGL (7 regresiones, 7 escenarios GLB/fallback y 10 vistas ortográficas). Referencia original Alcedo atthis, dos GLB reproducibles y 12 huesos, exactamente dos alas; 6.420/1.912 triángulos, 24/19 draw calls aislados, envergadura 0,260 m, longitud 0,144 m, sin materiales externos de procedencia incierta. Escala, cambio de especie, regeneración de isla, recursos GPU, GLB fallido y rollback comprobados. [Artefacto de capturas](https://github.com/akumanomi1988/FlyingFree/actions/runs/42530170381/artifacts/13636852871); [GLB y métricas](https://github.com/akumanomi1988/FlyingFree/actions/runs/42530170381/artifacts/13637241638); especificación [docs/ASSET_PIPELINE.md](./docs/ASSET_PIPELINE.md). Limitaciones explícitas: aceptación de estilo solo visual/manual sobre capturas sintéticas; P95/P99 y GPU/memoria en hardware físico y estabilidad prolongada en Smart TV no acreditados por SwiftShader. El hito se limita a un ave; VE-06 no se implementa.
+
 
 ### VE-06 — Animación esquelética piloto
 **Hacer:** clips/estados `flap`, `glide`, `takeoff`, `landing`, `perch`, `rest` enlazados con `THREE.AnimationMixer` y blending; el estado procede del `BirdBrain`, no del renderer. Resolver contacto de patas con una capa limitada de IK/ajuste al `WorldQuery`. Mantener versión procedural para comparación.  

@@ -4,3 +4,7 @@ artifacts/
 .DS_Store
 *.log
 public/build-info.json
+
+# Generated/reproducible VE-05 outputs
+public/assets/birds/*.glb
+public/assets/birds/manifest.json

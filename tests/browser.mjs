@@ -19,11 +19,12 @@ async function waitServer(){
 }
 const report={date:new Date().toISOString(),result:'pending',scenarios:[],errors:[]};
 let browser;
-async function render(name,query,width,height,runChecks){
+async function render(name,query,width,height,runChecks,beforeNavigation){
   const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,acceptDownloads:true});
   page.on('pageerror',e=>report.errors.push(name+' pageerror: '+e.message));
-  page.on('console',m=>{if(m.type()==='error')report.errors.push(name+' console: '+m.text());});
+  page.on('console',m=>{if(m.type()==='error'&&!(name==='11-kingfisher-missing-glb'&&/404|Failed to load resource/i.test(m.text())))report.errors.push(name+' console: '+m.text());});
   try{
+    if(beforeNavigation)await beforeNavigation(page);
     const r=await page.goto(root+query,{waitUntil:'domcontentloaded',timeout:30000});
     assert.equal(r?.status(),200,'Respuesta HTTP');
     await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,null,{timeout:60000});
@@ -40,7 +41,7 @@ async function render(name,query,width,height,runChecks){
       const result={canvas:true,renderedFrames:s.frames,fps:s.fps,error:s.error,colors:pixels.colors,
         brightness:pixels.brightness,colorVar:pixels.colorVar,
         nonBlack:pixels.nonBlack,
-        scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
+        scene:s.scene,fauna:s.fauna,bird:s.bird,asset:s.asset,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,regionalBirds:s.regionalBirds,riverLife:s.riverLife,performance:s.performance,adaptiveQuality:s.adaptiveQuality,riverGeometry:s.riverGeometry,
         forestVisibility:s.forestVisibility,performanceTarget:s.performanceTarget,
          wildlifePopulation:s.wildlifePopulation,wildlifeVisibility:s.wildlifeVisibility,
@@ -352,6 +353,118 @@ try{
       assert.ok(requests>=1,'Al entrar no se solicitó la ubicación ni el clima real');
       assert.equal(await page.locator('#intro').evaluate(e=>e.classList.contains('off')),true);
     });
+  // The reference bird is a *real GLB skin*, not a replacement procedural cube.
+  // Multiple camera shots preserve visual evidence at different distances.
+  for(const [name,mode,seed] of [
+    ['08-kingfisher-close','close',1988],
+    ['09-kingfisher-profile','profile',12345],
+    ['10-kingfisher-scenic','high-reveal',20261106]
+  ]){
+    await render(name,'?h=12.5&bird=kingfisher&weather=clear&broadcast=1&selftest=1&seed='+seed+'&qaShot='+mode,
+      1365,768,async page=>{
+        await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='ready',
+          null,{timeout:30000});
+        const asset=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset);
+        assert.equal(asset.species,'kingfisher');
+        assert.equal(asset.near.bones>=10,true,'Exported GLB must include anatomical skeleton');
+        assert.ok(asset.near.triangles>asset.far.triangles*1.7);
+      });
+  }
+  // Fail a real HTTP fetch. Renderer must keep original procedural bird active.
+  await render('11-kingfisher-missing-glb',
+    '?bird=kingfisher&seed=1988&h=12.5&weather=clear&broadcast=1',
+    1280,800,async page=>{
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='fallback',
+        null,{timeout:25000});
+      assert.match(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset.reason),/404|Failed|fetch/i);
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.birdDrawCallsSaved>=40),true);
+    },
+    async page=>{
+      await page.route('**/assets/birds/kingfisher-lod0.glb*',
+        route=>route.fulfill({status:404,contentType:'text/plain',body:'not found'}));
+    });
+  await render('12-kingfisher-procedural-optout',
+    '?bird=kingfisher&assets=procedural&seed=1988&broadcast=1',
+    1280,800,async page=>{
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset.state),'procedural');
+    });
+  // Same seed, weather and composition as 08 for procedural-versus-GLB
+  // comparison; captures remain available as an Actions artifact.
+  await render('14-kingfisher-before-procedural-close',
+    '?h=12.5&bird=kingfisher&weather=clear&broadcast=1&selftest=1&seed=1988&qaShot=close&assets=procedural',
+    1365,768,async page=>{
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__?.asset?.state),'procedural');
+    });
+  await render('13-kingfisher-species-swap',
+    '?bird=kingfisher&seed=1988&h=12.5&weather=clear',
+    1280,800,async page=>{
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='ready',
+        null,{timeout:30000});
+      await page.locator('#skip-location-btn').click();
+      await page.locator('#bird-btn').click();
+      await page.locator('[data-bird="owl"]').click();
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='procedural'
+        &&window.__FLYINGFREE_STATUS__?.bird==='owl');
+      await page.locator('#bird-btn').click();
+      await page.locator('[data-bird="kingfisher"]').click();
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='ready'
+        &&window.__FLYINGFREE_STATUS__?.bird==='kingfisher',null,{timeout:30000});
+      const state=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset);
+      assert.equal(state.cache.cached,2,'Only two GLB levels may be cached');
+      assert.equal(state.cache.active,2,'Two current skins must be retained');
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.performance?.gpuGeometries>0);
+      const before=await page.evaluate(()=>({
+        worldSeed:window.__FLYINGFREE_STATUS__.world.seed,
+        geometries:window.__FLYINGFREE_STATUS__.performance.gpuGeometries,
+        textures:window.__FLYINGFREE_STATUS__.performance.gpuTextures
+      }));
+      // New-island is a full Vite app restart, not a partially reset BVH;
+      // the old WebGL context must not be retained as a hidden world.
+      await page.evaluate(()=>document.getElementById('new-island').click());
+      await page.waitForURL(url=>url.searchParams.get('seed')!==String(before.worldSeed),
+        {timeout:30000});
+      await page.waitForFunction(previous=>window.__FLYINGFREE_STATUS__?.world?.seed!==previous
+        &&window.__FLYINGFREE_STATUS__?.frames>6
+        &&window.__FLYINGFREE_STATUS__?.asset?.state==='ready'
+        &&window.__FLYINGFREE_STATUS__?.performance?.gpuGeometries>0,
+        before.worldSeed,{timeout:90000});
+      const after=await page.evaluate(()=>({
+        worldSeed:window.__FLYINGFREE_STATUS__.world.seed,
+        geometries:window.__FLYINGFREE_STATUS__.performance.gpuGeometries,
+        textures:window.__FLYINGFREE_STATUS__.performance.gpuTextures
+      }));
+      assert.notEqual(after.worldSeed,before.worldSeed,'Island seed must change');
+      assert.ok(after.geometries>0&&after.geometries<=before.geometries+60,
+        'Recreating the world must not accumulate uncontrolled GPU geometry: '+JSON.stringify({before,after}));
+      assert.ok(after.textures<=before.textures+8,
+        'Recreating the world must not accumulate GPU textures: '+JSON.stringify({before,after}));
+    });
+  // Dedicated orthographic inspections. The documentary camera intentionally
+  // keeps a 26 cm bird small compared with a 20 m tree; these shots are needed
+  // to ACCEPT anatomical contours and the actual distant LOD.
+  for(const level of [0,1]){
+    for(const angle of ['front','side','top','threeQuarter','back']){
+      const name='VE05-'+(level?'LOD1':'LOD0')+'-'+angle;
+      const page=await browser.newPage({viewport:{width:960,height:750},deviceScaleFactor:1});
+      page.on('pageerror',error=>report.errors.push(name+': '+error.message));
+      try{
+        const response=await page.goto(root+'asset-preview.html?view='+angle+'&lod='+level,
+          {waitUntil:'domcontentloaded',timeout:20000});
+        assert.equal(response?.status(),200,'Asset inspection document missing');
+        await page.waitForFunction(()=>window.__VE05_PREVIEW__?.ready||
+          window.__VE05_PREVIEW__?.error,null,{timeout:30000});
+        const metrics=await page.evaluate(()=>window.__VE05_PREVIEW__);
+        assert.equal(metrics.error,null,name+' GLB failed: '+metrics.error);
+        assert.equal(metrics.bones,12,name+' imported anatomical skeleton');
+        assert.ok(metrics.sizeMetres.x>.24&&metrics.sizeMetres.x<.29,
+          name+' physical wingspan '+metrics.sizeMetres.x);
+        assert.ok(metrics.drawCalls>3&&metrics.drawCalls<65,name+' draw call budget');
+        assert.ok(metrics.renderedTriangles>100,'Real GLB must render triangles');
+        await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled'});
+        report.scenarios.push({name,success:true,stats:metrics});
+      }finally{await page.close();}
+    }
+  }
   assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
   report.result='pass';
 }catch(e){report.failure=e.stack||String(e);report.result='fail';console.error(e);}

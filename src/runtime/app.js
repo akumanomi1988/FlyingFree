@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,BIRDS,WEATHER,chooseBird,chooseWeather,sunPosition,readOptions} from '../core.js';
 import {Soundscape} from '../audio.js';
 import {createBirdRig,animateBirdRig} from '../flight.js';
+import {BirdAssetLibrary,REFERENCE_ASSETS,canUseBirdAssets,bridgeProceduralPose} from '../assets/BirdAssetLibrary.js';
 import {createEcosystem} from '../ecosystem.js';
 import {createSky,createPrecipitation} from '../renderfx.js';
 import {createBirdBrain} from '../behaviour.js';
@@ -47,6 +48,49 @@ const frameTelemetry=createFrameTelemetry(600);
 const simulationClock=createFixedStepClock();
 let previousPose=null,currentPose=null,userPaused=false;
 let physicsWorld=null,physicsPending=null;
+const assetLibrary=services.birdAssets??new BirdAssetLibrary({
+  basePath:(import.meta.env?.BASE_URL??'/')+'assets/birds/',maxIdle:2
+});
+let activeBirdAsset=null,assetGeneration=0;
+function releaseBirdAsset(){
+  assetGeneration++;
+  if(!activeBirdAsset)return;
+  activeBirdAsset.model.parent?.remove(activeBirdAsset.model);
+  activeBirdAsset.release();
+  activeBirdAsset=null;
+}
+function requestBirdAsset(rig,profile){
+  const revision=++assetGeneration;
+  const deviceEligible=canUseBirdAssets({
+    renderer,navigator,search:location.search
+  });
+  if(!REFERENCE_ASSETS[profile.id]||!deviceEligible){
+    status.asset={state:'procedural',species:profile.id};
+    // Keep the reference GLB warm when selecting a different procedural bird:
+    // maxIdle=2 caps the cache at one LOD pair. Only flush proactively when
+    // GLB rendering has been disabled by device constraints or user opt-out.
+    if(!deviceEligible)assetLibrary.clearUnused?.();
+    return;
+  }
+  status.asset={state:'loading',species:profile.id};
+  void assetLibrary.acquire(profile.id).then(handle=>{
+    if(disposed||revision!==assetGeneration||birdModel!==rig){
+      handle.release();return;
+    }
+    // The existing procedural rig is scaled in local units. GLB geometry
+    // is authored in metres and must retain its physical wingspan.
+    handle.model.scale.setScalar(1/rig.scale.x);
+    rig.traverse(obj=>{if(obj.isMesh)obj.visible=false;});
+    rig.add(handle.model);
+    activeBirdAsset=handle;
+    status.asset={state:'ready',species:profile.id,
+      ...handle.statistics,cache:assetLibrary.stats};
+  }).catch(error=>{
+    if(!disposed&&revision===assetGeneration){
+      status.asset={state:'fallback',species:profile.id,reason:String(error)};
+    }
+  });
+}
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
   pendingSnapshot=false,pendingRenderProbe=null;
 const climate=services.climate??createLiveClimate({clock:environment.epoch});
@@ -145,7 +189,7 @@ function init(){
     lastFrame=environment.now();
     simulationClock.resync(lastFrame);
     loop.start();
-    if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTest,2500);
+    if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTestWhenReady,2500);
   };
   if(worldQuery?.sources?.length){
     status.physics={state:'loading',activeBodies:0};
@@ -162,6 +206,7 @@ function init(){
 }
 function createBird(){
   const previousPosition=birdModel?.position.clone();
+  releaseBirdAsset();
   if(birdModel){
     scene.remove(birdModel);
     // Repeated species changes must not leak GPU buffers and materials.
@@ -188,6 +233,7 @@ function createBird(){
     camera.quaternion.setFromEuler(new THREE.Euler(0,0,0));
   }
   scene.add(birdModel);
+  requestBirdAsset(birdModel,currentBird);
   status.bird=currentBird.id;
   const initialBird=birdBrain.snapshot;
   previousPose={...initialBird};currentPose={...initialBird};lastBirdAction=null;
@@ -281,6 +327,8 @@ function renderBird(time,frameDt,alpha){
     bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
     floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
     state:action.state,food:action.food,feedingProgress:action.feedingProgress},frameDt);
+  // Only transfer the pre-existing procedural pose; clip blending is VE-06.
+  bridgeProceduralPose(activeBirdAsset?.model,birdModel);
   const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan,rain:weatherState.rain},time);
   const visibleRest=restVisuals?.update(action,camera.position);
   status.perchVisible=Boolean(visibleRest?.visible);
@@ -401,7 +449,7 @@ function animate(now){
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
-    status.performance={...frameTelemetry.snapshot(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,points:renderer.info.render.points,lines:renderer.info.render.lines};
+    status.performance={...frameTelemetry.snapshot(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,points:renderer.info.render.points,lines:renderer.info.render.lines,gpuGeometries:renderer.info.memory.geometries,gpuTextures:renderer.info.memory.textures};
     status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
     fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
@@ -447,28 +495,35 @@ async function audioToggle(){
  }catch(err){showError(err);}
 }
 function sampleRenderedFrame(){
+  // WebGL default buffers may be discarded before a Canvas2D drawImage,
+  // particularly in software-rendered Chromium. Read the actual framebuffer
+  // synchronously in the same task directly after renderer.render(), then
+  // subsample. This is a QA-only probe; no per-frame readbacks in production.
   try{
-    const source=renderer.domElement;
-    const sample=document.createElement('canvas');
-    sample.width=64;sample.height=36;
-    const context=sample.getContext('2d',{willReadFrequently:true});
-    context.drawImage(source,0,0,64,36);
-    const data=context.getImageData(0,0,64,36).data;
+    const gl=renderer.getContext();
+    const width=gl.drawingBufferWidth,height=gl.drawingBufferHeight;
+    if(width<4||height<4)throw Error('Zero-size WebGL drawing buffer');
+    const rgba=new Uint8Array(width*height*4);
+    gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
+    const error=gl.getError();
+    if(error!==gl.NO_ERROR)throw Error('WebGL readPixels error '+error);
     const distinct=new Set();
     let luminance=0,variability=0,nonBlack=0;
-    for(let i=0;i<data.length;i+=4){
-      const r=data[i],g=data[i+1],b=data[i+2];
+    for(let y=0;y<36;y++)for(let x=0;x<64;x++){
+      const i=4*(Math.floor(y*height/36)*width+Math.floor(x*width/64));
+      const r=rgba[i],g=rgba[i+1],b=rgba[i+2];
       distinct.add([r>>4,g>>4,b>>4].join(':'));
-      const l=(r+g+b)/3;
-      luminance+=l;variability+=Math.abs(r-b);
+      const v=(r+g+b)/3;
+      luminance+=v;variability+=Math.abs(r-b);
       if(r+g+b>60)nonBlack++;
     }
-    return {colors:distinct.size,
-      brightness:Math.round(luminance/(data.length/4)),
-      colorVar:Math.round(variability/(data.length/4)),
-      nonBlack:Math.round(nonBlack/(data.length/4)*100)};
-  }catch(error){return {colors:0,brightness:0,colorVar:0,nonBlack:0,
-    error:String(error)};}
+    const count=64*36;
+    return {colors:distinct.size,brightness:Math.round(luminance/count),
+      colorVar:Math.round(variability/count),
+      nonBlack:Math.round(nonBlack/count*100)};
+  }catch(error){
+    return {colors:0,brightness:0,colorVar:0,nonBlack:0,error:String(error)};
+  }
 }
 window.__FLYINGFREE_RENDER_PROBE__=()=>new Promise(resolve=>{
   // One-shot readback. Displaced probes are resolved explicitly rather
@@ -585,6 +640,17 @@ function updateWeatherUI(date){
  $('tv-overlay').style.setProperty('--tv-shift-x',shifts[movement][0]+'px');
  $('tv-overlay').style.setProperty('--tv-shift-y',shifts[movement][1]+'px');
 }
+function selfTestWhenReady(){
+ if(disposed)return;
+ // SwiftShader and first-time WASM compilation can delay the first frames.
+ // Do not weaken the >=7-frame gate: run the same test once its precondition is true.
+ if(status.frames<=6){
+   selfTestTimeout=environment.setTimeout(selfTestWhenReady,500);
+   return;
+ }
+ selfTestTimeout=null;
+ selfTest();
+}
 function selfTest(){
  const tests=[
   ['WebGL2 disponible',!!renderer?.capabilities.isWebGL2],
@@ -685,6 +751,8 @@ function dispose(){
   if(sound?.dispose)void Promise.resolve(sound.dispose()).catch(error=>console.error(error));
   physicsWorld?.dispose();
   worldQuery?.dispose();
+  releaseBirdAsset();
+  assetLibrary.dispose?.();
    disposeBrowserScene(scene,renderer);
   status.ready=false;
   status.runtime=loop.snapshot();
