@@ -232,3 +232,12 @@
 - **Validación:** 183 pruebas Node, Vite y 7 escenarios Playwright/WebGL verdes para `16ce0b1d449e984e9a4b52a7a768b1a316f1733d`. Semillas 1988, 20261106, 12345: 144 raycasts de benchmark BVH contra Three.js sin aceleración, diferencia máxima de altura 2,27e-13 m. P95 de error de muestreo analítico anterior 1,04–1,96 m; BVH 0,0137–0,0282 ms/consulta frente a 8,25–8,34 ms/consulta sin acelerar; 296–610× en ese microbenchmark CPU. Memoria de índices 5,14–5,19 MB y arranque de BVH 40–88 ms por escena.
 - **Límites:** números del runner GitHub/SwiftShader, no equivalen a FPS de GPU real. Los hábitats se clasifican aún mediante reglas semilla, sustituyendo normal y altura por la geometría visible. Otros productores decorativos pueden conservar colocación analítica hasta hito posterior; superficies estáticas y vegetación dinámica se mantienen separadas. Revisión perceptiva humana y resistencia TV no certificadas.
 - **Rollback:** revertir PR #42; los cambios no alteran datos persistentes. Estado de aceptación final: CI del HEAD de PR, merge a main y comprobación Pages de `build-info.json.revision` pendientes en el momento de escribir la entrada.
+
+## VE-04 — Física local selectiva Rapier (PR #43, 2026-11-08)
+
+- Implementación candidata: https://github.com/akumanomi1988/FlyingFree/pull/43; sigue pendiente de CI del último HEAD y de merge.
+- Carga diferida de WASM Rapier 0.21.0, con inicio de reloj fijo sólo tras inicialización/fallback. El controlador cinemático corrige movimientos; cuerpos cinemáticos simples no resuelven contactos por sí mismos.
+- Hasta 12 cuerpos próximos, histéresis 145/185 m. Parches trimesh estáticos de 345 m sobre la malla exacta de WorldQuery, con recorte/reconstrucción al desplazar el observador 105 m; fauna lejana sigue con reglas de bajo coste.
+- Contactos fluviales y costeros basados en terreno y lecho; agua marina/fluvial se consulta, nunca es una barrera sólida. Faltan benchmark de hardware real, TV y aprobación perceptiva.
+- Tests y bench dedicados, artefactos en Actions de PR. No avanzar a VE-05 mientras no se cierre VE-04 con pruebas y despliegue.
+- Rollback: revertir PR #43.

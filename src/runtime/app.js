@@ -93,16 +93,6 @@ function init(){
     cloudField,clouds,stars,starMat}=(services.buildWorld??buildWorld)({
       THREE,scene,worldSeed,width:environment.width(),windField,adaptiveResolution,scaleFactor
     }));
-  // WASM/large collider patches are not allowed to block the first rendered frame.
-  status.physics={state:'loading',activeBodies:0};
-  physicsPending=createPhysicsWorld({query:worldQuery}).then(world=>{
-    if(disposed){world.dispose();return;}
-    physicsWorld=world;status.physics={state:'active',...world.stats};
-  }).catch(error=>{
-    // A failed WASM startup degrades to VE-03 exact-height contacts rather
-    // than breaking TV or the Seven WebGL regression scenarios.
-    status.physics={state:'fallback',activeBodies:0,reason:String(error)};
-  });
   createBird();
   riverHabitat=createRiverEcosystem(THREE,scene,worldSeed,environment.width()<720?.65:1);
   regionalBirds=createRegionalBirds(THREE,scene,worldSeed,environment.width()<720?.68:1);
@@ -148,8 +138,27 @@ function init(){
   // Normal visits wait for the explicit choice on the intro screen.
   // TV/broadcast may reuse a permission already granted, without prompting.
   if(opts.broadcast||opts.tv)void connectClimate(true);
-  if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTest,2500);
-  lastFrame=environment.now();simulationClock.resync(lastFrame);loop.start();
+  // Prevent WASM timing from changing which simulation ticks use Rapier.
+  // Both success and explicit fallback start the first tick from zero.
+  const startSimulation=()=>{
+    if(disposed)return;
+    lastFrame=environment.now();
+    simulationClock.resync(lastFrame);
+    loop.start();
+    if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTest,2500);
+  };
+  if(worldQuery?.sources?.length){
+    status.physics={state:'loading',activeBodies:0};
+    physicsPending=createPhysicsWorld({query:worldQuery}).then(world=>{
+      if(disposed){world.dispose();return;}
+      physicsWorld=world;status.physics={state:'active',...world.stats};
+    }).catch(error=>{
+      status.physics={state:'fallback',activeBodies:0,reason:String(error)};
+    }).finally(startSimulation);
+  }else{
+    status.physics={state:'fallback',activeBodies:0,reason:'WorldQuery unavailable'};
+    startSimulation();
+  }
 }
 function createBird(){
   const previousPosition=birdModel?.position.clone();

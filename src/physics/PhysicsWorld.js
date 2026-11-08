@@ -188,7 +188,9 @@ export class PhysicsWorld{
       item.target.x=position.x;item.target.z=position.z;
       // Prevent geometrical penetrations and numerical hovering. Rabbit hop
       // is left to the ecological animation when its origin lifts from ground.
-      item.target.y=Math.max(ground,Math.min(position.y,ground+allowedAbove));
+      item.target.y=item.type==='bird'?
+        Math.max(item.target.y,ground,position.y):
+        Math.max(ground,Math.min(position.y,ground+allowedAbove));
       if(item.type==='bird'&&bird){ // Ground contacts only; branches stay governed by the roost.
         const water=this.query.sampleSurface(bird.x,bird.z,{includeWater:true,time,rain});
         if(water?.water)bird.y=Math.max(bird.y,water.y);

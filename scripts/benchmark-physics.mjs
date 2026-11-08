@@ -36,6 +36,10 @@ for(const seed of [1988,20261106,12345]){
   let physicsTotal=0;
   for(let i=0;i<60;i++){
     const t=performance.now();
+    for(const a of actors){
+      a.position.x+=.07;a.position.z+=.05;
+      a.position.y=query.heightAt(a.position.x,a.position.z);
+    }
     physics.step(actors,observer,1/30);
     physicsTotal+=performance.now()-t;
   }
