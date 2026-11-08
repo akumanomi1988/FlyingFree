@@ -388,6 +388,13 @@ try{
     1280,800,async page=>{
       assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset.state),'procedural');
     });
+  // Same seed, weather and composition as 08 for procedural-versus-GLB
+  // comparison; captures remain available as an Actions artifact.
+  await render('14-kingfisher-before-procedural-close',
+    '?h=12.5&bird=kingfisher&weather=clear&broadcast=1&selftest=1&seed=1988&qaShot=close&assets=procedural',
+    1365,768,async page=>{
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__?.asset?.state),'procedural');
+    });
   await render('13-kingfisher-species-swap',
     '?bird=kingfisher&seed=1988&h=12.5&weather=clear',
     1280,800,async page=>{
