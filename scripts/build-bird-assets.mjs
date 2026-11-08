@@ -2,6 +2,7 @@
 // Node 22 + Three.js 0.180.0. No network downloads or external asset licences.
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import {batchStaticMeshes} from '../src/meshBatch.js';
 import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -222,6 +223,12 @@ function referenceBird(detail){
         i%2?'cobalt':'turquoise'));
     }
   }
+  // Reduce rigid feather/toe draw calls without merging across articulated
+  // joints. Eyes and bill retain explicit semantic mesh identifiers.
+  rootBone.traverse(node=>{
+    if(node.isBone&&['Body','Tail','Foot_L','Foot_R'].includes(node.name))
+      batchStaticMeshes(THREE,node);
+  });
   // A compact, anatomical sternum-keel surface binds the COMPLETE armature
   // into the GLB skin. GLTFLoader only creates THREE.Bone nodes for joints
   // referenced by a glTF skin; otherwise Head/Tail/Leg/Foot would become
