@@ -35,7 +35,8 @@ export function createWildlifePopulation(actors,{seed=1988,initialObserver=null}
   const groups=new Map(TYPES.map(type=>[type,actors.filter(
     actor=>actor.userData.state.type===type)]));
   const cache=new Map();
-  let lastCell=null,lastHero={x:0,z:0},cellUpdates=0,relocated=0,activeAnchors=0;
+  let lastCell=null,lastHero={x:0,z:0},lastRefreshX=NaN,lastRefreshZ=NaN,
+    cellUpdates=0,relocated=0,activeAnchors=0;
 
   function cached(type,cx,cz){
     const key=type+':'+cx+':'+cz;
@@ -54,9 +55,15 @@ export function createWildlifePopulation(actors,{seed=1988,initialObserver=null}
     lastHero.x=hero.x;lastHero.z=hero.z;
     // A world created without a known observer keeps its existing seeded
     // residents on first contact; relocating then would look like teleportation.
-    if(lastCell===null&&!initialObserver&&!initial){lastCell=cell;return;}
-    if(cell===lastCell&&!initial)return;
-    lastCell=cell;cellUpdates++;
+    if(lastCell===null&&!initialObserver&&!initial){
+      lastCell=cell;lastRefreshX=hero.x;lastRefreshZ=hero.z;return;
+    }
+    // The observer can traverse almost an entire 360 m cell without
+    // crossing its boundary. Refresh the local rig assignment after 150 m
+    // so the nearby habitat does not empty while the camera is travelling.
+    if(cell===lastCell&&!initial&&
+       Math.hypot(hero.x-lastRefreshX,hero.z-lastRefreshZ)<150)return;
+    lastCell=cell;lastRefreshX=hero.x;lastRefreshZ=hero.z;cellUpdates++;
     const eye=observer||hero;
     activeAnchors=0;
     for(const type of TYPES){

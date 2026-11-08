@@ -99,3 +99,18 @@ test('terrain-hidden wildlife cannot drive a documentary focus',()=>{
  assert.equal(visible.stats.actionCandidates,1);
  assert.equal(visible.focus.type,'deer');
 });
+
+test('wildlife population refreshes after substantial travel inside the same cell',()=>{
+ const seed=1988,hero={x:180,y:80,z:180};
+ const world=createEcosystem(THREE,new THREE.Scene(),seed,1,hero);
+ const before=world.populationStats.cellUpdates;
+ world.update(1,.9,0,{x:220,y:80,z:180},0,hero);
+ assert.equal(world.populationStats.cellUpdates,before,
+   'small observer movements must not trigger unnecessary population refreshes');
+ world.update(2,.9,0,{x:335,y:80,z:180},0,hero);
+ assert.equal(world.populationStats.cellUpdates,before+1,
+   'crossing 150 m inside the same cell must refresh local wildlife');
+ world.update(3,.9,0,{x:339,y:80,z:180},0,hero);
+ assert.equal(world.populationStats.cellUpdates,before+1,
+   'refresh distance must be measured from the last refresh, not every frame');
+});
