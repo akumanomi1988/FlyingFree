@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,BIRDS,WEATHER,chooseBird,chooseWeather,sunPosition,readOptions} from '../core.js';
 import {Soundscape} from '../audio.js';
 import {createBirdRig,animateBirdRig} from '../flight.js';
+import {BirdAssetLibrary,REFERENCE_ASSETS,canUseBirdAssets,bridgeProceduralPose} from '../assets/BirdAssetLibrary.js';
 import {createEcosystem} from '../ecosystem.js';
 import {createSky,createPrecipitation} from '../renderfx.js';
 import {createBirdBrain} from '../behaviour.js';
@@ -47,6 +48,45 @@ const frameTelemetry=createFrameTelemetry(600);
 const simulationClock=createFixedStepClock();
 let previousPose=null,currentPose=null,userPaused=false;
 let physicsWorld=null,physicsPending=null;
+const assetLibrary=services.birdAssets??new BirdAssetLibrary({
+  basePath:(import.meta.env?.BASE_URL??'/')+'assets/birds/',maxIdle:2
+});
+let activeBirdAsset=null,assetGeneration=0;
+function releaseBirdAsset(){
+  assetGeneration++;
+  if(!activeBirdAsset)return;
+  activeBirdAsset.model.parent?.remove(activeBirdAsset.model);
+  activeBirdAsset.release();
+  activeBirdAsset=null;
+}
+function requestBirdAsset(rig,profile){
+  const revision=++assetGeneration;
+  if(!REFERENCE_ASSETS[profile.id]||!canUseBirdAssets({
+    renderer,navigator,search:location.search
+  })){
+    status.asset={state:'procedural',species:profile.id};
+    assetLibrary.clearUnused?.();
+    return;
+  }
+  status.asset={state:'loading',species:profile.id};
+  void assetLibrary.acquire(profile.id).then(handle=>{
+    if(disposed||revision!==assetGeneration||birdModel!==rig){
+      handle.release();return;
+    }
+    // The existing procedural rig is scaled in local units. GLB geometry
+    // is authored in metres and must retain its physical wingspan.
+    handle.model.scale.setScalar(1/rig.scale.x);
+    rig.traverse(obj=>{if(obj.isMesh)obj.visible=false;});
+    rig.add(handle.model);
+    activeBirdAsset=handle;
+    status.asset={state:'ready',species:profile.id,
+      ...handle.statistics,cache:assetLibrary.stats};
+  }).catch(error=>{
+    if(!disposed&&revision===assetGeneration){
+      status.asset={state:'fallback',species:profile.id,reason:String(error)};
+    }
+  });
+}
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
   pendingSnapshot=false,pendingRenderProbe=null;
 const climate=services.climate??createLiveClimate({clock:environment.epoch});
@@ -162,6 +202,7 @@ function init(){
 }
 function createBird(){
   const previousPosition=birdModel?.position.clone();
+  releaseBirdAsset();
   if(birdModel){
     scene.remove(birdModel);
     // Repeated species changes must not leak GPU buffers and materials.
@@ -188,6 +229,7 @@ function createBird(){
     camera.quaternion.setFromEuler(new THREE.Euler(0,0,0));
   }
   scene.add(birdModel);
+  requestBirdAsset(birdModel,currentBird);
   status.bird=currentBird.id;
   const initialBird=birdBrain.snapshot;
   previousPose={...initialBird};currentPose={...initialBird};lastBirdAction=null;
@@ -281,6 +323,8 @@ function renderBird(time,frameDt,alpha){
     bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
     floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
     state:action.state,food:action.food,feedingProgress:action.feedingProgress},frameDt);
+  // Only transfer the pre-existing procedural pose; clip blending is VE-06.
+  bridgeProceduralPose(activeBirdAsset?.model,birdModel);
   const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan,rain:weatherState.rain},time);
   const visibleRest=restVisuals?.update(action,camera.position);
   status.perchVisible=Boolean(visibleRest?.visible);
@@ -685,6 +729,8 @@ function dispose(){
   if(sound?.dispose)void Promise.resolve(sound.dispose()).catch(error=>console.error(error));
   physicsWorld?.dispose();
   worldQuery?.dispose();
+  releaseBirdAsset();
+  assetLibrary.dispose?.();
    disposeBrowserScene(scene,renderer);
   status.ready=false;
   status.runtime=loop.snapshot();
