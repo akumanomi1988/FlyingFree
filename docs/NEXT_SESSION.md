@@ -232,3 +232,31 @@
 - **Validación:** 183 pruebas Node, Vite y 7 escenarios Playwright/WebGL verdes para `16ce0b1d449e984e9a4b52a7a768b1a316f1733d`. Semillas 1988, 20261106, 12345: 144 raycasts de benchmark BVH contra Three.js sin aceleración, diferencia máxima de altura 2,27e-13 m. P95 de error de muestreo analítico anterior 1,04–1,96 m; BVH 0,0137–0,0282 ms/consulta frente a 8,25–8,34 ms/consulta sin acelerar; 296–610× en ese microbenchmark CPU. Memoria de índices 5,14–5,19 MB y arranque de BVH 40–88 ms por escena.
 - **Límites:** números del runner GitHub/SwiftShader, no equivalen a FPS de GPU real. Los hábitats se clasifican aún mediante reglas semilla, sustituyendo normal y altura por la geometría visible. Otros productores decorativos pueden conservar colocación analítica hasta hito posterior; superficies estáticas y vegetación dinámica se mantienen separadas. Revisión perceptiva humana y resistencia TV no certificadas.
 - **Rollback:** revertir PR #42; los cambios no alteran datos persistentes. Estado de aceptación final: CI del HEAD de PR, merge a main y comprobación Pages de `build-info.json.revision` pendientes en el momento de escribir la entrada.
+
+## VE-04 — Física local selectiva Rapier (PR #43, 2026-11-08)
+
+- Implementación candidata: https://github.com/akumanomi1988/FlyingFree/pull/43; sigue pendiente de CI del último HEAD y de merge.
+- Carga diferida de WASM Rapier 0.21.0, con inicio de reloj fijo sólo tras inicialización/fallback. El controlador cinemático corrige movimientos; cuerpos cinemáticos simples no resuelven contactos por sí mismos.
+- Hasta 12 cuerpos próximos, histéresis 145/185 m. Parches trimesh estáticos de 345 m sobre la malla exacta de WorldQuery, con recorte/reconstrucción al desplazar el observador 105 m; fauna lejana sigue con reglas de bajo coste.
+- Contactos fluviales y costeros basados en terreno y lecho; agua marina/fluvial se consulta, nunca es una barrera sólida. Faltan benchmark de hardware real, TV y aprobación perceptiva.
+- Tests y bench dedicados, artefactos en Actions de PR. No avanzar a VE-05 mientras no se cierre VE-04 con pruebas y despliegue.
+- Rollback: revertir PR #43.
+
+### Ajuste de alcance y salida VE-04
+
+Tras medir 12 cuerpos, se reduce el máximo a 8 en escritorio y 4 en móvil.
+Se comprueba que la revisión de `WorldQuery` invalida el parche Rapier tras seis
+regeneraciones sucesivas. Primer ciclo íntegro: 189 Node + Vite + 7 WebGL en
+[GitHub Actions #42520789082](https://github.com/akumanomi1988/FlyingFree/actions/runs/42520789082),
+antes del commit documental/de validación final; PR #43 requiere su propio HEAD
+verde, merge y Pages. Coste exacto tras límites reducidos: consultar artefacto
+`artifacts/physics/benchmark.json` de la CI del HEAD final. No iniciar VE-05 antes.
+
+**Resultado de la validación funcional:** [CI #42521410925](https://github.com/akumanomi1988/FlyingFree/actions/runs/42521410925)
+en `e4982dbcc33d479e72db709ac4c796daae698857`: **190 Node + Vite + siete Playwright/WebGL**
+verde, incluidos seis reemplazos consecutivos de las superficies del mundo.
+Benchmark 8 cuerpos: **+0,377–1,343 ms/tick** frente a baseline, creación
+de parche **1,673–4,579 ms**, RSS de muestra fría **+143,46 MB**
+(no equivalente a fuga ni memoria aislada de Rapier). Coste frío por IS/WASM:
+53,178 ms en este runner. Resta obtener CI verde del HEAD documental, merge
+con lease y publicación comprobada del SHA de `main` vía Pages.

@@ -12,11 +12,13 @@
     "test:browser": "node tests/browser.mjs",
     "audit:habitats": "node scripts/audit-habitats.mjs",
     "audit:visual": "node scripts/capture-birds.mjs",
-    "benchmark:world-query": "node scripts/benchmark-world-query.mjs"
+    "benchmark:world-query": "node scripts/benchmark-world-query.mjs",
+    "benchmark:physics": "node scripts/benchmark-physics.mjs"
   },
   "dependencies": {
     "three": "0.180.0",
-    "three-mesh-bvh": "0.9.18"
+    "three-mesh-bvh": "0.9.18",
+    "@dimforge/rapier3d-compat": "0.21.0"
   },
   "devDependencies": {
     "vite": "6.3.5",

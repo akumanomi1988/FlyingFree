@@ -89,3 +89,50 @@ La interfaz `sampleSurface(x,z, {includeWater,time,rain})` devuelve coordenadas,
 `worldBuilder` entrega `worldQuery` al runtime; fauna terrestre, extremidades y reposos de aves usan `heightAt`; el director cinematográfico añade `lineOfSight` geométrico completo a su despeje de cámara. Conserva inyección opcional para pruebas de módulos que utilizan funciones analíticas anteriores, `?seed=`, snapshots ecológicos, timestep fijo, clima y modo TV.
 
 **Datos del runner CI #42510792574 (no GPU real):** 183 Node + Vite + siete WebGL, tres semillas, 48 puntos/semilla. Diferencia BVH vs raycast sin índice: 2,27e-13 m máximo. P95 del heightfield antiguo vs triángulos: 1,04–1,96 m. Raycast sin acelerar 8,25–8,34 ms/consulta; BVH 0,0137–0,0282 ms/consulta; build BVH 40–88 ms y memoria estimada por índice 5,14–5,19 MB. QA perceptiva y GPU física: no medidos. Rollback: revertir PR #42; ningún cambio persistente.
+
+
+## VE-04 · Rapier de proximidad y superficie visible (PR #43, candidato)
+
+`src/physics/PhysicsWorld.js` aplica un controlador cinemático Rapier a un máximo de doce
+mamíferos cercanos (radio de entrada 145 m, salida 185 m) y, cuando procede, al
+contacto terrestre del protagonista. El catálogo ecológico sigue siendo propio.
+Los triángulos estáticos son exactamente los del terreno y lecho fluvial
+expuestos por `WorldQuery`; la malla de agua **no se convierte en suelo sólido**.
+Las olas del océano y superficies acuáticas se consultan en el tiempo simulado
+mediante `WorldQuery.sampleSurface`. No se duplican agentes de larga distancia.
+
+El controlador calcula desplazamiento corregido antes de usar
+`setNextKinematicTranslation`. Un `RigidBody` cinemático a secas **no**
+bloquea penetraciones: este detalle es vinculante en futuras refactorizaciones.
+Los contactos se ejecutan solo en los ticks VE-02 a 30 Hz, no en el RAF.
+La inicialización WASM diferida determina el inicio del primer tick: iniciar
+la ecología antes de resolverla produciría replays distintos según la latencia.
+`dispose()` libera los cuerpos y el mundo; la nueva `surfaceRevision` de
+`WorldQuery` permite invalidar la topología de colisión si se regeneran mallas.
+
+`npm run benchmark:physics` registra muestras CPU, memoria RSS/heap y coste
+incremental bajo GitHub Actions; las cifras no son FPS GPU, TV ni coste WASM
+aislado. Las pruebas cubren pendientes, tres semillas, histéresis de distancia,
+agua, regeneración y destrucción. **Pendiente de aceptación hasta que CI final,
+comparación de costes, revisión de colisiones y Pages resulten verificadas.**
+Rollback de VE-04: revertir PR #43; sin migración de datos.
+
+### VE-04 · Decisión conservadora tras benchmark de Rapier
+
+El piloto se restringe a 8 cuerpos cinemáticos de fauna próxima en escritorio,
+4 en móvil, más un contacto del protagonista cuando se posa en terreno; jamás
+se sustituyen los estados ecológicos ni se agregan cientos de rigid bodies.
+La construcción de colliders locales usa directamente el BVH de VE-03
+(`shapecast`), sin escanear los 160k triángulos completos.
+Con 12 cuerpos, el coste incremental inicial fue 0,76–2,97 ms/tick en GitHub CI;
+la construcción de parche descendió de 27–31 ms a 3–7 ms con BVH. El coste WASM
+de primer arranque y RSS requieren hardware físico antes de ampliar alcance.
+Pruebas definitivas y coste de 8 cuerpos en [checks PR #43](https://github.com/akumanomi1988/FlyingFree/pull/43/checks).
+
+**CI de aceptación funcional VE-04:** [Actions #42521410925](https://github.com/akumanomi1988/FlyingFree/actions/runs/42521410925),
+190/190 Node, 7/7 WebGL, build Vite, 6 regeneraciones. Tres semillas con 8 cuerpos
+dieron `rapierExtraMsPerTick` de 1.343 / 0.377 / 0.421 ms; construcción de
+parches 4.579 / 2.500 / 1.673 ms, y RSS incremental primer arranque de
+143.46 MB (WASM/V8/GC), no memoria física aislada de Rapier. Este incremento
+ratifica el límite 8 escritorio/4 móvil. La medición no demuestra
+estabilidad prolongada ni rendimiento en GPU/TV. No ampliar sin nuevos datos.

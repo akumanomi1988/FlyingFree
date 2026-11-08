@@ -45,7 +45,7 @@ async function render(name,query,width,height,runChecks){
         forestVisibility:s.forestVisibility,performanceTarget:s.performanceTarget,
          wildlifePopulation:s.wildlifePopulation,wildlifeVisibility:s.wildlifeVisibility,
          marinePopulation:s.marinePopulation,
-        world:s.world,worldQuery:s.worldQuery,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
+        world:s.world,worldQuery:s.worldQuery,physics:s.physics,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
         metrics:{energy:document.querySelector('#bird-energy')?.value,
           hunger:document.querySelector('#bird-hunger')?.value,
@@ -59,6 +59,10 @@ async function render(name,query,width,height,runChecks){
     assert.equal(stats.canvas,true,'Canvas ausente');
     assert.equal(stats.error,null,'Excepción del motor');
     assert.equal(stats.species,12,'Selector incompleto');
+    assert.equal(stats.physics?.state,'active','VE-04: Rapier WASM is not active in WebGL');
+    assert.ok(stats.physics.ticks>0,'VE-04: Rapier not stepped by fixed clock');
+    assert.ok(stats.physics.activeBodies>=0&&stats.physics.activeBodies<=(width<720?4:8),
+      'VE-04: nearby body cap violated');
     assert.ok(stats.metrics?.energy>=0&&stats.metrics?.energy<=1,
       'Energy indicator not initialized');
     assert.ok(stats.metrics?.hunger>=0&&stats.metrics?.hunger<=1,

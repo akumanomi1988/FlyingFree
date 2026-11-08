@@ -33,6 +33,7 @@ import {captureSimulationSnapshot} from './simulationSnapshot.js';
 import {createBrowserScene,disposeBrowserScene} from './sceneAdapter.js';
 import {createBrowserUI} from './browserUI.js';
 import {buildWorld} from './worldBuilder.js';
+import {createPhysicsWorld} from '../physics/PhysicsWorld.js';
 
 export function createFlyingFreeApplication({environment=createBrowserEnvironment(),seed=null,services={}}={}){
   const {window,document,location,navigator}=environment;
@@ -45,6 +46,7 @@ const windField=services.windField??createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 const simulationClock=createFixedStepClock();
 let previousPose=null,currentPose=null,userPaused=false;
+let physicsWorld=null,physicsPending=null;
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
   pendingSnapshot=false,pendingRenderProbe=null;
 const climate=services.climate??createLiveClimate({clock:environment.epoch});
@@ -136,8 +138,27 @@ function init(){
   // Normal visits wait for the explicit choice on the intro screen.
   // TV/broadcast may reuse a permission already granted, without prompting.
   if(opts.broadcast||opts.tv)void connectClimate(true);
-  if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTest,2500);
-  lastFrame=environment.now();simulationClock.resync(lastFrame);loop.start();
+  // Prevent WASM timing from changing which simulation ticks use Rapier.
+  // Both success and explicit fallback start the first tick from zero.
+  const startSimulation=()=>{
+    if(disposed)return;
+    lastFrame=environment.now();
+    simulationClock.resync(lastFrame);
+    loop.start();
+    if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTest,2500);
+  };
+  if(worldQuery?.sources?.length){
+    status.physics={state:'loading',activeBodies:0};
+    physicsPending=createPhysicsWorld({query:worldQuery,limits:{maxBodies:environment.width()<720?4:8}}).then(world=>{
+      if(disposed){world.dispose();return;}
+      physicsWorld=world;status.physics={state:'active',...world.stats};
+    }).catch(error=>{
+      status.physics={state:'fallback',activeBodies:0,reason:String(error)};
+    }).finally(startSimulation);
+  }else{
+    status.physics={state:'fallback',activeBodies:0,reason:'WorldQuery unavailable'};
+    startSimulation();
+  }
 }
 function createBird(){
   const previousPosition=birdModel?.position.clone();
@@ -303,6 +324,12 @@ function simulateStep(dt,tick,simTime){
   const action=stepBird(dt,sun);
   // Render observer controls visual LOD; identity/assignment uses the stable bird state.
   ecosystem.update(simTime,sun.daylight,weatherState.cloud,action,weatherState.rain,camera.position,action);
+  if(physicsWorld){
+    const physics=physicsWorld.step(ecosystem.actors,action,dt,
+      {bird:action,profile:currentBird,time:simTime,rain:weatherState.rain});
+    currentPose={...action};
+    status.physics={state:'active',...physics};
+  }
 }
 function animate(now){
   const deltaRaw=Math.max(0,(now-lastFrame)/1000);
@@ -656,6 +683,7 @@ function dispose(){
   if(wakeLock)void wakeLock.release().catch(()=>{});
   if(pendingRenderProbe){pendingRenderProbe({error:'disposed'});pendingRenderProbe=null;}
   if(sound?.dispose)void Promise.resolve(sound.dispose()).catch(error=>console.error(error));
+  physicsWorld?.dispose();
   worldQuery?.dispose();
    disposeBrowserScene(scene,renderer);
   status.ready=false;
