@@ -100,10 +100,10 @@ function skin(geometry,side,bones){
 }
 function wingWing(root,bodyBone,side,detail){
   const suffix=side<0?'L':'R';
-  const shoulder=new THREE.Bone();shoulder.name='Wing.'+suffix;
+  const shoulder=new THREE.Bone();shoulder.name='Wing_'+suffix;
   shoulder.position.set(side*.014,.009,-.012);
   bodyBone.add(shoulder);
-  const wrist=new THREE.Bone();wrist.name='WingTip.'+suffix;
+  const wrist=new THREE.Bone();wrist.name='WingTip_'+suffix;
   wrist.position.set(side*.069,0,.007);
   shoulder.add(wrist);
   root.updateMatrixWorld(true);
@@ -139,7 +139,7 @@ function wingWing(root,bodyBone,side,detail){
     if(!merged)throw Error('Unable to merge '+name+' wing surfaces');
     for(const g of geos)g.dispose();
     const part=skin(merged,side,skeletonBones);
-    part.name='WingSurface.'+suffix+'.'+name;
+    part.name='WingSurface_'+suffix+'.'+name;
     part.material=materials[name];
     root.add(part);
   }
@@ -155,9 +155,9 @@ function referenceBird(detail){
   const tailBone=new THREE.Bone();tailBone.name='Tail';tailBone.position.set(0,-.009,.054);bodyBone.add(tailBone);
   for(const side of [-1,1]){
     const suffix=side<0?'L':'R';
-    const legBone=new THREE.Bone();legBone.name='Leg.'+suffix;
+    const legBone=new THREE.Bone();legBone.name='Leg_'+suffix;
     legBone.position.set(side*.010,-.020,.024);bodyBone.add(legBone);
-    const footBone=new THREE.Bone();footBone.name='Foot.'+suffix;
+    const footBone=new THREE.Bone();footBone.name='Foot_'+suffix;
     footBone.position.set(0,-.023,-.002);legBone.add(footBone);
     legBone.add(pathTube('Tarsus.'+suffix,new THREE.Vector3(0,0,0),
       new THREE.Vector3(0,-.025,.002),.0016,'foot',5,7));
@@ -167,11 +167,11 @@ function referenceBird(detail){
         .0011,'foot',5,6));
     }
   }
-  bodyBone.add(mesh('Body.dorsal',loft([
+  bodyBone.add(mesh('Body_dorsal',loft([
     [-.053,.007,.001,.001],[-.043,.008,.016,.014],[-.018,.006,.020,.020],
     [.014,.003,.020,.018],[.043,0,.015,.013],[.064,-.003,.003,.003]
   ],detail?28:14),'cobalt'));
-  bodyBone.add(mesh('Breast.rufous',loft([
+  bodyBone.add(mesh('Breast_rufous',loft([
     [-.047,-.005,.001,.001],[-.031,-.009,.014,.012],
     [-.009,-.012,.018,.014],[.018,-.014,.017,.012],
     [.037,-.010,.011,.008],[.053,-.005,.001,.001]
@@ -186,17 +186,17 @@ function referenceBird(detail){
     [0,-.014,.014,.009],[.016,-.012,.006,.004]
   ],detail?18:10),'throat'));
   // Tapered spear bill, independently modelled upper and lower mandibles.
-  headBone.add(mesh('Bill.upper',loft([
+  headBone.add(mesh('Bill_upper',loft([
     [-.072,-.004,.0001,.0001],[-.062,-.004,.002,.0015],
     [-.046,-.002,.0043,.0031],[-.027,-.002,.0062,.0035]
   ],detail?8:6),'bill'));
-  headBone.add(mesh('Bill.lower',loft([
+  headBone.add(mesh('Bill_lower',loft([
     [-.070,-.006,.0001,.0001],[-.054,-.008,.003,.0008],
     [-.027,-.006,.005,.0017]
   ],detail?8:6),'bill'));
   for(const side of [-1,1]){
     const eye=new THREE.Mesh(new THREE.SphereGeometry(.0036,detail?12:7,detail?9:6),materials.iris);
-    eye.name='Eye.'+(side<0?'L':'R');eye.position.set(side*.016,.008,-.012);
+    eye.name='Eye_'+(side<0?'L':'R');eye.position.set(side*.016,.008,-.012);
     headBone.add(eye);
     if(detail){
       const glint=new THREE.Mesh(new THREE.SphereGeometry(.0009,6,5),materials.highlight);
