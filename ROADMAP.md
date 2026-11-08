@@ -40,7 +40,7 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 
 - [x] **VE-01 — Separar runtime y orquestación.** Dependencias: ninguna. Entrega: tests de wiring, escenas existentes sin regresión.
 - [x] **VE-02 — Reloj fijo y snapshots deterministas.** Dependencia: VE-01. Entrega: mismas trayectorias a 15/30/60/120 FPS.
-- [ ] **VE-03 — WorldQuery y raycasts BVH.** Dependencia: VE-02. Entrega: altura/contacto/visibilidad sobre malla real.
+- [x] **VE-03 — WorldQuery y raycasts BVH.** Dependencia: VE-02. Entrega: altura/contacto/visibilidad sobre malla real.
 - [ ] **VE-04 — Física local selectiva con Rapier.** Dependencia: VE-03. Entrega: contactos reales sin dobles simulaciones ni coste masivo.
 - [ ] **VE-05 — Pipeline de assets GLB/glTF.** Dependencia: VE-01. Entrega: un ave detallada importable, con LOD y fallback.
 - [ ] **VE-06 — Animación esquelética piloto.** Dependencias: VE-05, VE-02. Entrega: un ave con clips combinados y contactos creíbles.
@@ -69,7 +69,7 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 ### VE-03 — WorldQuery y BVH
 **Hacer:** crear `WorldQuery` con `sampleSurface`, `raycast`, `lineOfSight` y consultas de normal/material/hábitat. Integrar `three-mesh-bvh` en geometría estática cercana. Basar oclusión, aterrizajes y contactos en la malla triangulada visible; coordinar renovación de índices si el terreno cambia por chunks. No construir BVH de toda la vegetación animada.  
 **Aceptar:** pruebas en costa, pendientes, orillas y agua con 3 semillas; tolerancia medida entre malla y collider, y ausencia de falsos apoyos o sujetos detrás de crestas. Perfil antes/después de tiempo de consulta y memoria.  
-**Evidencia/PR/CI:** pendiente.
+**Evidencia/PR/CI:** [PR #42 — WorldQuery/BVH](https://github.com/akumanomi1988/FlyingFree/pull/42); [CI de código validado](https://github.com/akumanomi1988/FlyingFree/actions/runs/42510792574), commit `16ce0b1d449e984e9a4b52a7a768b1a316f1733d`: **183 pruebas Node, Vite y 7 escenas Playwright/WebGL correctas**. 3 semillas (1988, 20261106, 12345), 48 puntos por semilla con referencia de raycast Three.js sin acelerar: error geométrico máximo **2,27e-13 m**. La altura analítica antigua difería de la malla: P95 **1,04–1,96 m**. Benchmark CPU del runner: raycast bruto **8,25–8,34 ms/consulta**, BVH **0,0137–0,0282 ms/consulta** (aprox. **296×–610×**), construcción **40,16–87,95 ms** y memoria estimada del índice **5,14–5,19 MB** por semilla. [Artefacto de métricas](https://github.com/akumanomi1988/FlyingFree/actions/runs/42510792574/artifacts/13629845420). **No medido:** FPS/GPU física o TV de larga duración; estos tiempos no son un benchmark de hardware de usuario. Índices solo de terreno, lecho y agua fluvial estática, sin BVH de la vegetación instanciada. El océano animado se consulta mediante interpolación triangular sincronizada con su shader. **Rollback:** revertir PR #42 sin migración de datos. **La marca [x] es candidata hasta fusionar esta PR con CI del último HEAD; el despliegue Pages exige verificar el SHA final de main.**
 
 ### VE-04 — Física local selectiva con Rapier
 **Hacer:** pequeño adaptador `PhysicsWorld` con `@dimforge/rapier3d-compat` (o sustitución justificada), instanciación y liberación de WASM seguras. Prototipo de cuerpo cinemático cercano: aterrizaje, posado o animal terrestre con terreno de VE-03. Lejos, mantener movimiento analítico y población agregada; no duplicar integración de movimiento.  
