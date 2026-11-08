@@ -110,14 +110,14 @@ function wingWing(root,bodyBone,side,detail){
   const skeletonBones=[shoulder,wrist];
   const membrane=wingMembrane(side,detail);
   const geometryGroups={cobalt:[membrane],turquoise:[],midnight:[]};
-  const featherCount=detail?15:5;
+  const featherCount=detail?13:6;
   for(let j=0;j<featherCount;j++){
     const t=(j+.45)/featherCount,x=side*(.018+.101*t);
     const begin=new THREE.Vector3(x,.011,-.027+.029*t*t);
     const end=new THREE.Vector3(x+side*(.020*(.4+.6*t)),.006,
       .019+.017*(1-t)+.013*t*t);
     const color=j%5===0?'midnight':'cobalt';
-    geometryGroups[color].push(feather(begin,end,detail?.0036:.005,detail?9:5));
+    geometryGroups[color].push(feather(begin,end,detail?.0052:.0058,detail?9:5));
   }
   if(detail){
     for(let row=0;row<2;row++)for(let j=0;j<14;j++){
@@ -126,12 +126,15 @@ function wingWing(root,bodyBone,side,detail){
       const back=new THREE.Vector3(x+side*.008,.012,.001+.024*(1-t)+row*.009);
       geometryGroups[row===0?'turquoise':'cobalt'].push(feather(front,back,.0033,7));
     }
-    for(let j=0;j<9;j++){
-      const t=(j+.5)/9;
-      const from=new THREE.Vector3(side*(.091+t*.015),.010,-.006+t*.004);
-      const to=new THREE.Vector3(side*(.121+t*.007),.002,.003+t*.024);
-      geometryGroups.midnight.push(feather(from,to,.0031,8));
-    }
+  }
+  // Both LODs retain true wingtip primaries; simplifying feathers must not
+  // shorten the silhouette or make wings disappear when the LOD changes.
+  const primaryCount=detail?9:5;
+  for(let j=0;j<primaryCount;j++){
+    const t=(j+.5)/primaryCount;
+    const from=new THREE.Vector3(side*(.091+t*.015),.010,-.006+t*.004);
+    const to=new THREE.Vector3(side*(.121+t*(detail?.007:.014)),.002,.003+t*.024);
+    geometryGroups.midnight.push(feather(from,to,detail?.0042:.0048,detail?8:5));
   }
   for(const [name,geos] of Object.entries(geometryGroups)){
     if(!geos.length)continue;
@@ -205,7 +208,7 @@ function referenceBird(detail){
     }
   }
   for(let i=-3;i<=3;i++){
-    const tip=new THREE.Vector3(i*.003,-.013,.102- Math.abs(i)*.006);
+    const tip=new THREE.Vector3(i*.003,-.009,.064- Math.abs(i)*.005);
     tailBone.add(mesh('Rectrix.'+i,feather(new THREE.Vector3(i*.002,0,0),
       tip,.0045,detail?11:6),i%2===0?'cobalt':'midnight'));
   }
@@ -219,7 +222,31 @@ function referenceBird(detail){
         i%2?'cobalt':'turquoise'));
     }
   }
+  // A compact, anatomical sternum-keel surface binds the COMPLETE armature
+  // into the GLB skin. GLTFLoader only creates THREE.Bone nodes for joints
+  // referenced by a glTF skin; otherwise Head/Tail/Leg/Foot would become
+  // regular Object3D nodes and VE-06 could not animate them consistently.
+  // This is a real ventral keel contour, not a cube/hidden test placeholder.
+  const bones=[];
+  rootBone.traverse(node=>{if(node.isBone)bones.push(node);});
+  if(bones.length!==12)throw Error('VE-05 rig expected 12 bones, got '+bones.length);
+  const keelGeometry=loft([
+    [-.036,-.017,.001,.001],[-.018,-.020,.004,.002],
+    [.003,-.023,.004,.002],[.022,-.019,.003,.002],
+    [.040,-.013,.0005,.0005]
+  ],detail?12:7);
+  const skinIndices=[],skinWeights=[];
+  for(let i=0;i<keelGeometry.getAttribute('position').count;i++){
+    skinIndices.push(bones.indexOf(bodyBone),0,0,0);
+    skinWeights.push(1,0,0,0);
+  }
+  keelGeometry.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(skinIndices,4));
+  keelGeometry.setAttribute('skinWeight',new THREE.Float32BufferAttribute(skinWeights,4));
+  const keel=new THREE.SkinnedMesh(keelGeometry,materials.belly);
+  keel.name='Sternum_keel';
+  root.add(keel);
   root.updateMatrixWorld(true);
+  keel.bind(new THREE.Skeleton(bones));
   return root;
 }
 async function exportGLB(scene){
