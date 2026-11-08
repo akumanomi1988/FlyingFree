@@ -39,7 +39,7 @@ export function createFlyingFreeApplication({environment=createBrowserEnvironmen
 const $=(id)=>document.getElementById(id), opts=readOptions(location.search);
 const status={version:'0.5.0',ready:false,frames:0,fps:0,error:null,scene:null};
 window.__FLYINGFREE_STATUS__=status;
-let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,forestVisibility,cloudField,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
+let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,worldQuery,forest,forestVisibility,cloudField,birdModel,clouds=[],stars,starMat,sunOrb,moonOrb;
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,regionalBirds,riverHabitat,wildlifeObservatory,lastBirdAction=null;
 const windField=services.windField??createWindField();
 const frameTelemetry=createFrameTelemetry(600);
@@ -87,7 +87,7 @@ function init(){
   ({renderer,scene,camera,hemi,sunLight,moonLight,sunHalo,moonHalo,sunOrb,moonOrb}=
     (services.createScene??createBrowserScene)({THREE,document,parent:canvasParent,
       width:environment.width(),height:environment.height(),pixelRatio:scaleFactor,skyDay}));
-  ({terrain,water,oceanFX,rivers,cliffs,forest,forestVisibility,treeDetail,
+  ({terrain,water,oceanFX,rivers,cliffs,worldQuery,forest,forestVisibility,treeDetail,
     cloudField,clouds,stars,starMat}=(services.buildWorld??buildWorld)({
       THREE,scene,worldSeed,width:environment.width(),windField,adaptiveResolution,scaleFactor
     }));
@@ -97,7 +97,7 @@ function init(){
   forageVisuals=createBirdForageVisuals(THREE,scene,worldSeed);
   restVisuals=createBirdRestVisuals(THREE,scene);
   const qaShot=opts.selftest?new URLSearchParams(location.search).get('qaShot'):null;
-  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed,{qaShot});
+  cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed,{qaShot,worldQuery});
   const startSun=sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude);
   const startPos=birdBrain.update(0,0,startSun.daylight,0);
   lastBirdAction=startPos;previousPose={...startPos};currentPose={...startPos};
@@ -108,8 +108,8 @@ function init(){
   lastCameraBird.copy(birdModel.position);cameraBirdTracked=true;
   cameraLook.set(startPos.x,startPos.y,startPos.z);
   camera.lookAt(cameraLook);
-  ecosystem=createEcosystem(THREE,scene,worldSeed,environment.width()<720?.65:1,startPos);
-  wildlifeObservatory=createWildlifeObservatory(THREE,{terrainHeight,seed:worldSeed});
+  ecosystem=createEcosystem(THREE,scene,worldSeed,environment.width()<720?.65:1,startPos,worldQuery);
+  wildlifeObservatory=createWildlifeObservatory(THREE,{terrainHeight:(x,z)=>worldQuery?.heightAt(x,z)??terrainHeight(x,z,worldSeed),seed:worldSeed});
   regionalBirds.update(0,startPos,camera.position,startSun.daylight,0);
   groundDetail=createGroundDetail(THREE,scene,environment.width()<720?.5:1,windField,worldSeed);
   atmospherics=createAtmospherics(THREE,scene,environment.width()<720?.56:1);
@@ -120,6 +120,7 @@ function init(){
   status.world={seed:worldSeed,extent:TROPICAL_WORLD.extent,riverChannels:rivers.channels,riverSegments:rivers.segments,
     coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution,
     cliffStacks:cliffs.count};
+  status.worldQuery=worldQuery?.stats??null;
   status.faunaLOD=ecosystem.lodStats;
   status.simulationClock=simulationClock.snapshot();
   status.habitatUse=habitatMonitor.snapshot();
@@ -155,7 +156,7 @@ function createBird(){
   birdModel=createBirdRig(THREE,currentBird);
   // Species start in their own suitable biome, never inherit the previous
   // bird's coordinates or its energy/hunger. This is a new wildlife subject.
-  birdBrain=createBirdBrain(currentBird,worldSeed,null,{perches:forest?.perches});
+  birdBrain=createBirdBrain(currentBird,worldSeed,null,{perches:forest?.perches,query:worldQuery});
   habitatMonitor.reset(currentBird.id);
   cameraDirector?.reset();
   if(previousPosition){
@@ -368,8 +369,8 @@ function animate(now){
     status.framing={x:+framingProbe.x.toFixed(3),y:+framingProbe.y.toFixed(3),
       depth:+framingProbe.z.toFixed(3),distance:+camera.position.distanceTo(birdModel.position).toFixed(2),
       cameraY:+camera.position.y.toFixed(2),birdY:+birdModel.position.y.toFixed(2),fov:+camera.fov.toFixed(1),
-      cameraClearance:+(camera.position.y-terrainHeight(camera.position.x,camera.position.z,worldSeed)).toFixed(2),
-      birdClearance:+(birdModel.position.y-terrainHeight(birdModel.position.x,birdModel.position.z,worldSeed)).toFixed(2)};
+      cameraClearance:+(camera.position.y-(worldQuery?.heightAt(camera.position.x,camera.position.z)??terrainHeight(camera.position.x,camera.position.z,worldSeed))).toFixed(2),
+      birdClearance:+(birdModel.position.y-(worldQuery?.heightAt(birdModel.position.x,birdModel.position.z)??terrainHeight(birdModel.position.x,birdModel.position.z,worldSeed))).toFixed(2)};
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
@@ -378,6 +379,7 @@ function animate(now){
     fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
     status.riverGeometry=rivers.stats;
+     status.worldQuery=worldQuery?.stats??null;
     status.wildlifePopulation=ecosystem.populationStats;
     status.marinePopulation=ecosystem.marinePopulationStats;
     status.wildlifeVisibility=wildlifeObservatory.stats;
@@ -654,7 +656,8 @@ function dispose(){
   if(wakeLock)void wakeLock.release().catch(()=>{});
   if(pendingRenderProbe){pendingRenderProbe({error:'disposed'});pendingRenderProbe=null;}
   if(sound?.dispose)void Promise.resolve(sound.dispose()).catch(error=>console.error(error));
-  disposeBrowserScene(scene,renderer);
+  worldQuery?.dispose();
+   disposeBrowserScene(scene,renderer);
   status.ready=false;
   status.runtime=loop.snapshot();
   if(window.__FLYINGFREE_RENDER_PROBE__)delete window.__FLYINGFREE_RENDER_PROBE__;
