@@ -128,3 +128,11 @@ Con 12 cuerpos, el coste incremental inicial fue 0,76–2,97 ms/tick en GitHub C
 la construcción de parche descendió de 27–31 ms a 3–7 ms con BVH. El coste WASM
 de primer arranque y RSS requieren hardware físico antes de ampliar alcance.
 Pruebas definitivas y coste de 8 cuerpos en [checks PR #43](https://github.com/akumanomi1988/FlyingFree/pull/43/checks).
+
+**CI de aceptación funcional VE-04:** [Actions #42521410925](https://github.com/akumanomi1988/FlyingFree/actions/runs/42521410925),
+190/190 Node, 7/7 WebGL, build Vite, 6 regeneraciones. Tres semillas con 8 cuerpos
+dieron `rapierExtraMsPerTick` de 1.343 / 0.377 / 0.421 ms; construcción de
+parches 4.579 / 2.500 / 1.673 ms, y RSS incremental primer arranque de
+143.46 MB (WASM/V8/GC), no memoria física aislada de Rapier. Este incremento
+ratifica el límite 8 escritorio/4 móvil. La medición no demuestra
+estabilidad prolongada ni rendimiento en GPU/TV. No ampliar sin nuevos datos.

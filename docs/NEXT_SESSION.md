@@ -251,3 +251,12 @@ regeneraciones sucesivas. Primer ciclo íntegro: 189 Node + Vite + 7 WebGL en
 antes del commit documental/de validación final; PR #43 requiere su propio HEAD
 verde, merge y Pages. Coste exacto tras límites reducidos: consultar artefacto
 `artifacts/physics/benchmark.json` de la CI del HEAD final. No iniciar VE-05 antes.
+
+**Resultado de la validación funcional:** [CI #42521410925](https://github.com/akumanomi1988/FlyingFree/actions/runs/42521410925)
+en `e4982dbcc33d479e72db709ac4c796daae698857`: **190 Node + Vite + siete Playwright/WebGL**
+verde, incluidos seis reemplazos consecutivos de las superficies del mundo.
+Benchmark 8 cuerpos: **+0,377–1,343 ms/tick** frente a baseline, creación
+de parche **1,673–4,579 ms**, RSS de muestra fría **+143,46 MB**
+(no equivalente a fuga ni memoria aislada de Rapier). Coste frío por IS/WASM:
+53,178 ms en este runner. Resta obtener CI verde del HEAD documental, merge
+con lease y publicación comprobada del SHA de `main` vía Pages.
