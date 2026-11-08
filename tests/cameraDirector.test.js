@@ -181,3 +181,22 @@ test('terrain-aware mobile orbit does not override landscape and TV direction',(
    'wide-screen raptor/TV camera must not orbit for portrait-only hillside fix');
  assert.ok(camera.position.distanceTo(bird)<100);
 });
+
+test('VE-02: portrait camera retains a small bird under 5/8 FPS render stalls',()=>{
+  for(const fps of [5,8]){
+    const dt=1/fps,camera=new THREE.PerspectiveCamera(55,390/844,.15,5000);
+    const bird=new THREE.Vector3(0,330,0),director=createCameraDirector(THREE,()=>250,1988);
+    camera.position.set(0,334,8);
+    for(let i=0;i<fps*5;i++){
+      bird.z-=13*dt;
+      director.update(camera,bird,0,13,'patrol',.11,i*dt,dt);
+      if(i>=fps*2){
+        camera.updateMatrixWorld(true);
+        const screen=bird.clone().project(camera);
+        assert.ok(Number.isFinite(screen.x)&&Number.isFinite(screen.y));
+        assert.ok(Math.abs(screen.x)<.9&&Math.abs(screen.y)<.9,
+          'Low-FPS mobile camera cropped bird at '+fps+'fps: '+screen.toArray());
+      }
+    }
+  }
+});

@@ -321,7 +321,9 @@ function animate(now){
   const position=renderBird(visualTime,frameDt,clock.alpha);
   atmospherics.update(visualTime,camera,position,sun.daylight,weatherState);
   const wildlifeFrame=wildlifeObservatory.update(visualTime,ecosystem.observableAnimals,camera,position,environment.height());
-  directCamera(position,frameDt,wildlifeFrame.focus,visualTime);
+  // Camera must use actual visual wall delta, not capped animation delta,
+  // so portrait composition recovers after slow software-rendered frames.
+  directCamera(position,Math.min(deltaRaw,.25),wildlifeFrame.focus,visualTime);
   forestVisibility.update(camera.position,visualTime);
   regionalBirds.update(visualTime,position,camera.position,sun.daylight,weatherState.rain);
   riverHabitat.update(visualTime,camera.position);
