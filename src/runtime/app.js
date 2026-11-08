@@ -185,7 +185,7 @@ function init(){
     lastFrame=environment.now();
     simulationClock.resync(lastFrame);
     loop.start();
-    if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTest,2500);
+    if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTestWhenReady,2500);
   };
   if(worldQuery?.sources?.length){
     status.physics={state:'loading',activeBodies:0};
@@ -628,6 +628,17 @@ function updateWeatherUI(date){
  const shifts=[[0,0],[22,-14],[-18,-8],[16,12]];
  $('tv-overlay').style.setProperty('--tv-shift-x',shifts[movement][0]+'px');
  $('tv-overlay').style.setProperty('--tv-shift-y',shifts[movement][1]+'px');
+}
+function selfTestWhenReady(){
+ if(disposed)return;
+ // SwiftShader and first-time WASM compilation can delay the first frames.
+ // Do not weaken the >=7-frame gate: run the same test once its precondition is true.
+ if(status.frames<=6){
+   selfTestTimeout=environment.setTimeout(selfTestWhenReady,500);
+   return;
+ }
+ selfTestTimeout=null;
+ selfTest();
 }
 function selfTest(){
  const tests=[
