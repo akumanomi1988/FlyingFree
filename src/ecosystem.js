@@ -3,6 +3,7 @@ import {FAUNA_SCALE} from './worldScale.js';
 import {createFaunaLODFactory,faunaPathAngle,shouldAnimateFauna,terrainSlopeAngles} from './faunaLOD.js';
 import {createQuadrupedLegRig} from './faunaLegRig.js';
 import {createWildlifePopulation} from './wildlifePopulation.js';
+import {createMarinePopulation} from './marineWildlife.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
 export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=null){
@@ -235,12 +236,17 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
       fluke.rotation.y=side*.25;
     }
     group.userData.tail=tail;
+    group.userData.state={type:'dolphin'};
+    group.userData.behaviour='swimming';
     group.scale.setScalar(FAUNA_SCALE.dolphin);
     root.add(group);
     dolphins.push({group,phase:rng()*TAU,radius:5450+rng()*400,period:11+rng()*12,offset:i});
   }
+  const marinePopulation=createMarinePopulation(birds,dolphins,{seed,initialObserver});
+  const observableAnimals=[...actors,...dolphins.map(d=>d.group)];
   function update(t,daylight=1,wind=0,hero=null,precipitation=0,observer=null){
     population.update(t,hero,observer);
+    marinePopulation.update(t,hero,observer);
     for(const g of actors){
       const s=g.userData.state;
       const cycle=(t+s.seed)/s.cycle,phase=cycle%1;
@@ -323,19 +329,27 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
       b.g.visible=daylight>.18&&precipitation<.45;
     }
     for(const b of birds){
-      const time=t*.12+b.phase,theta=time+b.offset;
-      b.g.position.set(Math.sin(theta)*b.radius,b.alt+Math.sin(time*1.4)*22,Math.cos(theta)*b.radius*.78);
-      b.g.rotation.set(Math.sin(time*1.8)*.08,theta+.7,Math.cos(time*.6)*.19);
+      // An 80 m orbit flown at 6–9 m/s, rather than 4.6 km at 550 m/s.
+      const theta=t*(b.angularSpeed??.0016)+b.phase+b.offset;
+      const x=(b.anchorX??0)+Math.sin(theta)*b.radius;
+      const z=(b.anchorZ??0)+Math.cos(theta)*b.radius*(b.siteKey?1:.78);
+      b.g.position.set(x,b.alt+Math.sin(t*.7+b.phase)*1.5,z);
+      b.g.rotation.set(Math.sin(t*.5+b.phase)*.05,theta+.7,Math.cos(t*.35+b.phase)*.12);
       const flap=Math.sin(t*3.8+b.phase)*.15;
       b.wings[0].rotation.z=-flap;
       b.wings[1].rotation.z=flap;
     }
     for(const d of dolphins){
-      const theta=t*.028+d.phase, pulse=(t+d.offset*3.1)%d.period;
-      const breach=pulse<2.5?Math.pow(Math.sin(pulse/2.5*Math.PI),2)*35:0;
-      d.group.position.set(Math.sin(theta)*d.radius,-11+breach,Math.cos(theta)*d.radius*.94);
-      d.group.rotation.set(pulse<2.5?Math.cos(pulse/2.5*Math.PI)*.8:0,theta,Math.sin(t*1.6+d.offset)*.09);
-      d.group.userData.tail.rotation.x=Math.sin(t*4.6+d.offset)*.24;
+      const theta=t*(d.angularSpeed??.00075)+d.phase;
+      const pulse=(t+d.offset*3.1)%d.period;
+      const breach=pulse<1.8?Math.sin(pulse/1.8*Math.PI)**2*2.7:0;
+      const x=(d.anchorX??0)+Math.sin(theta)*d.radius;
+      const z=(d.anchorZ??0)+Math.cos(theta)*d.radius*(d.siteKey?1:.94);
+      d.group.position.set(x,-10.1+breach,z);
+      d.group.rotation.set(pulse<1.8?Math.cos(pulse/1.8*Math.PI)*.26:0,
+        theta+Math.PI*.5,Math.sin(t*.8+d.offset)*.07);
+      d.group.userData.tail.rotation.x=Math.sin(t*4+d.offset)*.2;
+      d.group.userData.behaviour=d.group.position.y>-9.3?'breach':'swimming';
     }
   }
   function focus(t){
@@ -345,8 +359,9 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
     if(slot===2){const a=actors.find(g=>g.userData.state.type==='fox');return {point:a.position.clone().add(new THREE.Vector3(0,.45,0)),kind:'forest'};}
     return {point:butterflies[0]?.g.position.clone()||new THREE.Vector3(0,150,0),kind:'flowers'};
   }
-  return {root,actors,birds,dolphins,butterflies,flowers,update,focus,
+  return {root,actors,birds,dolphins,butterflies,flowers,observableAnimals,update,focus,
     get populationStats(){return population.stats;},
+    get marinePopulationStats(){return marinePopulation.stats;},
     get lodStats(){return {prototypes:faunaLOD.prototypes,farDrawCalls:faunaLOD.farDrawCalls,
       nearAnimated:actors.filter(g=>g.userData.motionDetailed).length,totalActors:actors.length};},
     stats:{deer:actors.filter(a=>a.userData.state.type==='deer').length,fox:actors.filter(a=>a.userData.state.type==='fox').length,rabbits:actors.filter(a=>a.userData.state.type==='rabbit').length,gulls:birds.length,dolphins:dolphins.length,butterflies:butterflies.length}};
