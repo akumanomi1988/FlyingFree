@@ -9,7 +9,7 @@
 ## Cómo elegir el siguiente trabajo (sin interpretación)
 
 1. Sincronizar `main`; comprobar PR abiertas y Actions. Si existe una PR de un hito, **continuarla antes de crear otra**.
-2. Leer de arriba abajo la tabla de hitos. Elegir **el primer ID con `[ ]`** cuya dependencia esté completada en `main`. El primer hito pendiente tras VE-01 integrado es **VE-02**. Su PR solo cuenta como completada después de CI y merge.
+2. Leer de arriba abajo la tabla de hitos. Elegir **el primer ID con `[ ]`** cuya dependencia esté completada en `main`. El hito activo se determina exclusivamente por el primer `[ ]` de la tabla; esta guía evita mantener un identificador «siguiente» fijo que quede obsoleto después de un merge.
 3. Implementar **solamente ese hito** como vertical slice integrado, incluyendo pruebas, capturas/evidencias, actualización de documentación y rollback si hay regresión.
 4. En el **mismo push que contiene el código validado** marcar `[x]` en la rama de trabajo y adjuntar debajo del hito evidencia de commit/PR, tests y riesgos. **No marcar `[x]` solo por escribir código, por pasar tests parciales o por abrir una PR.**
 5. Fusionar a `main` solo con la CI del último HEAD verde. Tras la fusión, comprobar workflow de Pages y la igualdad de `build-info.json.revision` con el SHA de `main`. Si no se puede verificar, registrar **despliegue pendiente**, no «publicado»; reabrir/corregir mediante PR si el hito no es funcional.
