@@ -129,8 +129,8 @@ export function bridgeProceduralPose(assetLOD,procedural){
     const bones=new Map();
     level.object.traverse(node=>{if(node.isBone)bones.set(node.name,node);});
     for(const [name,angle] of [
-      ['Wing.L',rig.left.pivot.rotation.z],['Wing.R',rig.right.pivot.rotation.z],
-      ['WingTip.L',rig.left.tip.rotation.z],['WingTip.R',rig.right.tip.rotation.z]
+      ['Wing_L',rig.left.pivot.rotation.z],['Wing_R',rig.right.pivot.rotation.z],
+      ['WingTip_L',rig.left.tip.rotation.z],['WingTip_R',rig.right.tip.rotation.z]
     ])if(bones.has(name))bones.get(name).rotation.z=angle;
     if(bones.has('Head')){
       bones.get('Head').rotation.x=rig.head.rotation.x;
