@@ -70,10 +70,21 @@ export class BirdAssetLibrary {
     const manifest=REFERENCE_ASSETS[species];
     if(!manifest)throw new RangeError('GLB bird unavailable: '+species);
     const requests=[manifest.lod0,manifest.lod1].map(file=>this.load(this.basePath+file));
-    let released=false;
+    let released=false,instance=null;
     const release=()=>{
       if(released)return;
       released=true;
+      // Clones share meshes/materials with templates, but each skin has its
+      // own Skeleton and potential boneTexture allocated by WebGLRenderer.
+      if(instance){
+        instance.parent?.remove(instance);
+        const skeletons=new Set();
+        instance.traverse(node=>{
+          if(node.isSkinnedMesh&&node.skeleton)skeletons.add(node.skeleton);
+        });
+        for(const skeleton of skeletons)skeleton.dispose();
+        instance=null;
+      }
       for(const {entry} of requests)entry.users=Math.max(0,entry.users-1);
       this.evictUnused();
     };
@@ -84,6 +95,7 @@ export class BirdAssetLibrary {
       lod.addLevel(cloneSkinnedScene(near),0);
       lod.addLevel(cloneSkinnedScene(far),manifest.lowLodDistance);
       lod.autoUpdate=true;
+      instance=lod;
       return {model:lod,release,statistics:{
         near:meshStatistics(near),far:meshStatistics(far),
         distance:manifest.lowLodDistance,nominalWingspan:manifest.nominalWingspan
