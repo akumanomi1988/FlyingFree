@@ -262,9 +262,8 @@ de parche **1,673–4,579 ms**, RSS de muestra fría **+143,46 MB**
 con lease y publicación comprobada del SHA de `main` vía Pages.
 
 
-## VE-05 — Pipeline GLB/glTF (trabajo en rama, aceptación pendiente)
-
-- Rama: feat/VE-05-glb-asset-pipeline. Implementación: BirdAssetLibrary, generador de dos GLB originales del martín pescador, rig semántico con skinning y fallback procedural. No se desarrolla VE-06.
-- Validación pendiente en el HEAD definitivo: generación/parseo GLB, Node, Vite, browser/WebGL, comparación multiángulo, errores de carga, cambios de especie, memoria y revisión artística.
-- Evidencia y limitaciones: docs/ASSET_PIPELINE.md, artifacts/assets/geometry.json y artifacts/visual tras ejecutar CI. Sin GPU física, TV prolongada ni aceptación artística acreditadas aún.
-- Rollback: revertir la PR VE-05 o forzar assets=procedural.
+## VE-05 — Pipeline GLB/glTF (validado técnicamente; PR #44)
+- 195 Node + build Vite + 24 Playwright/WebGL, [Actions 42530170381](https://github.com/akumanomi1988/FlyingFree/actions/runs/42530170381), HEAD validado cf912cd4be49e6b69e531913fc3de70e1ace0b4b; 10 capturas ortográficas LOD0/LOD1 y evidencia GLB exportada.
+- Martín pescador propio Alcedo atthis: huesos 12, alas 2, 0,260 m de envergadura y 0,144 m de largo, 6.420/1.912 tris (LOD0/LOD1); 24/19 draws aislados. Cargador/cache/escala/fallback/regeneración probados, sin implementar VE-06.
+- docs/ASSET_PIPELINE.md explica licencia, Blender→GLB, límites, modo de rollback (?assets=procedural) y visor QA asset-preview.html.
+- No atribuir hardware real, TV prolongada ni métricas GPU físicas a SwiftShader. Revisar Pages SHA después del merge, y asociar su workflow a este hito.
