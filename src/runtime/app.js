@@ -300,7 +300,8 @@ function simulateStep(dt,tick,simTime){
     weatherState[prop]=lerp(weatherState[prop],currentWeather[prop],weatherEase);
   const sun=sunPosition(date,solarCoordinates.latitude,solarCoordinates.longitude);
   const action=stepBird(dt,sun);
-  ecosystem.update(simTime,sun.daylight,weatherState.cloud,action,weatherState.rain,camera.position);
+  // Render observer controls visual LOD; identity/assignment uses the stable bird state.
+  ecosystem.update(simTime,sun.daylight,weatherState.cloud,action,weatherState.rain,camera.position,action);
 }
 function animate(now){
   const deltaRaw=Math.max(0,(now-lastFrame)/1000);

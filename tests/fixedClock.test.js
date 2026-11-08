@@ -66,8 +66,8 @@ test('VE-02: wildlife assignments are invariant to render-camera placement',()=>
   const hero={x:650,y:180,z:510};
   const one=createEcosystem(THREE,new THREE.Scene(),1988,.25,{x:220,y:150,z:180});
   const two=createEcosystem(THREE,new THREE.Scene(),1988,.25,{x:220,y:150,z:180});
-  one.update(3,.8,.1,hero,0,{x:-1400,y:300,z:-1100});
-  two.update(3,.8,.1,hero,0,{x:1400,y:500,z:900});
+  one.update(3,.8,.1,hero,0,{x:-1400,y:300,z:-1100},hero);
+  two.update(3,.8,.1,hero,0,{x:1400,y:500,z:900},hero);
   const snap=world=>world.actors.map(actor=>({
     type:actor.userData.state.type,
     x:actor.position.x,y:actor.position.y,z:actor.position.z,
