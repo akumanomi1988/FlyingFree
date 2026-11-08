@@ -22,12 +22,12 @@ for(const lod of manifest.lods){
     if(node.isMesh){
       const g=node.geometry;
       triangles+=(g.index?.count??g.getAttribute('position').count)/3;
-      if(node.name.startsWith('WingSurface.'))surfaces.push(node);
+      if(node.name.startsWith('WingSurface_'))surfaces.push(node);
     }
   });
-  for(const name of ['Body','Head','Tail','Wing.L','Wing.R','WingTip.L','WingTip.R',
-    'Leg.L','Leg.R','Foot.L','Foot.R','Bill.upper','Bill.lower',
-    'Breast.rufous','Eye.L','Eye.R'])assert.ok(names.has(name),lod.file+': '+name);
+  for(const name of ['Body','Head','Tail','Wing_L','Wing_R','WingTip_L','WingTip_R',
+    'Leg_L','Leg_R','Foot_L','Foot_R','Bill_upper','Bill_lower',
+    'Breast_rufous','Eye_L','Eye_R'])assert.ok(names.has(name),lod.file+': '+name);
   assert.equal([...bones].filter(b=>/^Wing\.[LR]$/.test(b.name)).length,2,
     'exactly two anatomical wing roots');
   assert.ok(skinned>=2,'glTF export must contain real skins, not only named groups');
