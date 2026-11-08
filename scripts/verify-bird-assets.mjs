@@ -28,7 +28,7 @@ for(const lod of manifest.lods){
   for(const name of ['Body','Head','Tail','Wing_L','Wing_R','WingTip_L','WingTip_R',
     'Leg_L','Leg_R','Foot_L','Foot_R','Bill_upper','Bill_lower',
     'Breast_rufous','Eye_L','Eye_R'])assert.ok(names.has(name),lod.file+': '+name);
-  assert.equal([...bones].filter(b=>/^Wing\.[LR]$/.test(b.name)).length,2,
+  assert.equal([...bones].filter(b=>/^Wing_[LR]$/.test(b.name)).length,2,
     'exactly two anatomical wing roots');
   assert.ok(skinned>=2,'glTF export must contain real skins, not only named groups');
   assert.ok(surfaces.length>=2,'single wing surface for each side');
