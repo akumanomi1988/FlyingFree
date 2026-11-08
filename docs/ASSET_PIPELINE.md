@@ -1,0 +1,77 @@
+# VE-05 — Asset GLB/glTF y Blender
+
+## Contrato de producción
+- 1 unidad Three.js = 1 metro, mismo tamaño en todos los LOD; ningún scale-to-fit en runtime.
+- Coordenadas GLB: +Y arriba, -Z adelante/pico y +Z cola; X envergadura.
+- El origen se encuentra en el centro torácico en reposo/planeo.
+- Armature y huesos obligatorios: Root, Body, Head, Wing.L, Wing.R,
+  WingTip.L, WingTip.R, Tail, Leg.L, Leg.R, Foot.L, Foot.R.
+- Exactamente dos alas físicas, sin superficies duplicadas.
+- Mallas: Body.*, Breast.*, Bill.*, Eye.L/R, WingSurface.L/R.*, Rectrix.*, Toe.*.
+- Materiales con prefijo MAT_; PBR metalness=0, roughness 0.6-1;
+  texturas propias o con licencia comprobada.
+- glTF 2.0 binario (.glb), buffers embebidos, skinning exportado e influencias
+  de hueso limitadas a cuatro por vértice. No hay clips ni AnimationMixer nuevos:
+  son responsabilidad de VE-06.
+- LOD0 cerca de cámara, LOD1 a partir de 8 metros; mismos huesos y envergadura,
+  significativamente menos triángulos.
+
+## Referencia original
+Martín pescador / Alcedo atthis: 0.26 metros de envergadura como src/core.js.
+El generador original scripts/build-bird-assets.mjs crea dos GLB y un manifest
+desde geometría anatómica propia: torso, cabeza, pico de dos mandíbulas, dos
+alas con primarias, secundarias, coberteras, cola, dos patas y dedos.
+No descarga ni reutiliza modelos externos. Los GLB son outputs reproducibles
+en public/assets/birds. Se generan mediante npm run build y npm run dev.
+
+**Procedencia/licencia:** código geométrico original desarrollado en este
+repositorio; no se integran assets de terceros. La redistribución independiente
+del modelo requiere decisión expresa del titular del proyecto y anotación de
+la licencia correspondiente; no se atribuye una licencia CC0 de forma ficticia.
+
+## Blender -> GLB para futuros assets
+1. Trabajar en metros y medir la envergadura real con instrumentos de Blender.
+2. Blender utiliza Z arriba. Marcar +Y Up al exportar glTF y validar que
+   la cabeza apunta a -Z **en el GLB**; aplicar Rotation & Scale.
+3. Nombrar armature, bones y meshes conforme al contrato; exactamente dos
+   raíces de ala, sin geometría escondida duplicada.
+4. Crear Skin con pesos normalizados (máx. 4 influencias) y binding consistente
+   entre LOD0 y LOD1. Sin clips todavía.
+5. Usar Principled BSDF, materiales PBR y texturas con licencia verificable;
+   simplificar materiales para reducir draw calls. No introducir alpha blending
+   innecesario, texturas 4K ni geometría oculta.
+6. Eliminar vértices degenerados, revisar normales, UV, transforms y escala;
+   generar LOD1 mediante retopología/decimación con revisión de silueta.
+7. Exportar glTF Binary (.glb) con skins y materiales, sin cámaras/lámparas;
+   documentar autor, licencia, procedencia y modificación en manifest.
+8. Ejecutar npm run audit:assets, npm test, npm run build,
+   npm run test:browser, y revisar capturas multiángulo reales.
+9. Sustituir la fase generativa por una fase de exportación versionada cuando
+   exista el modelo Blender validado; no sobrescribir manualmente los GLB
+   que la compilación regenera actualmente.
+
+## Runtime, caché, seguridad y reversión
+BirdAssetLibrary utiliza GLTFLoader.loadAsync, caché deduplicada por URL,
+SkeletonUtils.clone para huesos independientes, release para liberar
+instancias, clearUnused para plantillas ociosas y dispose para liberar
+geometrías, materiales y texturas. El cache de dos LOD es acotado.
+Mientras se carga se mantiene el rig procedural anterior. Con éxito se
+ocultan las mallas procedurales y se añade el GLB a la misma raíz;
+la pose traslada las rotaciones existentes, sin crear un motor de animación.
+Si falla red, parseo o permiso de hardware, se usa exclusivamente fallback.
+Se fuerza con el parámetro assets=procedural; WebGL2 y memoria >2 GB son
+los criterios de elegibilidad. Sin WebGL2 el renderer anterior conserva su
+política de error, no se añade un motor nuevo.
+
+**Validación técnica:** npm run audit:assets genera GLB y verifica mediante
+GLTFLoader.parse huesos, skins, envergadura y reducción geométrica;
+artifacts/assets/geometry.json guarda resultados. npm test cubre
+carga concurrente, fallo/recuperación, ciclo de vida, nivel de memoria y pose.
+npm run test:browser toma capturas en 3 cámaras/semillas del nuevo activo
+y prueba 404 forzado y modo procedural.
+
+**Pendiente de revisión humana:** silueta de los dos perfiles, escala en
+árboles y terreno, detalles de plumas, sonido y TV. No se han medido P95/P99
+ni memoria GPU física; SwiftShader es únicamente QA funcional. El render de
+CI no equivale a aceptación artística. El rollback consiste en revertir la
+PR VE-05 o usar assets=procedural temporalmente.
