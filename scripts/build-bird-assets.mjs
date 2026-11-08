@@ -150,6 +150,11 @@ function wingWing(root,bodyBone,side,detail){
 }
 function referenceBird(detail){
   const root=new THREE.Group();root.name='Kingfisher_AlcedoAtthis';
+  // Authoring correction at rig construction, BEFORE binding skins:
+  // profile wingspan .26 m; species length ~.145 m, bill ~.031 m.
+  // Keep wings and bones in physical world dimensions rather than
+  // scaling the whole bird to the camera at runtime.
+  root.scale.set(.963,1,.65);
   root.userData={species:'kingfisher',authoringUnit:'metre',forward:'-Z',up:'+Y',wings:2,
     purpose:'VE-05 rigged static reference, no clips'};
   const armature=new THREE.Group();armature.name='Armature';root.add(armature);
@@ -209,7 +214,7 @@ function referenceBird(detail){
     }
   }
   for(let i=-3;i<=3;i++){
-    const tip=new THREE.Vector3(i*.003,-.009,.064- Math.abs(i)*.005);
+    const tip=new THREE.Vector3(i*.003,-.009,.048- Math.abs(i)*.005);
     tailBone.add(mesh('Rectrix.'+i,feather(new THREE.Vector3(i*.002,0,0),
       tip,.0045,detail?11:6),i%2===0?'cobalt':'midnight'));
   }
