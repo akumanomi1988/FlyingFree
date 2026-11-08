@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 // VE-04: Rapier is a bounded contact solver, not the owner of ecological motion.
 // Sources are the same visible static triangles indexed by WorldQuery (VE-03).
 export const PHYSICS_LIMITS=Object.freeze({
@@ -30,41 +32,43 @@ function collisionMeshes(query){
   if(query?.disposed||!Array.isArray(query?.sources))throw new TypeError('A live WorldQuery is required');
   return query.sources.filter(s=>s.kind==='terrain'||s.kind==='riverbed').map(s=>s.mesh);
 }
-// A cache of world-space vertices avoids re-transforming each vertex every
-// time the observer changes patch. No copies of visual GPU geometry are changed.
+// BVH shapecast selects ONLY nearby triangles. This saves a full 160k-triangle
+// traversal on every patch relocation and uses VE-03's existing BVH topology.
 function prepareMeshes(query){
-  return collisionMeshes(query).map(mesh=>{
-    mesh.updateWorldMatrix(true,false);
-    const attr=mesh.geometry.getAttribute('position'),index=mesh.geometry.getIndex();
-    const vertices=new Float32Array(attr.count*3),array=index?.array??null;
-    const m=mesh.matrixWorld.elements;
-    for(let i=0;i<attr.count;i++){
-      const x=attr.getX(i),y=attr.getY(i),z=attr.getZ(i),j=i*3;
-      vertices[j]=m[0]*x+m[4]*y+m[8]*z+m[12];
-      vertices[j+1]=m[1]*x+m[5]*y+m[9]*z+m[13];
-      vertices[j+2]=m[2]*x+m[6]*y+m[10]*z+m[14];
-    }
-    return {vertices,indices:array};
-  });
+  return query.sources.filter(source=>source.kind==='terrain'||source.kind==='riverbed');
 }
-// Exact terrain/riverbed triangles; water is not a solid wall. Sea and river
-// surfaces remain queried with WorldQuery.sampleSurface(includeWater,time,rain).
 export function extractLocalTriangles(prepared,center,radius){
   const output=[],radiusSq=radius*radius;
-  for(const {vertices:v,indices} of prepared){
-    const verts=[],triangles=[],count=indices?.length??v.length/3;
-    for(let i=0;i<count;i+=3){
-      const a=(indices?indices[i]:i)*3,b=(indices?indices[i+1]:i+1)*3,c=(indices?indices[i+2]:i+2)*3;
-      const minX=Math.min(v[a],v[b],v[c]),maxX=Math.max(v[a],v[b],v[c]);
-      const minZ=Math.min(v[a+2],v[b+2],v[c+2]),maxZ=Math.max(v[a+2],v[b+2],v[c+2]);
-      const dx=Math.max(minX-center.x,0,center.x-maxX),dz=Math.max(minZ-center.z,0,center.z-maxZ);
-      if(dx*dx+dz*dz>radiusSq)continue;
-      const n=verts.length/3;
-      verts.push(v[a],v[a+1],v[a+2],v[b],v[b+1],v[b+2],v[c],v[c+1],v[c+2]);
-      triangles.push(n,n+1,n+2);
-    }
-    if(triangles.length)output.push({vertices:new Float32Array(verts),
-      indices:new Uint32Array(triangles),triangles:triangles.length/3});
+  const bounds=new THREE.Box3(
+    new THREE.Vector3(center.x-radius,-1e5,center.z-radius),
+    new THREE.Vector3(center.x+radius,1e5,center.z+radius)
+  );
+  for(const {bvh,mesh,inverse} of prepared){
+    const localBounds=bounds.clone().applyMatrix4(inverse);
+    const verts=[],indices=[];
+    bvh.shapecast({
+      intersectsBounds:box=>box.intersectsBox(localBounds),
+      intersectsTriangle:triangle=>{
+        const a=triangle.a.clone().applyMatrix4(mesh.matrixWorld);
+        const b=triangle.b.clone().applyMatrix4(mesh.matrixWorld);
+        const c=triangle.c.clone().applyMatrix4(mesh.matrixWorld);
+        const minX=Math.min(a.x,b.x,c.x),maxX=Math.max(a.x,b.x,c.x);
+        const minZ=Math.min(a.z,b.z,c.z),maxZ=Math.max(a.z,b.z,c.z);
+        const dx=Math.max(minX-center.x,0,center.x-maxX);
+        const dz=Math.max(minZ-center.z,0,center.z-maxZ);
+        if(dx*dx+dz*dz<=radiusSq){
+          const n=verts.length/3;
+          verts.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z);
+          indices.push(n,n+1,n+2);
+        }
+        return false; // collect all matching triangles; do not stop traversal.
+      }
+    });
+    if(indices.length)output.push({
+      vertices:new Float32Array(verts),
+      indices:new Uint32Array(indices),
+      triangles:indices.length/3
+    });
   }
   return output;
 }
