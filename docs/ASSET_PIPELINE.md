@@ -75,3 +75,24 @@ y prueba 404 forzado y modo procedural.
 ni memoria GPU física; SwiftShader es únicamente QA funcional. El render de
 CI no equivale a aceptación artística. El rollback consiste en revertir la
 PR VE-05 o usar assets=procedural temporalmente.
+
+## Inspección anatómica de alta resolución
+
+La cámara del documental encuadra al ave en su hábitat: un martín pescador
+de unos 26 cm resulta pequeño junto a árboles de 20 metros. No se puede
+certificar la geometría individual con esas capturas panorámicas.
+
+Se incluye el visor QA `asset-preview.html`, con iluminación neutra,
+cámara ortográfica, escala métrica real, lectura de draw calls/triángulos
+GPU y vistas front, side, top, threeQuarter, back, tanto para LOD0 como
+para LOD1. El visor no introduce dependencias en WorldQuery ni en BirdBrain.
+
+```text
+/FlyingFree/asset-preview.html?view=threeQuarter&lod=0
+/FlyingFree/asset-preview.html?view=top&lod=1
+```
+
+Playwright exporta diez capturas `VE05-LOD*-*.png` en
+`artifacts/visual/`, además de las escenas reales 08-14 en el ecosistema
+y la comparación procedural en la misma semilla. CI archiva los artefactos
+como `flyingfree-visual-evidence` y `ve05-kingfisher-glb-evidence`.
