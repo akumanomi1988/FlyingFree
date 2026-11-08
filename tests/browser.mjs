@@ -19,11 +19,12 @@ async function waitServer(){
 }
 const report={date:new Date().toISOString(),result:'pending',scenarios:[],errors:[]};
 let browser;
-async function render(name,query,width,height,runChecks){
+async function render(name,query,width,height,runChecks,beforeNavigation){
   const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,acceptDownloads:true});
   page.on('pageerror',e=>report.errors.push(name+' pageerror: '+e.message));
   page.on('console',m=>{if(m.type()==='error')report.errors.push(name+' console: '+m.text());});
   try{
+    if(beforeNavigation)await beforeNavigation(page);
     const r=await page.goto(root+query,{waitUntil:'domcontentloaded',timeout:30000});
     assert.equal(r?.status(),200,'Respuesta HTTP');
     await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.frames>6,null,{timeout:60000});
@@ -40,7 +41,7 @@ async function render(name,query,width,height,runChecks){
       const result={canvas:true,renderedFrames:s.frames,fps:s.fps,error:s.error,colors:pixels.colors,
         brightness:pixels.brightness,colorVar:pixels.colorVar,
         nonBlack:pixels.nonBlack,
-        scene:s.scene,fauna:s.fauna,bird:s.bird,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
+        scene:s.scene,fauna:s.fauna,bird:s.bird,asset:s.asset,weather:s.weather,renderScale:s.renderScale,birdDrawCallsSaved:s.birdDrawCallsSaved,motion:s.motion,groundDetail:s.groundDetail,
         treeDetail:s.treeDetail,faunaLOD:s.faunaLOD,regionalBirds:s.regionalBirds,riverLife:s.riverLife,performance:s.performance,adaptiveQuality:s.adaptiveQuality,riverGeometry:s.riverGeometry,
         forestVisibility:s.forestVisibility,performanceTarget:s.performanceTarget,
          wildlifePopulation:s.wildlifePopulation,wildlifeVisibility:s.wildlifeVisibility,
@@ -351,6 +352,41 @@ try{
       assert.equal(await page.locator('#temperature').innerText(),'16 °C');
       assert.ok(requests>=1,'Al entrar no se solicitó la ubicación ni el clima real');
       assert.equal(await page.locator('#intro').evaluate(e=>e.classList.contains('off')),true);
+    });
+  // The reference bird is a *real GLB skin*, not a replacement procedural cube.
+  // Multiple camera shots preserve visual evidence at different distances.
+  for(const [name,mode,seed] of [
+    ['08-kingfisher-close','close',1988],
+    ['09-kingfisher-profile','profile',12345],
+    ['10-kingfisher-scenic','high-reveal',20261106]
+  ]){
+    await render(name,'?h=12.5&bird=kingfisher&weather=clear&broadcast=1&selftest=1&seed='+seed+'&qaShot='+mode,
+      1365,768,async page=>{
+        await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='ready',
+          null,{timeout:30000});
+        const asset=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset);
+        assert.equal(asset.species,'kingfisher');
+        assert.equal(asset.near.bones>=10,true,'Exported GLB must include anatomical skeleton');
+        assert.ok(asset.near.triangles>asset.far.triangles*1.7);
+      });
+  }
+  // Fail a real HTTP fetch. Renderer must keep original procedural bird active.
+  await render('11-kingfisher-missing-glb',
+    '?bird=kingfisher&seed=1988&h=12.5&weather=clear&broadcast=1',
+    1280,800,async page=>{
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='fallback',
+        null,{timeout:25000});
+      assert.match(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset.reason),/404|Failed|fetch/i);
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.birdDrawCallsSaved>=40),true);
+    },
+    async page=>{
+      await page.route('**/assets/birds/kingfisher-lod0.glb*',
+        route=>route.fulfill({status:404,contentType:'text/plain',body:'not found'}));
+    });
+  await render('12-kingfisher-procedural-optout',
+    '?bird=kingfisher&assets=procedural&seed=1988&broadcast=1',
+    1280,800,async page=>{
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset.state),'procedural');
     });
   assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
   report.result='pass';
