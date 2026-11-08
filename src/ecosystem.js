@@ -244,9 +244,12 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
   }
   const marinePopulation=createMarinePopulation(birds,dolphins,{seed,initialObserver});
   const observableAnimals=[...actors,...dolphins.map(d=>d.group)];
-  function update(t,daylight=1,wind=0,hero=null,precipitation=0,observer=null){
-    population.update(t,hero,observer);
-    marinePopulation.update(t,hero,observer);
+  function update(t,daylight=1,wind=0,hero=null,precipitation=0,observer=null,ecologicalObserver=null){
+    // Keep visual culling tied to the camera while population assignment uses
+    // the deterministic ecological observer supplied by the fixed-step runtime.
+    // Legacy callers preserve the existing observer semantics.
+    population.update(t,hero,ecologicalObserver??observer);
+    marinePopulation.update(t,hero,ecologicalObserver??observer);
     for(const g of actors){
       const s=g.userData.state;
       const cycle=(t+s.seed)/s.cycle,phase=cycle%1;

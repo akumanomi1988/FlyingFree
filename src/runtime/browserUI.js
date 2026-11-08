@@ -72,7 +72,7 @@ export function createBrowserUI({document,window,location,events,birds,getBird,w
     on(window,'keydown',event=>{
       if(event.ctrlKey||event.altKey||event.metaKey)return;
       const key=event.key.toLowerCase();
-      if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','t','r','n','i','escape'].includes(key))event.preventDefault();
+      if([' ','1','2','3','4','5','6','7','8','h','f','p','m','b','t','r','n','i','k','escape'].includes(key))event.preventDefault();
       actions.revealTVControls();
       switch(key){
         case '1':actions.setHour(actions.phase('dawn'));break;
@@ -84,6 +84,7 @@ export function createBrowserUI({document,window,location,events,birds,getBird,w
         case '7':actions.setTimeSpeed(60);break;
         case '8':actions.setTimeSpeed(600);break;
         case 'r':actions.resetTime();break;
+        case 'k':actions.togglePause();break;
         case ' ':actions.flap();break;
         case 'h':document.body.classList.toggle('no-ui');break;
         case 'n':toggleMap();break;

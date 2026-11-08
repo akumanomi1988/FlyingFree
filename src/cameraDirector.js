@@ -60,7 +60,8 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
   let lastReason='initial';
 
   function update(camera,bird,yaw,speed,behaviour,wingspan,time,dt,focus=null,wildlife=null){
-    const delta=clamp(dt,0,.1),clock=Number.isFinite(time)?time:0;
+    // Allow up to 250ms of camera catch-up for slow WebGL; simulation remains at 30Hz.
+    const delta=clamp(dt,0,.25),clock=Number.isFinite(time)?time:0;
     if(clock<lastTime){
       shotSince=clock;contextAt=-Infinity;turnRate=0;
       candidateShot=null;candidateSince=clock;

@@ -8,7 +8,7 @@ Un simulador audiovisual **autónomo** de naturaleza estilizada en el navegador.
 
 | Responsabilidad | Módulos | Contrato vigente / deuda |
 | --- | --- | --- |
-| Bootstrap y ciclo de vida | `src/main.js`, `src/runtime/app.js`, `src/runtime/frameLoop.js`, `src/runtime/eventScope.js` | Un único RAF y teardown explícito. El paso variable se mantiene hasta VE-02. |
+| Bootstrap y ciclo de vida | `src/main.js`, `src/runtime/app.js`, `src/runtime/frameLoop.js`, `src/runtime/eventScope.js` | Un único RAF y teardown explícito. VE-02 introduce reloj fijo 30 Hz, acumulador y snapshots observables. |
 | Entorno y UI | `src/runtime/browserEnvironment.js`, `src/runtime/browserUI.js`, `src/localTime.js`, `index.html` | Reloj/viewport y servicios inyectables; controles DOM y selector sin lógica ecológica. |
 | Escena y composición | `src/runtime/sceneAdapter.js`, `src/runtime/worldBuilder.js` | WebGL, luces, mundo sembrado y recursos definidos aparte del bootstrap; la simulación aún consume objetos Three para presentación. |
 | Geografía y hábitat | `src/tropicalTerrain.js`, `src/core.js`, `src/ecology.js` | Compartir semilla y función de altura entre malla, IA, agua y colisiones. Terreno sigue siendo una única malla de 250×250 celdas |
@@ -56,7 +56,7 @@ No se ha medido GPU física; no se afirma igualdad perceptiva por CI.
 
 **Determinismo por semilla.** El modo normal puede usar una nueva semilla por sesión; `?seed=1988` obliga a repetir topografía, navegación y fauna. Se registra la semilla en el diagnóstico. No se elige la semilla que pase un test: se repara la cámara o el mundo para que pasen las semillas problemáticas.
 
-**Timestep.** La actualización actual limita `dt` a 100 ms para amortiguar pausas del navegador. No es todavía un motor de timestep fijo con acumulador; antes de introducirlo deben verificarse invariancia a 15/30/60/120 Hz y colisiones/animaciones, sin romper relojes y meteorología real.
+**Timestep.** El reloj VE-02 emplea `src/runtime/fixedClock.js`, timestep de 1/30 s, máximo ocho substeps por RAF y máximo 250 ms de entrada. Descarta exceso tras suspensión, resetea acumulador al ocultar/mostrar pestaña y permite pausar con K o `runtime.pause()/resume()`. El motor ecológico se actualiza en ticks; la cámara, los rig de aves y elementos escénicos interpolan entre dos poses. La hora real y el proveedor meteorológico continúan basándose en epoch, no en el reloj de simulación. Los snapshots de `runtime.simulationSnapshot()` son observaciones serializables para comparar replay, **no** restauración completa del estado RNG.
 
 **Rendimiento.** Mantener `InstancedMesh`, geometrías/materiales compartidos, detalle según relevancia y controles de resolución con recuperación. Antes de más teselación, medir impacto real P95/P99 y memoria de GPU. Una malla enorme permanente no equivale a streaming.
 
