@@ -207,3 +207,13 @@
 - Primera CI: https://github.com/akumanomi1988/FlyingFree/actions/runs/42502027810 — 170 tests Node, build Vite y 7 escenarios de navegador/WebGL verdes. Capturas del primer HEAD: https://github.com/akumanomi1988/FlyingFree/actions/runs/42502027810/artifacts/13625788413. Baseline anterior: https://github.com/akumanomi1988/FlyingFree/actions/runs/42468944998.
 - El HEAD final añade el constructor de mundo separado, teardown browser y documentación. **Confirmar checks del último HEAD antes de merge:** https://github.com/akumanomi1988/FlyingFree/pull/40/checks. No convertir esta nota en aprobación automática.
 - Riesgos remanentes: sin GPU física, ni prueba TV larga, ni auditoría perceptiva de audio/cámara. VE-02 (paso fijo) sigue expresamente fuera de alcance. Rollback: revert PR #40. Despliegue solo acreditado mediante Pages y `build-info.json.revision` tras integración.
+
+
+## VE-02 — reloj fijo y snapshots (2026-11-08, PR en preparación)
+
+- Separamos decisiones/actualizaciones de BirdBrain y ecosistema en pasos de 1/30 s; presentación WebGL, audio, cámara, costa y fauna visual se ejecutan en RAF con interpolación de la posición/rumbo del ave.
+- Acumulador con máximo 8 substeps y 250 ms por frame; no hay catch-up tras suspensión de pestaña. API de pausa/reanudación y tecla K; estado `status.simulationClock` con ticks, alpha y tiempo descartado.
+- Hora local y clima externo continúan usando el reloj real; velocidad demo solo altera la hora solar ficticia, no meteorología real.
+- `simulationSnapshot()` produce esquema 1 sin objetos Three.js, con semilla, tick, pose/energía/actividad de protagonista, clima y fauna. Replay desde semilla + mismos eventos por tick; no contiene estado del PRNG para restauración desde un checkpoint arbitrario.
+- Cobertura de pruebas nueva: 15/30/60/120 FPS con semilla 1988, pausas, grandes lag spikes, snapshot serializable y test Playwright de congelación y reanudación. Los resultados finales dependen de la CI del HEAD.
+- Sin benchmark de GPU física ni validación TV prolongada. Rollback: revertir los commits de VE-02. VE-03 no iniciado.

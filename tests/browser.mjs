@@ -203,6 +203,22 @@ try{
     async(page)=>{
       await page.waitForFunction(()=>!!window.__FLYINGFREE_STATUS__.selftest,{timeout:10000});
       const diagnostics=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.selftest);
+       const replayCheck=await page.evaluate(()=>{
+         const runtime=window.__FLYINGFREE_RUNTIME__;
+         const before=runtime.simulationSnapshot();
+         runtime.pause();
+         return {before,paused:runtime.snapshot().simulation.paused};
+       });
+       assert.equal(replayCheck.paused,true,'Simulation pause not available');
+       await page.waitForTimeout(250);
+       const paused=await page.evaluate(()=>window.__FLYINGFREE_RUNTIME__.simulationSnapshot());
+       assert.deepEqual(paused,replayCheck.before,'Paused ecology changed');
+       await page.evaluate(()=>window.__FLYINGFREE_RUNTIME__.resume());
+       await page.waitForFunction(t=>window.__FLYINGFREE_RUNTIME__.simulationSnapshot().tick>t,replayCheck.before.tick,{timeout:8000});
+       await page.keyboard.press('k');
+       assert.equal(await page.evaluate(()=>window.__FLYINGFREE_RUNTIME__.snapshot().simulation.paused),true);
+       await page.keyboard.press('k');
+       assert.equal(await page.evaluate(()=>window.__FLYINGFREE_RUNTIME__.snapshot().simulation.paused),false);
       assert.equal(diagnostics.success,true,'Diagnósticos de WebGL / fauna');
       await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.motion?.windMaterials>=7,null,{timeout:15000});
       const motion=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.motion);
