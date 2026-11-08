@@ -28,6 +28,8 @@ import {localHour,withLocalHour,seasonLocal,astronomicalPhase,localTimeLabel,loc
 import {createBrowserEnvironment} from './browserEnvironment.js';
 import {createEventScope} from './eventScope.js';
 import {createFrameLoop} from './frameLoop.js';
+import {createFixedStepClock,FIXED_SIMULATION_DT} from './fixedClock.js';
+import {captureSimulationSnapshot} from './simulationSnapshot.js';
 import {createBrowserScene,disposeBrowserScene} from './sceneAdapter.js';
 import {createBrowserUI} from './browserUI.js';
 import {buildWorld} from './worldBuilder.js';
@@ -41,14 +43,16 @@ let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,forest,forestVis
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,regionalBirds,riverHabitat,wildlifeObservatory,lastBirdAction=null;
 const windField=services.windField??createWindField();
 const frameTelemetry=createFrameTelemetry(600);
+const simulationClock=createFixedStepClock();
+let previousPose=null,currentPose=null,userPaused=false;
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
   pendingSnapshot=false,pendingRenderProbe=null;
 const climate=services.climate??createLiveClimate({clock:environment.epoch});
 let solarCoordinates=approximateSolarCoordinates();
 let timeOverride=opts.hour!=null||Boolean(opts.phase);
 let weatherOverride=Boolean(opts.weather);
-let simMs=opts.hour!=null?withLocalHour(new Date(),opts.hour).getTime():
- opts.phase?withLocalHour(new Date(),astronomicalPhase(new Date(),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():environment.epoch();
+let simMs=opts.hour!=null?withLocalHour(new Date(environment.epoch()),opts.hour).getTime():
+ opts.phase?withLocalHour(new Date(environment.epoch()),astronomicalPhase(new Date(environment.epoch()),opts.phase,solarCoordinates.latitude,solarCoordinates.longitude)).getTime():environment.epoch();
 const worldSeed=opts.seed??seed??sessionIslandSeed();
 const habitatMonitor=createHabitatMonitor(worldSeed);
 const minimap=createMinimap($('map-canvas'),worldSeed);
@@ -96,6 +100,7 @@ function init(){
   cameraDirector=createCameraDirector(THREE,terrainHeight,worldSeed,{qaShot});
   const startSun=sunPosition(new Date(simMs),solarCoordinates.latitude,solarCoordinates.longitude);
   const startPos=birdBrain.update(0,0,startSun.daylight,0);
+  lastBirdAction=startPos;previousPose={...startPos};currentPose={...startPos};
   birdModel.position.set(startPos.x,startPos.y,startPos.z);
   const heading=new THREE.Vector3(-Math.sin(startPos.heading),0,-Math.cos(startPos.heading));
   const startDistance=birdCameraDistance(currentBird);
@@ -116,6 +121,7 @@ function init(){
     coastSeed:oceanFX.bathymetry.seed,coastResolution:oceanFX.bathymetry.resolution,
     cliffStacks:cliffs.count};
   status.faunaLOD=ecosystem.lodStats;
+  status.simulationClock=simulationClock.snapshot();
   status.habitatUse=habitatMonitor.snapshot();
   // Publish capabilities immediately; rolling metrics gain samples as frames arrive.
   status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
@@ -130,7 +136,7 @@ function init(){
   // TV/broadcast may reuse a permission already granted, without prompting.
   if(opts.broadcast||opts.tv)void connectClimate(true);
   if(opts.selftest)selfTestTimeout=environment.setTimeout(selfTest,2500);
-  lastFrame=environment.now();loop.start();
+  lastFrame=environment.now();simulationClock.resync(lastFrame);loop.start();
 }
 function createBird(){
   const previousPosition=birdModel?.position.clone();
@@ -162,6 +168,7 @@ function createBird(){
   scene.add(birdModel);
   status.bird=currentBird.id;
   const initialBird=birdBrain.snapshot;
+  previousPose={...initialBird};currentPose={...initialBird};lastBirdAction=null;
   status.birdPosition={x:initialBird.x,z:initialBird.z,heading:initialBird.heading};
   status.energy=initialBird.energy;status.hunger=initialBird.hunger;
   status.sensation=birdSensation({energy:initialBird.energy,hunger:initialBird.hunger,state:'patrol'});
@@ -186,12 +193,11 @@ function selectBird(id){
   }
   $('bird-picker').classList.add('hidden');
 }
-function ambient(date,dt){
+function ambient(date,dt,renderTime=elapsed){
   const sun=sunPosition(date,solarCoordinates.latitude,solarCoordinates.longitude),day=sun.daylight,alt=sun.altitude;
-  const k=1-Math.exp(-dt/16);
-  for(const prop of ['cloud','rain','fog'])weatherState[prop]=lerp(weatherState[prop],currentWeather[prop],k);
+  // Weather transitions update only on ecological ticks.
   const cloud=weatherState.cloud,wet=weatherState.rain,night=sun.night;
-  const lightning=currentWeather.id==='storm'&&Math.sin(elapsed*.59)*Math.sin(elapsed*1.73)>.994?1.25:0;
+  const lightning=currentWeather.id==='storm'&&Math.sin(renderTime*.59)*Math.sin(renderTime*1.73)>.994?1.25:0;
   const color=skyNight.clone().lerp(skyEvening,clamp((day+.1)*sun.golden,0,1)).lerp(skyDay,day*(1-sun.golden*.65));
   color.lerp(new THREE.Color('#344a58'),cloud*.31);
   scene.background.copy(color);scene.fog.color.copy(color);
@@ -213,48 +219,56 @@ function ambient(date,dt){
   starMat.opacity=starOpacityAt(alt,Math.max(cloud,currentWeather.cloud),Math.max(wet,currentWeather.rain));
   status.starOpacity=starMat.opacity;
   const cloudTint=new THREE.Color(0xdde4e6).lerp(new THREE.Color(0xffc29a),sun.golden*.52*day);
-  cloudField.update(elapsed,cloud,day,cloudTint);
+  cloudField.update(renderTime,cloud,day,cloudTint);
   sunHalo.position.copy(sunOrb.position);sunHalo.visible=sunOrb.visible;
   sunHalo.material.opacity=clamp(day*(1-cloud*.7),0,1);
   moonHalo.position.copy(moonOrb.position);moonHalo.visible=moonOrb.visible;
   skyFX.update(camera,sun,weatherState);
-  windField.update(elapsed,weatherState);
+  windField.update(renderTime,weatherState);
   sound.update(weatherState,sun,currentWeather.id);
   return sun;
 }
-function fly(date,dt,sun){
- const day=smooth(-.14,.045,sun.altitude);
- const action=birdBrain.update(elapsed,dt,day,weatherState.rain);
- lastBirdAction=action;
- birdModel.position.set(action.x,action.y+(action.grounded?0:Math.sin(elapsed*3.2)*currentBird.wingspan*.012),action.z);
- birdModel.rotation.y=action.heading;
- animateBirdRig(birdModel,elapsed,{energy:action.flapping?.89:.40,sleeping:action.wingsFolded,
-  bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
-  floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
-  state:action.state,food:action.food,feedingProgress:action.feedingProgress},dt);
- const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan,rain:weatherState.rain},elapsed);
- const visibleRest=restVisuals?.update(action,camera.position);
- status.perchVisible=Boolean(visibleRest?.visible);
- status.restSiteKind=action.restSite?.kind??null;
- status.rests=action.rests;
- status.grounded=action.grounded;
- status.foodVisible=Boolean(visibleResource?.visible);
- status.foodKind=visibleResource?.kind??null;
- status.feedingProgress=+action.feedingProgress.toFixed(2);
- status.behaviour=action.state;status.flightSpeed=Math.round(action.speed*3.6);
- status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
- status.landings=action.landings;status.feedings=action.feedings;
- status.floating=Boolean(action.floating);
- status.sensation=birdSensation({energy:action.energy,hunger:action.hunger,state:action.state,
-   floating:action.floating,weather:weatherState.rain});
- status.birdPosition={x:action.x,z:action.z,heading:action.heading};
- const occupancy=habitatMonitor.observe(elapsed,currentBird.id,action.x,action.z,action.state);
- if(occupancy)status.habitatUse=occupancy;
- return birdModel.position;
+function stepBird(dt,sun){
+  const day=smooth(-.14,.045,sun.altitude);
+  const action=birdBrain.update(elapsed,dt,day,weatherState.rain);
+  previousPose=currentPose??action;currentPose={...action};lastBirdAction=action;
+  status.restSiteKind=action.restSite?.kind??null;
+  status.rests=action.rests;status.grounded=action.grounded;
+  status.feedingProgress=+action.feedingProgress.toFixed(2);
+  status.behaviour=action.state;status.flightSpeed=Math.round(action.speed*3.6);
+  status.hunger=+action.hunger.toFixed(2);status.energy=+action.energy.toFixed(2);
+  status.landings=action.landings;status.feedings=action.feedings;
+  status.floating=Boolean(action.floating);
+  status.sensation=birdSensation({energy:action.energy,hunger:action.hunger,state:action.state,
+    floating:action.floating,weather:weatherState.rain});
+  status.birdPosition={x:action.x,z:action.z,heading:action.heading};
+  const occupancy=habitatMonitor.observe(elapsed,currentBird.id,action.x,action.z,action.state);
+  if(occupancy)status.habitatUse=occupancy;
+  return action;
 }
-function directCamera(bird,dt,wildlifeFocus=null){
+function renderBird(time,frameDt,alpha){
+  const action=lastBirdAction??birdBrain.snapshot;
+  const from=previousPose??action,to=currentPose??action;
+  const blend=clamp(alpha,0,1);
+  const headingDiff=Math.atan2(Math.sin(to.heading-from.heading),Math.cos(to.heading-from.heading));
+  birdModel.position.set(lerp(from.x,to.x,blend),
+    lerp(from.y,to.y,blend)+(action.grounded?0:Math.sin(time*3.2)*currentBird.wingspan*.012),
+    lerp(from.z,to.z,blend));
+  birdModel.rotation.y=from.heading+headingDiff*blend;
+  animateBirdRig(birdModel,time,{energy:action.flapping?.89:.40,sleeping:action.wingsFolded,
+    bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
+    floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
+    state:action.state,food:action.food,feedingProgress:action.feedingProgress},frameDt);
+  const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan,rain:weatherState.rain},time);
+  const visibleRest=restVisuals?.update(action,camera.position);
+  status.perchVisible=Boolean(visibleRest?.visible);
+  status.foodVisible=Boolean(visibleResource?.visible);
+  status.foodKind=visibleResource?.kind??null;
+  return birdModel.position;
+}
+function directCamera(bird,dt,wildlifeFocus=null,renderTime=elapsed){
   const frame=cameraDirector.update(camera,bird,birdModel.rotation.y,
-    birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,elapsed,dt,
+    birdBrain.snapshot.velocity,status.behaviour,currentBird.wingspan,renderTime,dt,
     lastBirdAction?.foodTarget,wildlifeFocus);
   status.cameraShot=frame.shot;
   status.camera={shot:frame.shot,reason:frame.reason,transitions:frame.transitions,
@@ -266,23 +280,13 @@ function updateSea(t,dt,sun){
   rivers.update(t);
   rainFX.update(t,dt,camera,weatherState.rain,Math.sin(t*.1)*30+weatherState.cloud*22);
 }
-function animate(now){
-  const deltaRaw=Math.max(0,(now-lastFrame)/1000),dt=Math.min(deltaRaw,.10);
-  lastFrame=now;
-  if(!Number.isFinite(dt))return;
-  if(!document.hidden)frameTelemetry.record(deltaRaw*1000);
-  elapsed+=dt;
-  if(timeOverride)simMs+=deltaRaw*1000*speed;
+// All ecological state advances at 30 Hz, independently from render FPS.
+function simulateStep(dt,tick,simTime){
+  elapsed=simTime;
+  if(timeOverride)simMs+=dt*1000*speed;
   else simMs=environment.epoch();
   const date=new Date(simMs);
-  // Use wall-clock time so hidden tabs and long-running TV sessions still refresh.
-  // The climate adapter coalesces requests and caches successful observations.
-  if(climate.enabled&&!climatePending&&
-     environment.epoch()-lastClimatePoll>=(climate.weather?WEATHER_REFRESH_MS:60_000)){
-    void pollClimate();
-  }
-  // A week-scale cycle for the default bird; manual selections always persist.
-  if(!manuallySelected&&status.frames%120===0){
+  if(!manuallySelected){
     const dailyBird=chooseBird(date);
     if(dailyBird!==currentBird){currentBird=dailyBird;createBird();ui.refreshPicker();}
   }
@@ -291,18 +295,39 @@ function animate(now){
     currentWeather=WEATHER[Math.floor(rng()*WEATHER.length)];
     lastWeatherAutoAt=elapsed;
   }
-  const sun=ambient(date,dt);
-  const position=fly(date,dt,sun);
-  ecosystem.update(elapsed,sun.daylight,weatherState.cloud,position,weatherState.rain,camera.position);
-  atmospherics.update(elapsed,camera,position,sun.daylight,weatherState);
-  const wildlifeFrame=wildlifeObservatory.update(elapsed,ecosystem.observableAnimals,camera,position,environment.height());
-  directCamera(position,dt,wildlifeFrame.focus);
-  forestVisibility.update(camera.position,elapsed);
-  regionalBirds.update(elapsed,position,camera.position,sun.daylight,weatherState.rain);
-  riverHabitat.update(elapsed,camera.position);
-  treeDetail.update(camera.position,elapsed);
-  groundDetail.update(elapsed,camera,position,sun.daylight,weatherState.rain,climate.weather?.temperature??18);
-  updateSea(elapsed,dt,sun);
+  const weatherEase=1-Math.exp(-dt/16);
+  for(const prop of ['cloud','rain','fog'])
+    weatherState[prop]=lerp(weatherState[prop],currentWeather[prop],weatherEase);
+  const sun=sunPosition(date,solarCoordinates.latitude,solarCoordinates.longitude);
+  const action=stepBird(dt,sun);
+  ecosystem.update(simTime,sun.daylight,weatherState.cloud,action,weatherState.rain,camera.position);
+}
+function animate(now){
+  const deltaRaw=Math.max(0,(now-lastFrame)/1000);
+  const frameDt=Math.min(deltaRaw,.10);
+  lastFrame=now;
+  if(!Number.isFinite(frameDt))return;
+  if(!document.hidden)frameTelemetry.record(deltaRaw*1000);
+  const clock=simulationClock.advance(now,simulateStep);
+  status.simulationClock=clock;
+  const date=new Date(timeOverride?simMs:environment.epoch());
+  // Weather polling uses wall-clock time even while ecological ticks are paused.
+  if(climate.enabled&&!climatePending&&
+     environment.epoch()-lastClimatePoll>=(climate.weather?WEATHER_REFRESH_MS:60_000))
+    void pollClimate();
+  const visualTime=clock.paused?clock.seconds:
+    Math.max(0,clock.seconds-FIXED_SIMULATION_DT*(1-clock.alpha));
+  const sun=ambient(date,frameDt,visualTime);
+  const position=renderBird(visualTime,frameDt,clock.alpha);
+  atmospherics.update(visualTime,camera,position,sun.daylight,weatherState);
+  const wildlifeFrame=wildlifeObservatory.update(visualTime,ecosystem.observableAnimals,camera,position,environment.height());
+  directCamera(position,frameDt,wildlifeFrame.focus,visualTime);
+  forestVisibility.update(camera.position,visualTime);
+  regionalBirds.update(visualTime,position,camera.position,sun.daylight,weatherState.rain);
+  riverHabitat.update(visualTime,camera.position);
+  treeDetail.update(camera.position,visualTime);
+  groundDetail.update(visualTime,camera,position,sun.daylight,weatherState.rain,climate.weather?.temperature??18);
+  updateSea(visualTime,frameDt,sun);
   renderer.render(scene,camera);
   // One-shot real WebGL pixel probe, immediately after rendering.
   if(pendingRenderProbe){
@@ -587,8 +612,11 @@ const ui=services.ui??createBrowserUI({
     resetTime:()=>{timeOverride=false;weatherOverride=false;speed=1;simMs=environment.epoch();
       if(climate.weather)currentWeather=climate.weather.descriptor;},
     flap:()=>{flapBoost=1;},
+    togglePause:()=>setSimulationPaused(!userPaused),
     visibilityChange:()=>{
       lastFrame=environment.now();
+      simulationClock.setPaused(userPaused||document.hidden,lastFrame);
+      simulationClock.resync(lastFrame);
       frameTelemetry.reset();
       adaptiveResolution?.pause();
       if(!document.hidden&&!timeOverride)simMs=environment.epoch();
@@ -596,6 +624,12 @@ const ui=services.ui??createBrowserUI({
     }
   }
 });
+function setSimulationPaused(paused){
+  userPaused=Boolean(paused);
+  simulationClock.setPaused(userPaused||document.hidden,environment.now());
+  status.simulationClock=simulationClock.snapshot();
+  return userPaused;
+}
 function start(){
   if(disposed)throw new Error('VUELO runtime disposed');
   if(started)return false;
@@ -624,9 +658,22 @@ function dispose(){
 }
 events.on(window,'error',event=>showError(event.error||event.message));
 events.on(window,'unhandledrejection',event=>showError(event.reason));
-const api={start,dispose,status,snapshot:()=>({
-  ...loop.snapshot(),seed:worldSeed,ready:status.ready,
-  events:events.size,rendererAttached:Boolean(renderer?.domElement?.isConnected)
-})};
+const api={start,dispose,status,
+  pause:()=>setSimulationPaused(true),resume:()=>setSimulationPaused(false),
+  simulationSnapshot:()=>captureSimulationSnapshot({
+    seed:worldSeed,clock:simulationClock.snapshot(),birdId:currentBird.id,
+    bird:lastBirdAction??birdBrain?.snapshot,weather:{id:currentWeather.id,...weatherState},
+    animals:ecosystem?.actors.map(actor=>({
+      species:actor.userData.state.type,state:actor.userData.behaviour,
+      x:actor.position.x,y:actor.position.y,z:actor.position.z,heading:actor.rotation.y,
+      velocity:0
+    }))??[]
+  }),
+  snapshot:()=>({
+    ...loop.snapshot(),seed:worldSeed,ready:status.ready,
+    simulation:simulationClock.snapshot(),
+    events:events.size,rendererAttached:Boolean(renderer?.domElement?.isConnected)
+  })
+};
 return api;
 }
