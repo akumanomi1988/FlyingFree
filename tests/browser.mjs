@@ -413,6 +413,32 @@ try{
       assert.equal(state.cache.cached,2,'Only two GLB levels may be cached');
       assert.equal(state.cache.active,2,'Two current skins must be retained');
     });
+  // Dedicated orthographic inspections. The documentary camera intentionally
+  // keeps a 26 cm bird small compared with a 20 m tree; these shots are needed
+  // to ACCEPT anatomical contours and the actual distant LOD.
+  for(const level of [0,1]){
+    for(const angle of ['front','side','top','threeQuarter','back']){
+      const name='VE05-'+(level?'LOD1':'LOD0')+'-'+angle;
+      const page=await browser.newPage({viewport:{width:960,height:750},deviceScaleFactor:1});
+      page.on('pageerror',error=>report.errors.push(name+': '+error.message));
+      try{
+        const response=await page.goto(root+'asset-preview.html?view='+angle+'&lod='+level,
+          {waitUntil:'domcontentloaded',timeout:20000});
+        assert.equal(response?.status(),200,'Asset inspection document missing');
+        await page.waitForFunction(()=>window.__VE05_PREVIEW__?.ready||
+          window.__VE05_PREVIEW__?.error,null,{timeout:30000});
+        const metrics=await page.evaluate(()=>window.__VE05_PREVIEW__);
+        assert.equal(metrics.error,null,name+' GLB failed: '+metrics.error);
+        assert.equal(metrics.bones,12,name+' imported anatomical skeleton');
+        assert.ok(metrics.sizeMetres.x>.24&&metrics.sizeMetres.x<.29,
+          name+' physical wingspan '+metrics.sizeMetres.x);
+        assert.ok(metrics.drawCalls>3&&metrics.drawCalls<65,name+' draw call budget');
+        assert.ok(metrics.renderedTriangles>100,'Real GLB must render triangles');
+        await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled'});
+        report.scenarios.push({name,success:true,stats:metrics});
+      }finally{await page.close();}
+    }
+  }
   assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
   report.result='pass';
 }catch(e){report.failure=e.stack||String(e);report.result='fail';console.error(e);}
