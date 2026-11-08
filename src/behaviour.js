@@ -6,6 +6,7 @@ import {birdEcology,flightAltitude} from './birdEcology.js';
 // Deterministic, species-aware utility AI. The bird has physiological drives and
 // explicit take-off, approach, landing, foraging, resting and sheltered states.
 export function createBirdBrain(profile,seed=1988,initial=null,world={}){
+ const heightAt=(px,pz)=>world.query?.heightAt(px,pz)??terrainHeight(px,pz,seed);
  const rng=random(seed ^ profile.id.split('').reduce((n,c)=>n*31+c.charCodeAt(0),7));
  const flight=profile.flight,marine=flight==='marine',owl=flight==='nocturnal',swift=profile.id==='swift';
  const ecology=birdEcology(profile);
@@ -33,8 +34,8 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  const finite=(v,fallback)=>Number.isFinite(v)?v:fallback;
  let x=finite(initial?.x,spawnX),
  z=finite(initial?.z,spawnZ),
- y=finite(initial?.y,marine?Math.max(25,terrainHeight(x,z,seed)+46):
-   Math.max(terrainHeight(x,z,seed)+95,profile.alt)),
+ y=finite(initial?.y,marine?Math.max(25,heightAt(x,z)+46):
+   Math.max(heightAt(x,z)+95,profile.alt)),
  heading=finite(initial?.heading,startA),
  velocity=clamp(finite(initial?.velocity,cruise*.55),0,110);
  let state='patrol',until=0,tx=x,tz=z,ty=y,
@@ -45,7 +46,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
  let currentTime=0,currentRain=0;
  const buoyancy={};
  function clearance(px,pz,kind){
-  const ground=terrainHeight(px,pz,seed);
+  const ground=heightAt(px,pz);
   if(marine){
    if(ground>-7)return kind==='land'?ground+Math.max(.18,profile.wingspan*.32):ground+45;
    return kind==='land'?oceanSurfaceHeight(px,pz,currentTime,currentRain)+
@@ -126,7 +127,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   for(let i=0;i<48;i++){
    const a=rng()*TAU,dist=i===0?0:55+rng()*(marine?700:440);
    const px=x+Math.cos(a)*dist,pz=z+Math.sin(a)*dist;
-   const habitat=habitatAt(px,pz,seed);
+   const habitat=world.query?.habitatAt(px,pz)??habitatAt(px,pz,seed);
    const acceptable=marine?habitat.type==='ocean':
      habitat.type!=='ocean'&&habitat.slope<.82;
    if(!acceptable)continue;
@@ -282,7 +283,7 @@ export function createBirdBrain(profile,seed=1988,initial=null,world={}){
   heading+=clamp(diff,-maxTurn*dt,maxTurn*dt);
   const aerialFeeding=state==='feed'&&['fish','nectar','insect'].includes(food?.kind);
   const onGround=state==='rest'||(state==='feed'&&!aerialFeeding);
-  const overOcean=marine&&terrainHeight(x,z,seed)<-12;
+  const overOcean=marine&&heightAt(x,z)<-12;
   const floating=overOcean&&state==='rest';
   const slowing=state==='approach'||state==='landing'||state==='return'||state==='shelter';
   let wanted=onGround?0:state==='feed'&&food?.kind==='nectar'?1.6:
