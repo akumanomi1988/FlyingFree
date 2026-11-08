@@ -1,0 +1,48 @@
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import assert from 'node:assert/strict';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {resolve} from 'node:path';
+const directory=resolve('public/assets/birds');
+const manifest=JSON.parse(await readFile(resolve(directory,'manifest.json'),'utf8'));
+const loader=new GLTFLoader();
+const checked=[];
+for(const lod of manifest.lods){
+  const binary=await readFile(resolve(directory,lod.file));
+  assert.equal(binary.toString('ascii',0,4),'glTF','GLB magic');
+  const object=await new Promise((resolve,reject)=>loader.parse(
+    binary.buffer.slice(binary.byteOffset,binary.byteOffset+binary.byteLength),
+    '',gltf=>resolve(gltf.scene),reject));
+  const names=new Set(),bones=[],surfaces=[];
+  let triangles=0,skinned=0;
+  object.traverse(node=>{
+    if(node.name)names.add(node.name);
+    if(node.isBone)bones.push(node);
+    if(node.isSkinnedMesh)skinned++;
+    if(node.isMesh){
+      const g=node.geometry;
+      triangles+=(g.index?.count??g.getAttribute('position').count)/3;
+      if(node.name.startsWith('WingSurface.'))surfaces.push(node);
+    }
+  });
+  for(const name of ['Body','Head','Tail','Wing.L','Wing.R','WingTip.L','WingTip.R',
+    'Leg.L','Leg.R','Foot.L','Foot.R','Bill.upper','Bill.lower',
+    'Breast.rufous','Eye.L','Eye.R'])assert.ok(names.has(name),lod.file+': '+name);
+  assert.equal([...bones].filter(b=>/^Wing\.[LR]$/.test(b.name)).length,2,
+    'exactly two anatomical wing roots');
+  assert.ok(skinned>=2,'glTF export must contain real skins, not only named groups');
+  assert.ok(surfaces.length>=2,'single wing surface for each side');
+  assert.ok(triangles>150,'Anatomical geometry missing');
+  const bounds=new THREE.Box3().setFromObject(object);
+  const span=bounds.max.x-bounds.min.x;
+  assert.ok(span>=.22&&span<=.32,'wingspan must be physically sized: '+span);
+  assert.ok(Math.abs(triangles-lod.triangles)<5,'manifest geometry mismatch');
+  checked.push({lod:lod.lod,triangles:Math.round(triangles),bytes:binary.byteLength,
+    skinned,bones:bones.length,wingspanMetres:+span.toFixed(5),wingSurfaces:surfaces.length});
+}
+assert.ok(checked[0].triangles>checked[1].triangles*1.7,'LOD1 must reduce geometry substantially');
+const report={validated:true,species:manifest.species,checked,
+  note:'Node CPU geometry validation; no physical GPU benchmark'};
+await mkdir('artifacts/assets',{recursive:true});
+await writeFile('artifacts/assets/geometry.json',JSON.stringify(report,null,2)+'\n');
+console.log('VE-05 GLB verified:',JSON.stringify(report));
