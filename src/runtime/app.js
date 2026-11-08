@@ -33,6 +33,7 @@ import {captureSimulationSnapshot} from './simulationSnapshot.js';
 import {createBrowserScene,disposeBrowserScene} from './sceneAdapter.js';
 import {createBrowserUI} from './browserUI.js';
 import {buildWorld} from './worldBuilder.js';
+import {createPhysicsWorld} from '../physics/PhysicsWorld.js';
 
 export function createFlyingFreeApplication({environment=createBrowserEnvironment(),seed=null,services={}}={}){
   const {window,document,location,navigator}=environment;
@@ -45,6 +46,7 @@ const windField=services.windField??createWindField();
 const frameTelemetry=createFrameTelemetry(600);
 const simulationClock=createFixedStepClock();
 let previousPose=null,currentPose=null,userPaused=false;
+let physicsWorld=null,physicsPending=null;
 let scaleFactor=1,adaptiveResolution,lastWeatherAutoAt=0,manuallySelected=!!opts.bird,
   pendingSnapshot=false,pendingRenderProbe=null;
 const climate=services.climate??createLiveClimate({clock:environment.epoch});
@@ -91,6 +93,16 @@ function init(){
     cloudField,clouds,stars,starMat}=(services.buildWorld??buildWorld)({
       THREE,scene,worldSeed,width:environment.width(),windField,adaptiveResolution,scaleFactor
     }));
+  // WASM/large collider patches are not allowed to block the first rendered frame.
+  status.physics={state:'loading',activeBodies:0};
+  physicsPending=createPhysicsWorld({query:worldQuery}).then(world=>{
+    if(disposed){world.dispose();return;}
+    physicsWorld=world;status.physics={state:'active',...world.stats};
+  }).catch(error=>{
+    // A failed WASM startup degrades to VE-03 exact-height contacts rather
+    // than breaking TV or the Seven WebGL regression scenarios.
+    status.physics={state:'fallback',activeBodies:0,reason:String(error)};
+  });
   createBird();
   riverHabitat=createRiverEcosystem(THREE,scene,worldSeed,environment.width()<720?.65:1);
   regionalBirds=createRegionalBirds(THREE,scene,worldSeed,environment.width()<720?.68:1);
@@ -303,6 +315,12 @@ function simulateStep(dt,tick,simTime){
   const action=stepBird(dt,sun);
   // Render observer controls visual LOD; identity/assignment uses the stable bird state.
   ecosystem.update(simTime,sun.daylight,weatherState.cloud,action,weatherState.rain,camera.position,action);
+  if(physicsWorld){
+    const physics=physicsWorld.step(ecosystem.actors,action,dt,
+      {bird:action,profile:currentBird,time:simTime,rain:weatherState.rain});
+    currentPose={...action};
+    status.physics={state:'active',...physics};
+  }
 }
 function animate(now){
   const deltaRaw=Math.max(0,(now-lastFrame)/1000);
@@ -656,6 +674,7 @@ function dispose(){
   if(wakeLock)void wakeLock.release().catch(()=>{});
   if(pendingRenderProbe){pendingRenderProbe({error:'disposed'});pendingRenderProbe=null;}
   if(sound?.dispose)void Promise.resolve(sound.dispose()).catch(error=>console.error(error));
+  physicsWorld?.dispose();
   worldQuery?.dispose();
    disposeBrowserScene(scene,renderer);
   status.ready=false;

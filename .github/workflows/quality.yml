@@ -29,6 +29,15 @@ jobs:
           name: world-query-benchmark
           path: artifacts/world-query/
           if-no-files-found: warn
+      - name: VE-04 selective Rapier CPU and contact benchmark
+        run: npm run benchmark:physics
+      - name: Upload VE-04 CPU and memory evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selective-physics-benchmark
+          path: artifacts/physics/
+          if-no-files-found: warn
       - name: Production build
         run: npm run build
       - name: Install browser

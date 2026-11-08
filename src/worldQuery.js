@@ -22,6 +22,7 @@ export class WorldQuery {
     this.buildMs=0;
     this.bvhBytes=0;
     this._top=0;
+    this.surfaceRevision=0;
     this.replaceSurfaces({terrain,riverbed,riverWater});
   }
 
@@ -47,6 +48,7 @@ export class WorldQuery {
     }
     if(!next.some(s=>s.kind==='terrain'))throw new Error('Missing queryable terrain triangles');
     this.sources=next;
+    this.surfaceRevision++;
     this.bvhBytes=bytes;
     this._top=top+10;
     this.buildMs=performance.now()-started;
