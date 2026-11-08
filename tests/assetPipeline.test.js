@@ -8,7 +8,7 @@ import {createBirdRig,animateBirdRig} from '../src/flight.js';
 function fakeScene(){
   const root=new THREE.Group();
   const bones=new THREE.Group();bones.name='Armature';root.add(bones);
-  for(const name of ['Wing.L','Wing.R','WingTip.L','WingTip.R','Head','Tail']){
+  for(const name of ['Wing_L','Wing_R','WingTip_L','WingTip_R','Head','Tail']){
     const bone=new THREE.Bone();bone.name=name;bones.add(bone);
   }
   const material=new THREE.MeshStandardMaterial();
@@ -30,7 +30,7 @@ test('VE-05: concurrent loads use a single loader request per LOD, cloned rig pe
   assert.equal(a.model.levels.length,2);
   assert.equal(library.stats.active,2);
   assert.equal(library.stats.cached,2);
-  assert.ok(a.model.levels[0].object.getObjectByName('Wing.L')?.isBone);
+  assert.ok(a.model.levels[0].object.getObjectByName('Wing_L')?.isBone);
   a.release();a.release();
   assert.equal(library.stats.active,2,'second consumer still holds both LODs');
   b.release();assert.equal(library.stats.active,0);
@@ -67,8 +67,8 @@ test('VE-05: only the two physical wings receive the existing pose bridge',()=>{
   const lod=new THREE.LOD();lod.addLevel(near.scene,0);lod.addLevel(far.scene,8);
   bridgeProceduralPose(lod,bird);
   for(const rig of [near.scene,far.scene]){
-    assert.equal(rig.getObjectByName('Wing.L').rotation.z,bird.userData.left.pivot.rotation.z);
-    assert.equal(rig.getObjectByName('Wing.R').rotation.z,bird.userData.right.pivot.rotation.z);
+    assert.equal(rig.getObjectByName('Wing_L').rotation.z,bird.userData.left.pivot.rotation.z);
+    assert.equal(rig.getObjectByName('Wing_R').rotation.z,bird.userData.right.pivot.rotation.z);
     assert.equal(rig.getObjectByName('Head').rotation.x,bird.userData.head.rotation.x);
   }
   const geos=new Set(),mats=new Set();
