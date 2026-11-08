@@ -61,11 +61,15 @@ function releaseBirdAsset(){
 }
 function requestBirdAsset(rig,profile){
   const revision=++assetGeneration;
-  if(!REFERENCE_ASSETS[profile.id]||!canUseBirdAssets({
+  const deviceEligible=canUseBirdAssets({
     renderer,navigator,search:location.search
-  })){
+  });
+  if(!REFERENCE_ASSETS[profile.id]||!deviceEligible){
     status.asset={state:'procedural',species:profile.id};
-    assetLibrary.clearUnused?.();
+    // Keep the reference GLB warm when selecting a different procedural bird:
+    // maxIdle=2 caps the cache at one LOD pair. Only flush proactively when
+    // GLB rendering has been disabled by device constraints or user opt-out.
+    if(!deviceEligible)assetLibrary.clearUnused?.();
     return;
   }
   status.asset={state:'loading',species:profile.id};
