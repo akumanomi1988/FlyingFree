@@ -38,7 +38,7 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 
 ## Cola de hitos (el primer `[ ]` es el siguiente)
 
-- [ ] **VE-01 — Separar runtime y orquestación.** Dependencias: ninguna. Entrega: tests de wiring, escenas existentes sin regresión.
+- [x] **VE-01 — Separar runtime y orquestación.** Dependencias: ninguna. Entrega: tests de wiring, escenas existentes sin regresión.
 - [ ] **VE-02 — Reloj fijo y snapshots deterministas.** Dependencia: VE-01. Entrega: mismas trayectorias a 15/30/60/120 FPS.
 - [ ] **VE-03 — WorldQuery y raycasts BVH.** Dependencia: VE-02. Entrega: altura/contacto/visibilidad sobre malla real.
 - [ ] **VE-04 — Física local selectiva con Rapier.** Dependencia: VE-03. Entrega: contactos reales sin dobles simulaciones ni coste masivo.
@@ -59,7 +59,7 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 **Archivos iniciales:** `src/main.js` (~879 líneas al aprobar este plan), `src/behaviour.js`, `src/ecosystem.js`, `src/cameraDirector.js`.  
 **Hacer:** extraer el bucle y estado del simulador a módulos con responsabilidades explícitas (`src/runtime/` o equivalentes); crear adaptadores de entorno, escena y UI; mantener `main.js` como bootstrap. No refactorizar de golpe toda la ecología ni modificar la estética. Inyectar reloj, semilla y servicios para pruebas; conservar `window.__FLYINGFREE_STATUS__`.  
 **Aceptar:** inicialización y destrucción limpias, una sola instancia del bucle, selector, clima, audio y TV intactos; tests de ciclo de vida/wiring, `npm test`, `npm run build`, `npm run test:browser` verdes. Añadir diagrama textual de dependencias reales.  
-**Evidencia/PR/CI:** pendiente.
+**Evidencia/PR/CI:** [PR #40](https://github.com/akumanomi1988/FlyingFree/pull/40) (checkbox propuesto hasta merge). [Primera CI verde del runtime](https://github.com/akumanomi1988/FlyingFree/actions/runs/42502027810): 170 pruebas Node, build Vite y siete escenas Playwright/WebGL, con [capturas](https://github.com/akumanomi1988/FlyingFree/actions/runs/42502027810/artifacts/13625788413). El HEAD definitivo contiene además extracción del constructor del mundo y prueba browser de teardown: consultar [checks finales de la PR](https://github.com/akumanomi1988/FlyingFree/pull/40/checks) antes de fusionar. SHA fuente: HEAD de la PR; SHA integrado: obtener de main tras el merge. Baseline previo: [CI de main](https://github.com/akumanomi1988/FlyingFree/actions/runs/42468944998). Sin benchmark en GPU física ni certificación TV; no se modifica el timestep variable (VE-02). Rollback: revertir PR #40. Publicación Pages: verificar después de integrar; no presuponerla.
 
 ### VE-02 — Reloj fijo y snapshots deterministas
 **Hacer:** timestep fijo inicial 1/30 s con acumulador, límite de substeps y política al volver de pestaña suspendida; separar tiempo de pared (hora y clima) del tiempo simulado y de la interpolación del render. No acelerar meteorología real con la velocidad de demo. Capturar snapshots de movimiento/estados ecológicos sin objetos Three.js.  

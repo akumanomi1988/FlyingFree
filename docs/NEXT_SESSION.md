@@ -198,3 +198,12 @@
 - **Semillas y UI**: `index.html` elimina textos decorativos y añade `Generar nueva isla` dentro de Ayuda (sin barra permanente); `main.js` genera nueva semilla reproducible en URL mediante `sessionIslandSeed()`. Si `?seed=` falta, las sesiones ya eran aleatorias. Minimap permite descubrir semilla mediante título, conserva visibilidad opcional.
 - **Tests**: `tests/documentaryBehaviour.test.js` cubre fatiga crítica por especie, néctar/insectos en vuelo, altura entre doseles y distancia de detalle; `tests/browser.mjs` valida transiciones y presupuesto móvil/escritorio.
 - **No completado**: nidos y construcción de refugios modelados, reproducción/territorialidad, persecuciones con presas visibles, animación de patas sobre ramas mediante IK, diseño de picos/dedos específicos, espuma volumétrica, terreno chunked/streaming, revisión artística de clips de 4 minutos, audio real en TV, sesiones de resistencia y despliegue público SHA verificado.
+
+
+## VE-01 — Runtime y orquestación separados (PR #40, 2026-11-08)
+
+- Rama: `feat/VE-01-runtime-orchestration`. PR: https://github.com/akumanomi1988/FlyingFree/pull/40. Primera implementación: `670451f824127045e5ac4b87a051739e5f21779e`.
+- `src/main.js` reducido a bootstrap, app inyectable y módulos de escena/mundo, UI, entorno, registro de eventos y RAF con `start/stop/dispose`.
+- Primera CI: https://github.com/akumanomi1988/FlyingFree/actions/runs/42502027810 — 170 tests Node, build Vite y 7 escenarios de navegador/WebGL verdes. Capturas del primer HEAD: https://github.com/akumanomi1988/FlyingFree/actions/runs/42502027810/artifacts/13625788413. Baseline anterior: https://github.com/akumanomi1988/FlyingFree/actions/runs/42468944998.
+- El HEAD final añade el constructor de mundo separado, teardown browser y documentación. **Confirmar checks del último HEAD antes de merge:** https://github.com/akumanomi1988/FlyingFree/pull/40/checks. No convertir esta nota en aprobación automática.
+- Riesgos remanentes: sin GPU física, ni prueba TV larga, ni auditoría perceptiva de audio/cámara. VE-02 (paso fijo) sigue expresamente fuera de alcance. Rollback: revert PR #40. Despliegue solo acreditado mediante Pages y `build-info.json.revision` tras integración.

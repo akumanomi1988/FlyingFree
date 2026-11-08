@@ -157,6 +157,26 @@ async function render(name,query,width,height,runChecks){
     if(runChecks)await runChecks(page,stats);
     await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled',fullPage:true});
     report.scenarios.push({name,success:true,stats});
+    if(name==='01-day-kestrel'){
+      const lifecycle=await page.evaluate(()=>{
+        const runtime=window.__FLYINGFREE_RUNTIME__;
+        const before=runtime.snapshot();
+        const duplicateStart=runtime.start();
+        runtime.dispose();
+        return {before,duplicateStart,after:runtime.snapshot(),
+          canvasPresent:!!document.querySelector('#viewport canvas')};
+      });
+      assert.equal(lifecycle.before.running,true,'Runtime animation did not start');
+      assert.equal(lifecycle.before.starts,1,'Multiple animation loops detected');
+      assert.equal(lifecycle.duplicateStart,false,'Second start must be idempotent');
+      assert.equal(lifecycle.after.running,false,'Runtime still animates after dispose');
+      assert.equal(lifecycle.after.disposed,true,'Runtime did not transition to disposed');
+      assert.equal(lifecycle.after.events,0,'DOM handlers leaked after dispose');
+      assert.equal(lifecycle.canvasPresent,false,'Canvas WebGL not released');
+      await page.waitForTimeout(100);
+      assert.equal(await page.evaluate(()=>window.__FLYINGFREE_RUNTIME__.snapshot().frames),
+        lifecycle.after.frames,'Frames increased after dispose');
+    }
     await page.close();
   }catch(error){
     report.scenarios.push({name,success:false,error:String(error)});
