@@ -421,9 +421,12 @@ try{
       // New-island is a full Vite app restart, not a partially reset BVH;
       // the old WebGL context must not be retained as a hidden world.
       await page.evaluate(()=>document.getElementById('new-island').click());
+      await page.waitForURL(url=>url.searchParams.get('seed')!==String(before.worldSeed),
+        {timeout:30000});
       await page.waitForFunction(previous=>window.__FLYINGFREE_STATUS__?.world?.seed!==previous
         &&window.__FLYINGFREE_STATUS__?.frames>6
-        &&window.__FLYINGFREE_STATUS__?.asset?.state==='ready',
+        &&window.__FLYINGFREE_STATUS__?.asset?.state==='ready'
+        &&window.__FLYINGFREE_STATUS__?.performance?.gpuGeometries>0,
         before.worldSeed,{timeout:90000});
       const after=await page.evaluate(()=>({
         worldSeed:window.__FLYINGFREE_STATUS__.world.seed,
