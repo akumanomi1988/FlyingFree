@@ -22,7 +22,7 @@ let browser;
 async function render(name,query,width,height,runChecks,beforeNavigation){
   const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,acceptDownloads:true});
   page.on('pageerror',e=>report.errors.push(name+' pageerror: '+e.message));
-  page.on('console',m=>{if(m.type()==='error')report.errors.push(name+' console: '+m.text());});
+  page.on('console',m=>{if(m.type()==='error'&&!(name==='11-kingfisher-missing-glb'&&/404|Failed to load resource/i.test(m.text())))report.errors.push(name+' console: '+m.text());});
   try{
     if(beforeNavigation)await beforeNavigation(page);
     const r=await page.goto(root+query,{waitUntil:'domcontentloaded',timeout:30000});
@@ -387,6 +387,24 @@ try{
     '?bird=kingfisher&assets=procedural&seed=1988&broadcast=1',
     1280,800,async page=>{
       assert.equal(await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset.state),'procedural');
+    });
+  await render('13-kingfisher-species-swap',
+    '?bird=kingfisher&seed=1988&h=12.5&weather=clear',
+    1280,800,async page=>{
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='ready',
+        null,{timeout:30000});
+      await page.locator('#skip-location-btn').click();
+      await page.locator('#bird-btn').click();
+      await page.locator('[data-bird="owl"]').click();
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='procedural'
+        &&window.__FLYINGFREE_STATUS__?.bird==='owl');
+      await page.locator('#bird-btn').click();
+      await page.locator('[data-bird="kingfisher"]').click();
+      await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='ready'
+        &&window.__FLYINGFREE_STATUS__?.bird==='kingfisher',null,{timeout:30000});
+      const state=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset);
+      assert.equal(state.cache.cached,2,'Only two GLB levels may be cached');
+      assert.equal(state.cache.active,2,'Two current skins must be retained');
     });
   assert.deepEqual(report.errors,[],'Errores JavaScript o WebGL en consola');
   report.result='pass';
