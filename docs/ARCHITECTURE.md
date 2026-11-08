@@ -79,3 +79,13 @@ Una secuencia de cuatro minutos sin intervención: colibrí en sotobosque → co
 5. Los FPS de GitHub Actions con SwiftShader no demuestran rendimiento en hardware físico; las pruebas TV aún no están certificadas.
 
 Este documento explica el estado actual y sus límites; la fuente de verdad para integrar cambios es la CI del último commit, no una descripción aspiracional.
+
+## VE-03 · Consulta espacial unificada del terreno visible (PR #42)
+
+`src/worldQuery.js` recibe los objetos `THREE.Mesh` **ya construidos por el renderer** (terreno 250×250 celdas, lecho y lámina fluvial), genera índices `MeshBVH` con `indirect:true` y los comparte. No se duplica el terreno analítico para colisionar y no se indexa vegetación con `InstancedMesh` ni la fauna dinámica. `replaceSurfaces` reconstruye los índices de forma atómica para una futura migración a chunks; `dispose` suelta referencias sin destruir buffers GPU cuyo propietario es el adaptador de escena.
+
+La interfaz `sampleSurface(x,z, {includeWater,time,rain})` devuelve coordenadas, normal geométrica, clasificación de material y hábitat derivado de la semilla con altura y pendiente corregidas; `raycast(origin,direction,{maxDistance,includeWater})`, `lineOfSight(from,to)`, `heightAt`, `normalAt`, `materialAt` y `habitatAt` usan triángulos visibles. Fuera de la malla devuelven `null`, sin terreno ficticio. El océano no recibe BVH (su altura se desplaza en GPU): conserva la misma interpolación triangular temporal por CPU que el render, incluida la flotación.
+
+`worldBuilder` entrega `worldQuery` al runtime; fauna terrestre, extremidades y reposos de aves usan `heightAt`; el director cinematográfico añade `lineOfSight` geométrico completo a su despeje de cámara. Conserva inyección opcional para pruebas de módulos que utilizan funciones analíticas anteriores, `?seed=`, snapshots ecológicos, timestep fijo, clima y modo TV.
+
+**Datos del runner CI #42510792574 (no GPU real):** 183 Node + Vite + siete WebGL, tres semillas, 48 puntos/semilla. Diferencia BVH vs raycast sin índice: 2,27e-13 m máximo. P95 del heightfield antiguo vs triángulos: 1,04–1,96 m. Raycast sin acelerar 8,25–8,34 ms/consulta; BVH 0,0137–0,0282 ms/consulta; build BVH 40–88 ms y memoria estimada por índice 5,14–5,19 MB. QA perceptiva y GPU física: no medidos. Rollback: revertir PR #42; ningún cambio persistente.

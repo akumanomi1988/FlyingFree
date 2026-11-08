@@ -45,7 +45,7 @@ async function render(name,query,width,height,runChecks){
         forestVisibility:s.forestVisibility,performanceTarget:s.performanceTarget,
          wildlifePopulation:s.wildlifePopulation,wildlifeVisibility:s.wildlifeVisibility,
          marinePopulation:s.marinePopulation,
-        world:s.world,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
+        world:s.world,worldQuery:s.worldQuery,cameraShot:s.cameraShot,cameraDirector:s.camera,framing:s.framing,habitatUse:s.habitatUse,floating:s.floating,
         camera:!!document.querySelector('#viewport canvas'),
         metrics:{energy:document.querySelector('#bird-energy')?.value,
           hunger:document.querySelector('#bird-hunger')?.value,
@@ -103,6 +103,10 @@ async function render(name,query,width,height,runChecks){
     assert.ok(stats.renderedFrames>6,'No hay animación');
     assert.ok(stats.treeDetail?.capacity>=12,'La capa de LOD arbóreo no está integrada');
     assert.equal(stats.world?.extent,12000,'Se ha perdido la nueva isla tropical');
+    assert.deepEqual(stats.worldQuery?.sources,['terrain','riverbed','river-water'],
+      'BVH should index only immutable ground and river geometry');
+    assert.ok(stats.worldQuery?.bvhBytes>0&&stats.worldQuery?.queries>0,
+      'WorldQuery must be used by fauna and camera, not only instantiated');
     assert.equal(stats.world?.riverChannels,3,'No se han generado tres ríos');
     assert.equal(stats.world?.coastSeed,stats.world.seed,
       'Océano y relieve usan semillas diferentes: arrecifes y espuma no coincidirían con la costa');

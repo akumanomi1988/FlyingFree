@@ -43,7 +43,8 @@ export function cameraPlanAt(yaw,wingspan,speed,shot='chase'){
     y:elevation*d,z:forwardZ*back*d+sideZ*lateral*d,
     leadX:forwardX*lead,leadZ:forwardZ*lead,fov,distance:d};
 }
-export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}={}){
+export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null,worldQuery=null}={}){
+  const surfaceHeight=(x,z)=>worldQuery?.heightAt(x,z)??terrainHeight(x,z,seed);
   // Read-only deterministic visual inspection mode. Only supplied by main.js
   // with ?selftest=1; normal viewers always get the event-based director.
   const inspectionShot=CAMERA_SHOTS.includes(qaShot)||qaShot==='close'?qaShot:null;
@@ -74,13 +75,13 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     // Terrain context is inexpensive at ~1 Hz, but the anti-clipping ray is
     // still evaluated each frame for safety at low flight altitude.
     if(clock-contextAt>=1.2||contextAt===-Infinity){
-      const ground=terrainHeight(bird.x,bird.z,seed);
+      const ground=surfaceHeight(bird.x,bird.z,seed);
       const horizon=160;
       const heights=[
-        terrainHeight(bird.x+horizon,bird.z,seed),
-        terrainHeight(bird.x-horizon,bird.z,seed),
-        terrainHeight(bird.x,bird.z+horizon,seed),
-        terrainHeight(bird.x,bird.z-horizon,seed)
+        surfaceHeight(bird.x+horizon,bird.z,seed),
+        surfaceHeight(bird.x-horizon,bird.z,seed),
+        surfaceHeight(bird.x,bird.z+horizon,seed),
+        surfaceHeight(bird.x,bird.z-horizon,seed)
       ];
       context.groundClearance=Math.max(0,bird.y-Math.max(-9,ground));
       context.relief=Math.max(0,Math.max(...heights)-Math.min(...heights));
@@ -167,12 +168,23 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
       const f=i/8;
       const sx=bird.x+(desired.x-bird.x)*f,sz=bird.z+(desired.z-bird.z)*f;
       const sightY=bird.y+(desired.y-bird.y)*f;
-      const ground=Math.max(-9,terrainHeight(sx,sz,seed));
+      const ground=Math.max(-9,surfaceHeight(sx,sz,seed));
       const buffer=clearance+(currentShot==='scenic'?6:2);
       needed=Math.max(needed,(ground+buffer-sightY)/f);
     }
     desired.y+=Math.min(140,Math.max(0,needed));
-    desired.y=Math.max(desired.y,Math.max(-9,terrainHeight(desired.x,desired.z,seed))+clearance);
+    desired.y=Math.max(desired.y,Math.max(-9,surfaceHeight(desired.x,desired.z,seed))+clearance);
+    // The eight coarse altitude samples can miss a narrow ridge. Cast the
+    // complete bird-to-camera sight line against the rendered triangles.
+    if(worldQuery){
+      for(let attempt=0;attempt<8;attempt++){
+        if(worldQuery.lineOfSight(
+          {x:bird.x,y:bird.y+Math.max(.06,wingspan*.08),z:bird.z},
+          {x:desired.x,y:desired.y,z:desired.z}
+        ))break;
+        desired.y+=Math.min(16,2+attempt*2);
+      }
+    }
     target.set(bird.x+plan.leadX,bird.y+Math.max(.08,wingspan*.10),bird.z+plan.leadZ);
     // During foraging, keep food and beak in the same view instead of looking
     // down the flight trajectory and cropping the action. Avoid pulling the
@@ -203,7 +215,7 @@ export function createCameraDirector(THREE,terrainHeight,seed=1988,{qaShot=null}
     if(establishTerrainShot)camera.position.copy(desired);
     else camera.position.lerp(desired,k);
     camera.position.y=Math.max(camera.position.y,
-      Math.max(-9,terrainHeight(camera.position.x,camera.position.z,seed))+clearance);
+      Math.max(-9,surfaceHeight(camera.position.x,camera.position.z,seed))+clearance);
     if(establishTerrainShot)smoothedTarget.copy(target);
     else smoothedTarget.lerp(target,1-Math.exp(-delta*3.1));
     camera.up.set(0,1,0);

@@ -6,8 +6,9 @@ import {createWildlifePopulation} from './wildlifePopulation.js';
 import {createMarinePopulation} from './marineWildlife.js';
 
 // Small-scale ecosystems driven by behaviour states, not arbitrary mesh motion.
-export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=null){
+export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=null,worldQuery=null){
   const rng=random(seed^0x5ade9);
+  const heightAt=(x,z)=>worldQuery?.heightAt(x,z)??terrainHeight(x,z,seed);
   const root=new THREE.Group();scene.add(root);
   const mat=(color)=>new THREE.MeshStandardMaterial({color,roughness:.94,flatShading:false});
   const brown=mat(0xb18e64),cream=mat(0xe1cbb0),dark=mat(0x49483b),foxCoat=mat(0xc7794b),white=mat(0xf4debd),grass=mat(0x719b6c),flowerColors=[mat(0xe0af72),mat(0xcf849b),mat(0xe5d4ad),mat(0xb3aed8)];
@@ -29,7 +30,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
   };
   const actors=[];
   const faunaLOD=createFaunaLODFactory(THREE,{brown,cream,dark,foxCoat,white});
-  const legRig=createQuadrupedLegRig(THREE,{create,legGeo,sphere,terrainHeight,seed});
+  const legRig=createQuadrupedLegRig(THREE,{create,legGeo,sphere,terrainHeight:heightAt,seed});
   function habitatPos(maxRadius,minElevation=22,maxElevation=250){
     let fallback=null,bestPenalty=Infinity;
     // Search tropical foothills, river margins and low forests, not only the
@@ -45,13 +46,13 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
         1250+rng()*(1800+maxRadius*.5);
       const x=(nearby?initialObserver.x:0)+Math.cos(theta)*radius;
       const z=(nearby?initialObserver.z:0)+Math.sin(theta)*radius*(nearby?1:.82);
-      const y=terrainHeight(x,z,seed);
+      const y=heightAt(x,z,seed);
       if(y>=minElevation&&y<=maxElevation&&
           (nearby||y>0))return [x,y,z];
       const penalty=Math.abs(y-clamp(y,minElevation,maxElevation));
       if(y>0&&penalty<bestPenalty){bestPenalty=penalty;fallback=[x,y,z];}
     }
-    return fallback||[250,terrainHeight(250,80,seed),80];
+    return fallback||[250,heightAt(250,80,seed),80];
   }
   function deer(){
     const group=new THREE.Group();
@@ -275,7 +276,7 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
       const vx=px-g.position.x,vz=pz-g.position.z;
       const hop=s.type==='rabbit'&&(move||alert||enemy)
         ?Math.abs(Math.sin(t*5+s.seed))*.16*clamp(t*2,0,1):0;
-      g.position.set(px,terrainHeight(px,pz,seed)+hop,pz);
+      g.position.set(px,heightAt(px,pz,seed)+hop,pz);
       g.userData.behaviour=enemy?'flee':prey?'hunt':alert?'alert':grazing?'foraging':'travelling';
       if(vx*vx+vz*vz>.000025){
         const facing=Math.atan2(-vx,-vz);
@@ -293,8 +294,11 @@ export function createEcosystem(THREE,scene,seed=1988,quality=1,initialObserver=
         // Reduced-frequency normal estimation avoids four height queries per frame.
         if(t-s.lastSlopeAt>=.40){
           const step=s.type==='deer'?1.4:.65;
-          const gradX=(terrainHeight(px+step,pz,seed)-terrainHeight(px-step,pz,seed))/(2*step);
-          const gradZ=(terrainHeight(px,pz+step,seed)-terrainHeight(px,pz-step,seed))/(2*step);
+          const normal=worldQuery?.normalAt(px,pz);
+           const gradX=normal&&normal.y>.001?-normal.x/normal.y:
+             (heightAt(px+step,pz)-heightAt(px-step,pz))/(2*step);
+           const gradZ=normal&&normal.y>.001?-normal.z/normal.y:
+             (heightAt(px,pz+step)-heightAt(px,pz-step))/(2*step);
           const tilt=terrainSlopeAngles(gradX,gradZ,g.rotation.y);
           s.tiltPitch=tilt.pitch;s.tiltRoll=tilt.roll;
           s.lastSlopeAt=t;

@@ -20,6 +20,15 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Core tests
         run: npm test
+      - name: VE-03 geometry and query benchmark
+        run: npm run benchmark:world-query
+      - name: Upload BVH accuracy and performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-query-benchmark
+          path: artifacts/world-query/
+          if-no-files-found: warn
       - name: Production build
         run: npm run build
       - name: Install browser
