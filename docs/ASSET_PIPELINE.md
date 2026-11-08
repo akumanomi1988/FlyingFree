@@ -96,3 +96,21 @@ Playwright exporta diez capturas `VE05-LOD*-*.png` en
 `artifacts/visual/`, además de las escenas reales 08-14 en el ecosistema
 y la comparación procedural en la misma semilla. CI archiva los artefactos
 como `flyingfree-visual-evidence` y `ve05-kingfisher-glb-evidence`.
+
+## Contrastación morfológica
+
+Para la referencia Alcedo atthis se toman las proporciones de
+[Feather Library — Specimen 1, macho](https://featherlibrary.com/specimen/ftlbgj090001/):
+envergadura medida 247 mm, longitud con cola 145 mm, cola 29 mm
+y pico 31,3 mm. La envergadura visual se aproxima al perfil VUELO
+existente (260 mm), mientras que el largo del asset se mantiene
+en torno a 145 mm. Estas cifras se usan como referencia de diseño,
+no se descargan ni incorporan imágenes ni mallas de esa fuente.
+
+El generador codifica la proporción longitudinal y el ancho ANTES
+de enlazar los esqueletos, de forma que GLB, cámaras y BVH leen la
+misma envergadura física; su root GLB incluye una transformación
+de autoría que no se modifica en runtime para encajar en la cámara.
+En los assets Blender posteriores se deben aplicar las transforms
+antes de exportar. La comprobación estructural rechaza ejemplares
+que excedan los rangos de longitud y envergadura establecidos.
