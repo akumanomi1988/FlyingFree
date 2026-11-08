@@ -4,10 +4,10 @@
 - 1 unidad Three.js = 1 metro, mismo tamaño en todos los LOD; ningún scale-to-fit en runtime.
 - Coordenadas GLB: +Y arriba, -Z adelante/pico y +Z cola; X envergadura.
 - El origen se encuentra en el centro torácico en reposo/planeo.
-- Armature y huesos obligatorios: Root, Body, Head, Wing.L, Wing.R,
-  WingTip.L, WingTip.R, Tail, Leg.L, Leg.R, Foot.L, Foot.R.
+- Armature y huesos obligatorios: Root, Body, Head, Wing_L, Wing_R,
+  WingTip_L, WingTip_R, Tail, Leg_L, Leg_R, Foot_L, Foot_R.
 - Exactamente dos alas físicas, sin superficies duplicadas.
-- Mallas: Body.*, Breast.*, Bill.*, Eye.L/R, WingSurface.L/R.*, Rectrix.*, Toe.*.
+- Mallas: Body.*, Breast.*, Bill_*, Eye_L/R, WingSurface_L/R_*, Rectrix.*, Toe.*.
 - Materiales con prefijo MAT_; PBR metalness=0, roughness 0.6-1;
   texturas propias o con licencia comprobada.
 - glTF 2.0 binario (.glb), buffers embebidos, skinning exportado e influencias
