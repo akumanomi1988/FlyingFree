@@ -87,3 +87,25 @@ test('Water is queried, never manufactured as a static solid collider',async()=>
     assert.equal(physics.stats.activeBodies,0);
   }finally{physics.dispose();f.dispose();}
 });
+
+test('The same seed and fixed tick script reproduce identical Rapier contact poses',async()=>{
+  const f=fixture(1988,.29);
+  const histories=[];
+  try{
+    for(let repeat=0;repeat<2;repeat++){
+      const p=await createPhysicsWorld({query:f.query,limits:{patchRadius:75,patchShift:25}});
+      const a=actor('deer',-22,f.query.heightAt(-22,0),0),samples=[];
+      try{
+        for(let tick=0;tick<90;tick++){
+          const x=-22+tick*.31,z=Math.sin(tick*.07)*7;
+          a.position.x=x;a.position.z=z;a.position.y=f.query.heightAt(x,z);
+          p.step([a],{x,y:20,z},DT);
+          samples.push([a.position.x,a.position.y,a.position.z]
+            .map(value=>Math.round(value*1e5)/1e5));
+        }
+        histories.push(samples);
+      }finally{p.dispose();}
+    }
+    assert.deepEqual(histories[0],histories[1]);
+  }finally{f.dispose();}
+});
