@@ -39,7 +39,7 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 ## Cola de hitos (el primer `[ ]` es el siguiente)
 
 - [x] **VE-01 — Separar runtime y orquestación.** Dependencias: ninguna. Entrega: tests de wiring, escenas existentes sin regresión.
-- [ ] **VE-02 — Reloj fijo y snapshots deterministas.** Dependencia: VE-01. Entrega: mismas trayectorias a 15/30/60/120 FPS.
+- [x] **VE-02 — Reloj fijo y snapshots deterministas.** Dependencia: VE-01. Entrega: mismas trayectorias a 15/30/60/120 FPS.
 - [ ] **VE-03 — WorldQuery y raycasts BVH.** Dependencia: VE-02. Entrega: altura/contacto/visibilidad sobre malla real.
 - [ ] **VE-04 — Física local selectiva con Rapier.** Dependencia: VE-03. Entrega: contactos reales sin dobles simulaciones ni coste masivo.
 - [ ] **VE-05 — Pipeline de assets GLB/glTF.** Dependencia: VE-01. Entrega: un ave detallada importable, con LOD y fallback.
@@ -64,7 +64,7 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 ### VE-02 — Reloj fijo y snapshots deterministas
 **Hacer:** timestep fijo inicial 1/30 s con acumulador, límite de substeps y política al volver de pestaña suspendida; separar tiempo de pared (hora y clima) del tiempo simulado y de la interpolación del render. No acelerar meteorología real con la velocidad de demo. Capturar snapshots de movimiento/estados ecológicos sin objetos Three.js.  
 **Aceptar:** replay de misma semilla y eventos equivalentes con frames de entrada 15/30/60/120 Hz, sin `NaN`, saltos de cámara ni duplicación de decisiones tras una pausa; pruebas con seed fija y test browser.  
-**Evidencia/PR/CI:** implementación en la rama `feat/VE-02-fixed-clock-deterministic-snapshots`. Aceptación y PR/CI aún pendientes: no marcar el hito hasta que pasen Node + Vite + Playwright/WebGL en el último HEAD. Sin benchmarks de GPU física. El snapshot es para replay desde seed + eventos, no restauración RNG arbitraria. Rollback: revertir la PR completa.
+**Evidencia/PR/CI:** [PR #41](https://github.com/akumanomi1988/FlyingFree/pull/41); código validado en `9acffa2d38ce85bc655654b812f3b4544ccc192e` mediante [CI verde #42507869472](https://github.com/akumanomi1988/FlyingFree/actions/runs/42507869472): **176 pruebas Node, build Vite, 7 escenarios Playwright/WebGL** y [capturas de QA](https://github.com/akumanomi1988/FlyingFree/actions/runs/42507869472/artifacts/13628371179). Replay comparado a 15/30/60/120 FPS con seed 1988; pausa/reanudación, lag spikes, snapshots JSON y cámara móvil cubiertos. Primera CI detectó un defecto de encuadre vertical y se corrigió sin relajar el test; se mantuvo la protección de fauna visible separando observador ecológico y cámara. El snapshot permite **replay desde semilla y eventos equivalentes**, no restauración RNG en caliente. GPU física/TV prolongada: **no medido**. Rollback: revertir PR #41. **La marca [x] es candidata en esta PR hasta merge, y Pages debe confirmar el SHA final de main.**
 
 ### VE-03 — WorldQuery y BVH
 **Hacer:** crear `WorldQuery` con `sampleSurface`, `raycast`, `lineOfSight` y consultas de normal/material/hábitat. Integrar `three-mesh-bvh` en geometría estática cercana. Basar oclusión, aterrizajes y contactos en la malla triangulada visible; coordinar renovación de índices si el terreno cambia por chunks. No construir BVH de toda la vegetación animada.  
