@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "node scripts/write-build-info.mjs && vite build",
+    "predev": "node scripts/build-bird-assets.mjs && node scripts/verify-bird-assets.mjs",
+    "build": "node scripts/build-bird-assets.mjs && node scripts/verify-bird-assets.mjs && node scripts/write-build-info.mjs && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test tests/*.test.js",
     "check": "npm run test && npm run build",
@@ -13,7 +14,8 @@
     "audit:habitats": "node scripts/audit-habitats.mjs",
     "audit:visual": "node scripts/capture-birds.mjs",
     "benchmark:world-query": "node scripts/benchmark-world-query.mjs",
-    "benchmark:physics": "node scripts/benchmark-physics.mjs"
+    "benchmark:physics": "node scripts/benchmark-physics.mjs",
+    "audit:assets": "node scripts/build-bird-assets.mjs && node scripts/verify-bird-assets.mjs"
   },
   "dependencies": {
     "three": "0.180.0",
