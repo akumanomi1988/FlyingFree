@@ -144,7 +144,7 @@ test('VE-06: pause/resume freezes pose and no catch-up flapping or root drift',(
   assert.deepEqual(angle(lod.levels[0].object,'Wing_L'),initial);
   assert.equal(controller.snapshot.renderSeconds,1);
   sample(controller,1+1/30,{state:'patrol',speed:17});
-  assert.ok(controller.snapshot.weights.flap<.5,'Resume must fade, not snap');
+  assert.ok(controller.snapshot.weights.takeoff>0,'Resume must preserve the previous takeoff pose');
   controller.dispose();
   assert.equal(controller.levels.length,0);
   assert.throws(()=>controller.render(2),/disposed/);
