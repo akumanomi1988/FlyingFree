@@ -12,6 +12,10 @@ const easing=x=>{const t=clamp(x);return t*t*(3-2*t);};
 const blendDuration=Object.freeze({
   flap:.32,glide:.48,takeoff:.22,landing:.34,perch:.44,rest:.68
 });
+// 10 Hz is the biological reference, but 5 visually readable strokes/s
+// avoids severe temporal aliasing on 15 FPS displays. All FPS sample
+// exactly the same deterministic waveform at the same simulation time.
+const CLIP_RATES=Object.freeze({flap:5,glide:1,takeoff:5,landing:1.2,perch:.8,rest:.6});
 const TWO_PI=Math.PI*2;
 const FRACTION=1/12;
 
@@ -123,6 +127,7 @@ export class BirdAnimationController{
         const action=mixer.clipAction(clip);
         action.setLoop(THREE.LoopRepeat,Infinity);
         action.enabled=true;
+        action.setEffectiveTimeScale(CLIP_RATES[clip.name]);
         action.setEffectiveWeight(clip.name==='flap'?1:0);
         action.play();
         actions.set(clip.name,action);
@@ -198,6 +203,10 @@ export class BirdAnimationController{
       query.sampleSurface(position.x,position.z);
     if(!surface){
       this.lastContact={active:false,offset:0,feet:0,penetration:0};
+      for(const level of this.levels){
+        level.root.position.y=0;
+        for(const side of ['L','R'])level.bones.get('Foot_'+side).position.copy(level.footRest[side]);
+      }
       return;
     }
     const clearance=position.y-surface.y;
@@ -207,6 +216,16 @@ export class BirdAnimationController{
     // The behavioral clearance is shared across species (min .18m), whereas
     // this 26cm animal has a ~43mm thorax-to-ankle distance.
     const offset=clamp(clearance-.043,0,.15)*influence;
+    // One pair of surface samples serves *both* LODs; the IK does not
+    // double BVH work merely because the renderer keeps two skeletons.
+    const footHits={};
+    for(const side of ['L','R']){
+      const lateral=(side==='L'?-1:1)*.010;
+      footHits[side]=branch?surface:query.sampleSurface(
+        position.x+Math.cos(heading)*lateral,
+        position.z-Math.sin(heading)*lateral
+      )??surface;
+    }
     let feet=0,maxPenetration=0;
     const reciprocal=1/Math.max(.001,Math.abs(scale));
     for(const level of this.levels){
@@ -214,11 +233,7 @@ export class BirdAnimationController{
       for(const side of ['L','R']){
         const leg=level.bones.get('Leg_'+side);
         const foot=level.bones.get('Foot_'+side);
-        const sign=side==='L'?-1:1;
-        const localX=sign*.010;
-        const px=position.x+Math.cos(heading)*localX;
-        const pz=position.z-Math.sin(heading)*localX;
-        const hit=branch?surface:query.sampleSurface(px,pz);
+        const hit=footHits[side];
         const normal=hit?.normal||surface.normal;
         // A bounded ankle correction aligns toes to the sloped triangle.
         // No rigid-body feedback and no changes to BirdBrain coordinates.
