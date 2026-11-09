@@ -77,10 +77,10 @@ test('VE-06: the behavior layer selects the clip; aerial rest is never a tree pe
 
 test('VE-06: abrupt brain changes maintain normalized, smooth blends at both LODs',()=>{
   const lod=model(),controller=new BirdAnimationController(lod);
-  const states=['rest','takeoff','flap','glide','landing','perch','rest'];
+  const states=['rest','takeoff','patrol','aerial_rest','landing','feed','rest'];
   for(let i=0;i<states.length;i++){
-    const state=states[i]==='perch'?
-      {state:'rest',grounded:true,resting:true,restSite:{kind:'branch',branchY:0}}:
+    const state=states[i]==='feed'?
+      {state:'feed',grounded:true,aerialFeeding:false}:
       {state:states[i],grounded:states[i]==='rest',resting:states[i]==='rest'};
     const t=i*1.25;
     const begin=sample(controller,t,state);
