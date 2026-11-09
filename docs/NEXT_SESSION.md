@@ -1,3 +1,9 @@
+# VE-06 — Nota de continuidad (2026-11-09)
+
+PR #45 (borrador): https://github.com/akumanomi1988/FlyingFree/pull/45 . Se implementó en la rama un primer piloto de AnimationMixer para Alcedo atthis: seis clips, mezcla por tiempo fijo de VE-02, orientación de pies y anclaje de ramas mediante WorldQuery, fallback procedural y pruebas Node/WebGL. No se integró ni se marcó terminado: faltan CI del HEAD definitivo, grabación audiovisual continua de cuatro minutos con revisión perceptiva, ensayo 15/30/60 FPS en WebGL y benchmark GPU física/TV. Mantener VE-07 fuera de alcance. Véase docs/ANIMATION_PILOT.md. Rollback inmediato: assets=procedural; rollback de código: revertir PR #45.
+
+---
+
 # VUELO — continuidad de sesión
 
 **Fecha:** 2026-11-05  
