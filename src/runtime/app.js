@@ -363,7 +363,7 @@ function renderBird(time,frameDt,alpha){
   if(activeBirdAnimation){
     status.animation=activeBirdAnimation.render(time,{
       position:birdModel.position,heading:birdModel.rotation.y,
-      brain:action,query:worldQuery,scale:birdModel.scale.x
+      brain:action,query:worldQuery
     });
   }
   const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan,rain:weatherState.rain},time);
