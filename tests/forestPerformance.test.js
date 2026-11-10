@@ -128,3 +128,20 @@ test('30fps governor starts at a cheaper resolution and restores it on fast hard
  assert.ok(q.snapshot().scale>.622);
  assert.throws(()=>createAdaptiveResolution({maxScale:1,initialScale:.3}),RangeError);
 });
+
+import * as OceanFX from '../src/renderfx.js';
+
+test('deep-ocean shading skips all four useless shoreline gradient texture samples',()=>{
+ const scene=new THREE.Scene();
+ const ocean=OceanFX.createOcean(THREE,scene,1988);
+ const shader=ocean.mesh.material.fragmentShader;
+ assert.match(shader,/if\(nearShore>0\.0\)\s*\{/,
+   'Gradient map should be sampled only where shoreline foam exists');
+ const guarded=shader.slice(shader.indexOf('if(nearShore>0.0){'));
+ assert.ok(guarded.indexOf('float riseX=')>0);
+ assert.ok(guarded.indexOf('float riseZ=')>0);
+ assert.ok(guarded.indexOf('cliffBreak=smoothstep')>0);
+ assert.equal(ocean.bathymetry.seed,1988);
+ ocean.dispose();
+ assert.equal(scene.children.length,0);
+});
