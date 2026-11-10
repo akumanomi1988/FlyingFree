@@ -89,13 +89,27 @@ function requestBirdAsset(rig,profile){
       animation.sync(lastBirdAction??{state:'patrol'},elapsed);
       // The procedural parent rig is scaled; GLB geometry is authored in metres.
       handle.model.scale.setScalar(1/rig.scale.x);
+      // Capture the procedural meshes BEFORE attaching the GLB. Traversing
+      // rig afterwards hides the skinned asset as well, despite a live mixer.
+      const proceduralMeshes=[];
+      rig.traverse(obj=>{if(obj.isMesh)proceduralMeshes.push(obj);});
+      if(!proceduralMeshes.length)throw new Error('Missing procedural fallback');
       rig.add(handle.model);
-      rig.traverse(obj=>{if(obj.isMesh)obj.visible=false;});
+      for(const mesh of proceduralMeshes)mesh.visible=false;
+      let visibleMeshes=0;
+      handle.model.levels[0].object.traverse(obj=>{
+        if(obj.isMesh&&obj.visible)visibleMeshes++;
+      });
+      if(!visibleMeshes){
+        for(const mesh of proceduralMeshes)mesh.visible=true;
+        rig.remove(handle.model);
+        throw new Error('VE-06 GLB has no visible LOD0 meshes');
+      }
       activeBirdAsset=handle;
       activeBirdAnimation=animation;
       status.animation=animation.snapshot;
       status.asset={state:'ready',species:profile.id,
-        ...handle.statistics,cache:assetLibrary.stats};
+        visibleMeshes,...handle.statistics,cache:assetLibrary.stats};
     }catch(error){
       animation?.dispose();
       handle.release();
