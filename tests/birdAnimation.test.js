@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {BirdAnimationController,BIRD_CLIPS,makeKingfisherClips,
   chooseBirdAnimation} from '../src/animation/BirdAnimationController.js';
+import {birdRigScale} from '../src/worldScale.js';
 
 const NAMES=['Root','Body','Head','Tail','Wing_L','Wing_R',
   'WingTip_L','WingTip_R','Leg_L','Leg_R','Foot_L','Foot_R'];
@@ -213,6 +214,34 @@ test('VE-06: four simulated minutes across state changes do not grow rig resourc
     });
     assert.deepEqual({meshes,bones,geometry},before[i],
       'Animation must not allocate scene objects over time');
+  }
+  controller.dispose();
+});
+
+test('VE-06: real kingfisher parent scale cancels in GLB, never multiplies IK offset',()=>{
+  const rig=new THREE.Group();
+  const rigScale=birdRigScale({wingspan:.26,wings:.70});
+  assert.ok(rigScale<.1,'Kingfisher procedural scale regression');
+  rig.scale.setScalar(rigScale);
+  const lod=model();
+  lod.scale.setScalar(1/rigScale); // Mirrors requestBirdAsset in the world runtime.
+  rig.add(lod);
+  rig.updateMatrixWorld(true);
+  const worldScale=lod.getWorldScale(new THREE.Vector3());
+  assert.ok(Math.abs(worldScale.y-1)<1e-6,'VE-05 GLB must remain in metres');
+
+  const controller=new BirdAnimationController(lod);
+  const brain={state:'rest',grounded:true,resting:true,
+    restSite:{kind:'branch',branchY:0}};
+  controller.sync(brain,0);
+  const contact=controller.render(2,{position:{x:0,y:.18,z:0},brain,
+    query:{sampleSurface:()=>({y:0,normal:{x:0,y:1,z:0}})}}).contact;
+  assert.ok(contact.active&&contact.offset>.1&&contact.offset<.15);
+  for(const level of lod.levels){
+    rig.updateMatrixWorld(true);
+    const worldY=level.object.getWorldPosition(new THREE.Vector3()).y;
+    assert.ok(Math.abs(worldY+contact.offset)<1e-6,
+      'Nested GLB was sunk by the inverse procedural rig scale: '+worldY);
   }
   controller.dispose();
 });
