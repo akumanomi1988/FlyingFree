@@ -10,6 +10,18 @@ const secondsArg=process.argv.find(arg=>arg.startsWith('--seconds='));
 const durationSeconds=secondsArg?Number(secondsArg.slice('--seconds='.length)):240;
 if(!Number.isFinite(durationSeconds)||durationSeconds<5||durationSeconds>3600)
   throw new RangeError('--seconds must be in [5, 3600]');
+const readNumber=(flag,fallback)=>{
+  const arg=process.argv.find(x=>x.startsWith('--'+flag+'='));
+  return arg?Number(arg.slice(flag.length+3)):fallback;
+};
+const worldSeed=readNumber('seed',1988);
+const width=readNumber('width',960),height=readNumber('height',540);
+const hardwareRequested=process.argv.includes('--hardware');
+if(!Number.isInteger(worldSeed)||worldSeed<0||worldSeed>2147483647)
+  throw new RangeError('--seed must be a 32-bit non-negative integer');
+if(!Number.isInteger(width)||width<320||width>3840||
+   !Number.isInteger(height)||height<240||height>2160)
+  throw new RangeError('Resolution must be 320..3840 by 240..2160');
 const directory='artifacts/ve06-continuous';
 const base='http://127.0.0.1:4174/FlyingFree/';
 await fs.mkdir(directory,{recursive:true});
@@ -23,8 +35,9 @@ for(const stream of [server.stdout,server.stderr])
 const report={
   evidence:'VE-06 real-time, unforced BirdBrain / GLB observation',
   startedAt:new Date().toISOString(),requestedWallSeconds:durationSeconds,
-  seed:1988,species:'kingfisher',width:960,height:540,
-  renderer:'Playwright Chromium SwiftShader (NOT hardware GPU)',
+  seed:worldSeed,species:'kingfisher',width,height,
+  renderer:hardwareRequested?'Playwright Chromium (hardware requested)':
+    'Playwright Chromium SwiftShader (NOT hardware GPU)',
   audio:'not recorded: Playwright recordVideo is video-only',
   outcome:'pending',errors:[],samples:[],behaviourTransitions:[],
   animationTransitions:[],acceptance:{humanVisualReview:false,physicalGpu:false,
@@ -47,14 +60,16 @@ async function waitForServer(){
 }
 async function observe(){
   await waitForServer();
-  browser=await chromium.launch({headless:true,args:[
-    '--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader',
-    '--enable-unsafe-swiftshader','--ignore-gpu-blocklist',
+  const browserArgs=[
+    '--no-sandbox','--enable-webgl','--ignore-gpu-blocklist',
     '--enable-precise-memory-info','--autoplay-policy=no-user-gesture-required'
-  ]});
+  ];
+  if(!hardwareRequested)browserArgs.push('--use-gl=angle',
+    '--use-angle=swiftshader','--enable-unsafe-swiftshader');
+  browser=await chromium.launch({headless:true,args:browserArgs});
   context=await browser.newContext({
-    viewport:{width:960,height:540},deviceScaleFactor:1,
-    recordVideo:{dir:directory,size:{width:960,height:540}}
+    viewport:{width,height},deviceScaleFactor:1,
+    recordVideo:{dir:directory,size:{width,height}}
   });
   page=await context.newPage();
   video=page.video();
@@ -65,7 +80,7 @@ async function observe(){
       report.errors.push('console: '+message.text().slice(0,300));
   });
   const response=await page.goto(base+
-    '?seed=1988&bird=kingfisher&h=12.5&weather=clear&broadcast=1',
+    '?seed='+worldSeed+'&bird=kingfisher&h=12.5&weather=clear&broadcast=1',
     {waitUntil:'domcontentloaded',timeout:30000});
   assert.equal(response?.status(),200);
   await page.waitForFunction(()=>window.__FLYINGFREE_STATUS__?.asset?.state==='ready' &&
@@ -73,6 +88,21 @@ async function observe(){
     window.__FLYINGFREE_STATUS__?.frames>=6,null,{timeout:90000});
   if(await page.locator('#skip-location-btn').isVisible())
     await page.locator('#skip-location-btn').click();
+
+  // Verify the actual WebGL implementation; disabling forced SwiftShader
+  // alone does not guarantee Chromium is using a physical GPU.
+  report.webgl=await page.evaluate(()=>{
+    const gl=document.querySelector('#viewport canvas')?.getContext('webgl2');
+    const info=gl?.getExtension('WEBGL_debug_renderer_info');
+    return {version:gl?.getParameter(gl.VERSION)??null,
+      renderer:info?gl.getParameter(info.UNMASKED_RENDERER_WEBGL):null,
+      vendor:info?gl.getParameter(info.UNMASKED_VENDOR_WEBGL):null};
+  });
+  report.hardwareBackendVerified=Boolean(report.webgl.renderer&&
+    !/swiftshader|llvmpipe|software renderer/i.test(report.webgl.renderer));
+  if(hardwareRequested)
+    assert.ok(report.hardwareBackendVerified,
+      'Physical GPU not verified; renderer: '+JSON.stringify(report.webgl));
 
   // Monitor browser RAF intervals and every actual state transition, including
   // takeoffs that are too brief to appear in a one-second telemetry sample.
@@ -144,7 +174,8 @@ async function observe(){
     p95Ms:percentile(intervals,.95),p99Ms:percentile(intervals,.99),
     slowerThan30FpsFraction:intervals.length?
       +(intervals.filter(x=>x>1000/30).length/intervals.length).toFixed(4):null,
-    note:'Browser RAF / software renderer, not physical GPU'
+    note:hardwareRequested?'Browser RAF on verified WebGL hardware; not GPU timing queries':
+      'Browser RAF / software renderer, not physical GPU'
   };
   // End-to-end accounting catches telemetry that hides long frames by
   // clamping the denominator (previously reported 4 vs ~2.8 real FPS).
