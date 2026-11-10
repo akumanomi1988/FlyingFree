@@ -163,7 +163,7 @@ export class BirdAnimationController{
     }
     this.lastTick=seconds;
   }
-  render(seconds,{position=null,heading=0,brain=null,query=this.query,scale=1}={}){
+  render(seconds,{position=null,heading=0,brain=null,query=this.query}={}){
     if(this.disposed)throw new Error('VE-06 controller disposed');
     if(!Number.isFinite(seconds))throw new RangeError('Invalid animation time');
     // Absolute addressable time prevents render FPS, dropped frames and resume
@@ -177,11 +177,11 @@ export class BirdAnimationController{
         level.actions.get(name).setEffectiveWeight(weights[name]);
       level.mixer.setTime(time);
     }
-    this.applyContacts({position,heading,brain,query,scale,weights});
+    this.applyContacts({position,heading,brain,query,weights});
     this.lastRender=seconds;
     return this.snapshot;
   }
-  applyContacts({position,heading,brain,query,scale,weights}){
+  applyContacts({position,heading,brain,query,weights}){
     const state=brain?.state||'patrol';
     const isLanding=state==='landing';
     const wantsGround=(brain?.grounded||brain?.resting&&state==='rest'||
@@ -227,9 +227,11 @@ export class BirdAnimationController{
       )??surface;
     }
     let feet=0,maxPenetration=0;
-    const reciprocal=1/Math.max(.001,Math.abs(scale));
+    // VE-05 GLB coordinates are already metres. Runtime cancels the procedural
+    // rig scale on the LOD parent, so a second inverse scale displaces the
+    // whole skeleton metres below ground when the bird perches.
     for(const level of this.levels){
-      level.root.position.y=-offset*reciprocal;
+      level.root.position.y=-offset;
       for(const side of ['L','R']){
         const leg=level.bones.get('Leg_'+side);
         const foot=level.bones.get('Foot_'+side);
@@ -246,7 +248,7 @@ export class BirdAnimationController{
         foot.rotation.x-=pitch;
         const heightDifference=clamp(surface.y-(hit?.y??surface.y),-.012,.012);
         foot.position.copy(level.footRest[side]);
-        foot.position.y+=heightDifference*reciprocal*influence;
+        foot.position.y+=heightDifference*influence;
         const sole=position.y-offset-.043+heightDifference*influence;
         maxPenetration=Math.max(maxPenetration,Math.max(0,(hit?.y??surface.y)-sole));
         feet++;
