@@ -366,6 +366,11 @@ try{
           null,{timeout:30000});
         const asset=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset);
         assert.equal(asset.species,'kingfisher');
+        assert.ok(asset.visibleMeshes>0,
+          'VE-06 regression: hiding procedural meshes also hid every skinned GLB mesh');
+        const animation=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.animation);
+        assert.equal(animation?.mixers,2,'GLB must be actively animated in the documentary runtime');
+        assert.equal(animation?.clipCount,6,'Six skeletal clips must be available in the live world');
         assert.equal(asset.near.bones>=10,true,'Exported GLB must include anatomical skeleton');
         assert.ok(asset.near.triangles>asset.far.triangles*1.7);
       });
