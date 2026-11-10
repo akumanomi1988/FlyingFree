@@ -33,6 +33,16 @@ export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
   for(const mesh of [branches,broad,needles]){
     mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);
   }
+  // Immutable 2D buckets avoid scanning every tree on frequent close-up
+  // camera updates. The selected set and LOD are still evaluated in 3D.
+  const cellSize=256,cellIndex=new Map();
+  for(let i=0;i<records.length;i++){
+    const r=records[i],key=Math.floor(r.x/cellSize)+','+Math.floor(r.z/cellSize);
+    let bucket=cellIndex.get(key);
+    if(!bucket){bucket=[];cellIndex.set(key,bucket);}
+    bucket.push(i);
+  }
+  let scannedCandidates=0;
   let lastTime=-Infinity,lastX=Infinity,lastY=Infinity,lastZ=Infinity,active=0,fadeDistance=TREE_DETAIL_RADIUS,refreshes=0;
 
   function update(position,t){
@@ -45,12 +55,27 @@ export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
     lastX=position.x;lastY=position.y;lastZ=position.z;lastTime=t;
     refreshes++;
     const visible=[];
-    for(const record of records){
-      const x=record.x-position.x,z=record.z-position.z,y=record.y+record.height*.6-position.y;
-      const d2=x*x+y*y+z*z;
-      if(d2<TREE_DETAIL_RADIUS*TREE_DETAIL_RADIUS)visible.push({record,d2});
+    scannedCandidates=0;
+    const minX=Math.floor((position.x-TREE_DETAIL_RADIUS)/cellSize);
+    const maxX=Math.floor((position.x+TREE_DETAIL_RADIUS)/cellSize);
+    const minZ=Math.floor((position.z-TREE_DETAIL_RADIUS)/cellSize);
+    const maxZ=Math.floor((position.z+TREE_DETAIL_RADIUS)/cellSize);
+    for(let ix=minX;ix<=maxX;ix++){
+      for(let iz=minZ;iz<=maxZ;iz++){
+        const bucket=cellIndex.get(ix+','+iz);
+        if(!bucket)continue;
+        for(const index of bucket){
+          scannedCandidates++;
+          const record=records[index];
+          const x=record.x-position.x,z=record.z-position.z,
+            y=record.y+record.height*.6-position.y;
+          const d2=x*x+y*y+z*z;
+          if(d2<TREE_DETAIL_RADIUS*TREE_DETAIL_RADIUS)visible.push({record,d2,index});
+        }
+      }
     }
-    visible.sort((a,b)=>a.d2-b.d2);
+    // Keep the old stable tie-breaker when two trees are equidistant.
+    visible.sort((a,b)=>a.d2-b.d2||a.index-b.index);
     let nBranches=0,nBroad=0,nNeedles=0;
     const limit=Math.min(visible.length,maxTrees);
     // Under dense foliage the pool fills before the 145 m outer radius.
@@ -123,6 +148,8 @@ export function createTreeDetail(THREE,scene,records,quality=1,windField=null){
     get poolCapacity(){return maxTrees;},
     get fadeDistance(){return fadeDistance;},
     get updateCount(){return refreshes;},
+    get scannedCandidates(){return scannedCandidates;},
+    get spatialCells(){return cellIndex.size;},
     dispose(){
       for(const mesh of [branches,broad,needles]){
         scene.remove(mesh);mesh.geometry.dispose();mesh.material.dispose();
