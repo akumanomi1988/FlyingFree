@@ -137,6 +137,11 @@ async function render(name,query,width,height,runChecks,beforeNavigation){
       'La telemetría ecológica debe corresponder al ave visible');
     assert.ok(stats.habitatUse.samples>=1,'El muestreo ecológico no funciona');
     assert.ok(Number.isInteger(stats.performance?.samples),'No se inicializó la telemetría de fotogramas');
+    assert.equal(typeof stats.performance?.graphicsBackend?.renderer,'string',
+      'WebGL renderer detection must distinguish hardware from SwiftShader');
+    for(const field of ['simulationP95Ms','sceneP95Ms','renderCallP95Ms','treeUpdatesP95Ms'])
+      assert.ok(Number.isFinite(stats.performance?.cpuStages?.[field]),
+        'Missing foreground CPU stage timing: '+field);
     assert.ok(Number.isFinite(stats.adaptiveQuality?.scale),'La resolución adaptativa no se inicializó');
     assert.ok(stats.adaptiveQuality.scale>=stats.adaptiveQuality.minScale,
       'Resolución adaptativa por debajo de su presupuesto');
