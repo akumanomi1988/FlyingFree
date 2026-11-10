@@ -150,17 +150,23 @@ export function createOcean(THREE,scene,seed=1988){
         // rises steeply. Both the rock and breakers use the same coastline.
         // Rock faces point in any direction. The old one-axis gradient missed
         // north/south cliffs, so their breakers seemed to disappear.
-        vec2 cliffStep=vec2(.0045,0.0);
-        float riseX=abs(texture2D(coastHeightmap,
-          clamp(coastUv+cliffStep,vec2(.001),vec2(.999))).r-
-          texture2D(coastHeightmap,
-          clamp(coastUv-cliffStep,vec2(.001),vec2(.999))).r);
-        float riseZ=abs(texture2D(coastHeightmap,
-          clamp(coastUv+cliffStep.yx,vec2(.001),vec2(.999))).r-
-          texture2D(coastHeightmap,
-          clamp(coastUv-cliffStep.yx,vec2(.001),vec2(.999))).r);
-        float coastalSlope=length(vec2(riseX,riseZ));
-        float cliffBreak=smoothstep(.08,.28,coastalSlope)*nearShore;
+        float cliffBreak=0.0;
+        // Outside the near-shore band nearShore == 0, so all four
+        // cliff-gradient texture reads were wasted on open-ocean pixels.
+        // The foam formula remains mathematically unchanged in deep water.
+        if(nearShore>0.0){
+          vec2 cliffStep=vec2(.0045,0.0);
+          float riseX=abs(texture2D(coastHeightmap,
+            clamp(coastUv+cliffStep,vec2(.001),vec2(.999))).r-
+            texture2D(coastHeightmap,
+            clamp(coastUv-cliffStep,vec2(.001),vec2(.999))).r);
+          float riseZ=abs(texture2D(coastHeightmap,
+            clamp(coastUv+cliffStep.yx,vec2(.001),vec2(.999))).r-
+            texture2D(coastHeightmap,
+            clamp(coastUv-cliffStep.yx,vec2(.001),vec2(.999))).r);
+          float coastalSlope=length(vec2(riseX,riseZ));
+          cliffBreak=smoothstep(.08,.28,coastalSlope)*nearShore;
+        }
         float advancingWave=.5+.5*sin(vPosition.x*.10+vPosition.z*.045-time*1.7);
         float breakerBands=.5+.5*sin(depth*.65-time*2.6+
           sin(vPosition.x*.031+vPosition.z*.037)*.9);
