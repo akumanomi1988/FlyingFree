@@ -7,7 +7,7 @@ export function createFrameTelemetry(capacity=600){
   return {
     record(ms){
       if(!Number.isFinite(ms)||ms<=0)return false;
-      if(ms>250){dropped++;return false;} // Ignore background-tab resume gaps.
+      if(ms>2000){dropped++;return false;} // Reject tab suspension, NOT real 250–2000ms jank.
       samples[cursor]=ms;cursor=(cursor+1)%capacity;count++;return true;
     },
     snapshot(){
