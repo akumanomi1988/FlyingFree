@@ -146,6 +146,21 @@ async function observe(){
       +(intervals.filter(x=>x>1000/30).length/intervals.length).toFixed(4):null,
     note:'Browser RAF / software renderer, not physical GPU'
   };
+  // End-to-end accounting catches telemetry that hides long frames by
+  // clamping the denominator (previously reported 4 vs ~2.8 real FPS).
+  const a=report.samples[10]??report.samples[0];
+  const b=report.samples.at(-10)??report.samples.at(-1);
+  const actualFps=(b.frames-a.frames)/(b.wallSeconds-a.wallSeconds);
+  const reportedFps=percentile(report.samples.map(s=>s.fps)
+    .filter(Number.isFinite),.5);
+  report.fpsAccuracy={
+    measuredFromFrames:+actualFps.toFixed(2),
+    medianRuntimeReported:reportedFps,
+    tolerance:'max(0.6 FPS, 30% of observed FPS)'
+  };
+  assert.ok(Math.abs(reportedFps-actualFps)<=Math.max(.6,actualFps*.3),
+    'Runtime FPS telemetry disagrees with frame count and real wall time: '+
+    JSON.stringify(report.fpsAccuracy));
   const clips=['flap','glide','takeoff','landing','perch','rest'];
   const modes=new Set(monitor.animationTransitions.map(x=>x.mode));
   report.acceptance.observedAnimationModes=[...modes];
@@ -178,7 +193,9 @@ try{
     if(context)await context.close();
     if(video){
       const output=directory+'/kingfisher-natural-'+durationSeconds+'s.webm';
+      const originalPath=await video.path();
       await video.saveAs(output);
+      if(originalPath!==output)await fs.rm(originalPath,{force:true});
       report.videoPath=output;
       report.videoBytes=(await fs.stat(output)).size;
     }
