@@ -46,6 +46,12 @@ let renderer,scene,camera,sunLight,moonLight,hemi,water,terrain,worldQuery,fores
 let ecosystem,skyFX,oceanFX,rainFX,birdBrain,groundDetail,sunHalo,moonHalo,atmospherics,treeDetail,rivers,cliffs,cameraDirector,forageVisuals,restVisuals,regionalBirds,riverHabitat,wildlifeObservatory,lastBirdAction=null;
 const windField=services.windField??createWindField();
 const frameTelemetry=createFrameTelemetry(600);
+// CPU-only diagnostic P95. Submission timing is not GPU execution time.
+const cpuStages={
+  simulation:createFrameTelemetry(180),scene:createFrameTelemetry(180),
+  renderCall:createFrameTelemetry(180),treeUpdates:createFrameTelemetry(180)
+};
+let graphicsBackend={renderer:'unknown',vendor:'unknown',verifiedHardware:false};
 const simulationClock=createFixedStepClock();
 let previousPose=null,currentPose=null,userPaused=false;
 let physicsWorld=null,physicsPending=null;
@@ -163,6 +169,15 @@ function init(){
   ({renderer,scene,camera,hemi,sunLight,moonLight,sunHalo,moonHalo,sunOrb,moonOrb}=
     (services.createScene??createBrowserScene)({THREE,document,parent:canvasParent,
       width:environment.width(),height:environment.height(),pixelRatio:scaleFactor,skyDay}));
+  // Report WebGL backend locally. Chromium may choose an integrated GPU or
+  // SwiftShader regardless of dedicated-card VRAM; never claim a GPU blindly.
+  try{
+    const gl=renderer.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');
+    const name=ext?String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)):'unknown';
+    const vendor=ext?String(gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)):'unknown';
+    graphicsBackend={renderer:name,vendor,
+      verifiedHardware:name!=='unknown'&&!/swiftshader|llvmpipe|software renderer/i.test(name)};
+  }catch{}
   ({terrain,water,oceanFX,rivers,cliffs,worldQuery,forest,forestVisibility,treeDetail,
     cloudField,clouds,stars,starMat}=(services.buildWorld??buildWorld)({
       THREE,scene,worldSeed,width:environment.width(),windField,adaptiveResolution,scaleFactor
@@ -422,7 +437,9 @@ function animate(now){
   lastFrame=now;
   if(!Number.isFinite(frameDt))return;
   if(!document.hidden)frameTelemetry.record(deltaRaw*1000);
+  const simulationStarted=environment.now();
   const clock=simulationClock.advance(now,simulateStep);
+  const simulationEnded=environment.now();
   status.simulationClock=clock;
   const date=new Date(timeOverride?simMs:environment.epoch());
   // Weather polling uses wall-clock time even while ecological ticks are paused.
@@ -438,13 +455,23 @@ function animate(now){
   // Camera must use actual visual wall delta, not capped animation delta,
   // so portrait composition recovers after slow software-rendered frames.
   directCamera(position,Math.min(deltaRaw,.25),wildlifeFrame.focus,visualTime);
+  const treeUpdateStarted=environment.now();
   forestVisibility.update(camera.position,visualTime);
   regionalBirds.update(visualTime,position,camera.position,sun.daylight,weatherState.rain);
   riverHabitat.update(visualTime,camera.position);
   treeDetail.update(camera.position,visualTime);
   groundDetail.update(visualTime,camera,position,sun.daylight,weatherState.rain,climate.weather?.temperature??18);
+  const treeUpdateEnded=environment.now();
   updateSea(visualTime,frameDt,sun);
+  const renderStarted=environment.now();
   renderer.render(scene,camera);
+  const renderEnded=environment.now();
+  if(!document.hidden){
+    cpuStages.simulation.record(simulationEnded-simulationStarted);
+    cpuStages.scene.record(renderStarted-simulationEnded);
+    cpuStages.renderCall.record(renderEnded-renderStarted);
+    cpuStages.treeUpdates.record(treeUpdateEnded-treeUpdateStarted);
+  }
   // One-shot real WebGL pixel probe, immediately after rendering.
   if(pendingRenderProbe){
     const resolve=pendingRenderProbe;
@@ -488,7 +515,14 @@ function animate(now){
     status.time=date.toISOString();status.sunAltitude=sun.altitude;
     status.bird=currentBird.id;status.weather=currentWeather.id;
     status.weatherBlend={...weatherState};
-    status.performance={...frameTelemetry.snapshot(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,points:renderer.info.render.points,lines:renderer.info.render.lines,gpuGeometries:renderer.info.memory.geometries,gpuTextures:renderer.info.memory.textures};
+    status.performance={...frameTelemetry.snapshot(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,points:renderer.info.render.points,lines:renderer.info.render.lines,gpuGeometries:renderer.info.memory.geometries,gpuTextures:renderer.info.memory.textures,
+      graphicsBackend,
+      cpuStages:{
+        simulationP95Ms:cpuStages.simulation.snapshot().p95,
+        sceneP95Ms:cpuStages.scene.snapshot().p95,
+        renderCallP95Ms:cpuStages.renderCall.snapshot().p95,
+        treeUpdatesP95Ms:cpuStages.treeUpdates.snapshot().p95
+      }};
     status.treeDetail={active:treeDetail.active,capacity:treeDetail.poolCapacity,
     fadeDistance:treeDetail.fadeDistance,radius:680};
     status.faunaLOD=ecosystem.lodStats;
@@ -755,6 +789,7 @@ const ui=services.ui??createBrowserUI({
       simulationClock.setPaused(userPaused||document.hidden,lastFrame);
       simulationClock.resync(lastFrame);
       frameTelemetry.reset();
+       for(const stage of Object.values(cpuStages))stage.reset();
       adaptiveResolution?.pause();
       if(!document.hidden&&!timeOverride)simMs=environment.epoch();
       if(!document.hidden&&tvActive)void requestWakeLock();
