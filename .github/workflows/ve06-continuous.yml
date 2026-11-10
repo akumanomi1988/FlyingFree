@@ -1,0 +1,44 @@
+name: VE-06 continuous visual acceptance evidence
+
+on:
+  pull_request:
+    paths:
+      - 'src/animation/**'
+      - 'src/runtime/app.js'
+      - 'scripts/capture-ve06-continuous.mjs'
+      - 'tests/browser.mjs'
+      - '.github/workflows/ve06-continuous.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ve06-continuous-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  continuous:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build actual GLB assets and Vite app
+        run: npm run build
+      - name: Install Playwright browser and SwiftShader dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Record 240s real-time autonomous kingfisher
+        run: node scripts/capture-ve06-continuous.mjs --seconds=240
+      - name: Publish silent WebM, observed states, memory and frame timing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ve06-natural-240s-evidence
+          path: artifacts/ve06-continuous/
+          retention-days: 14
+          if-no-files-found: warn
