@@ -452,7 +452,9 @@ function animate(now){
     resolve(sampleRenderedFrame());
   }
   if(pendingSnapshot)captureRenderedFrame();
-  status.frames++;renderFrames++;fpsTimer+=Math.min(deltaRaw,.25);
+  // Count the full observed wall interval for FPS. Capping at 250 ms
+  // falsely reports >=4 FPS on slow/software-rendered GPUs (VE-06 QA).
+  status.frames++;renderFrames++;fpsTimer+=deltaRaw;
   if(fpsTimer>=1){
     const measuredSeconds=fpsTimer;
     status.fps=Math.round(renderFrames/measuredSeconds);
