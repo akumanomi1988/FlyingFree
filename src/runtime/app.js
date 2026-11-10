@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import {TAU,clamp,lerp,smooth,random,fbm,terrainHeight,BIRDS,WEATHER,chooseBird,chooseWeather,sunPosition,readOptions} from '../core.js';
 import {Soundscape} from '../audio.js';
 import {createBirdRig,animateBirdRig} from '../flight.js';
-import {BirdAssetLibrary,REFERENCE_ASSETS,canUseBirdAssets,bridgeProceduralPose} from '../assets/BirdAssetLibrary.js';
+import {BirdAssetLibrary,REFERENCE_ASSETS,canUseBirdAssets} from '../assets/BirdAssetLibrary.js';
+import {BirdAnimationController} from '../animation/BirdAnimationController.js';
 import {createEcosystem} from '../ecosystem.js';
 import {createSky,createPrecipitation} from '../renderfx.js';
 import {createBirdBrain} from '../behaviour.js';
@@ -51,9 +52,12 @@ let physicsWorld=null,physicsPending=null;
 const assetLibrary=services.birdAssets??new BirdAssetLibrary({
   basePath:(import.meta.env?.BASE_URL??'/')+'assets/birds/',maxIdle:2
 });
-let activeBirdAsset=null,assetGeneration=0;
+let activeBirdAsset=null,activeBirdAnimation=null,assetGeneration=0;
 function releaseBirdAsset(){
   assetGeneration++;
+  activeBirdAnimation?.dispose();
+  activeBirdAnimation=null;
+  status.animation=null;
   if(!activeBirdAsset)return;
   activeBirdAsset.model.parent?.remove(activeBirdAsset.model);
   activeBirdAsset.release();
@@ -77,14 +81,40 @@ function requestBirdAsset(rig,profile){
     if(disposed||revision!==assetGeneration||birdModel!==rig){
       handle.release();return;
     }
-    // The existing procedural rig is scaled in local units. GLB geometry
-    // is authored in metres and must retain its physical wingspan.
-    handle.model.scale.setScalar(1/rig.scale.x);
-    rig.traverse(obj=>{if(obj.isMesh)obj.visible=false;});
-    rig.add(handle.model);
-    activeBirdAsset=handle;
-    status.asset={state:'ready',species:profile.id,
-      ...handle.statistics,cache:assetLibrary.stats};
+    // Build and validate both anatomical LODs BEFORE hiding the fallback.
+    // A failed or incompatible GLB must never leave the bird invisible.
+    let animation;
+    try{
+      animation=new BirdAnimationController(handle.model,{query:worldQuery});
+      animation.sync(lastBirdAction??{state:'patrol'},elapsed);
+      // The procedural parent rig is scaled; GLB geometry is authored in metres.
+      handle.model.scale.setScalar(1/rig.scale.x);
+      // Capture the procedural meshes BEFORE attaching the GLB. Traversing
+      // rig afterwards hides the skinned asset as well, despite a live mixer.
+      const proceduralMeshes=[];
+      rig.traverse(obj=>{if(obj.isMesh)proceduralMeshes.push(obj);});
+      if(!proceduralMeshes.length)throw new Error('Missing procedural fallback');
+      rig.add(handle.model);
+      for(const mesh of proceduralMeshes)mesh.visible=false;
+      let visibleMeshes=0;
+      handle.model.levels[0].object.traverse(obj=>{
+        if(obj.isMesh&&obj.visible)visibleMeshes++;
+      });
+      if(!visibleMeshes){
+        for(const mesh of proceduralMeshes)mesh.visible=true;
+        rig.remove(handle.model);
+        throw new Error('VE-06 GLB has no visible LOD0 meshes');
+      }
+      activeBirdAsset=handle;
+      activeBirdAnimation=animation;
+      status.animation=animation.snapshot;
+      status.asset={state:'ready',species:profile.id,
+        visibleMeshes,...handle.statistics,cache:assetLibrary.stats};
+    }catch(error){
+      animation?.dispose();
+      handle.release();
+      throw error;
+    }
   }).catch(error=>{
     if(!disposed&&revision===assetGeneration){
       status.asset={state:'fallback',species:profile.id,reason:String(error)};
@@ -300,6 +330,7 @@ function stepBird(dt,sun){
   const day=smooth(-.14,.045,sun.altitude);
   const action=birdBrain.update(elapsed,dt,day,weatherState.rain);
   previousPose=currentPose??action;currentPose={...action};lastBirdAction=action;
+  activeBirdAnimation?.sync(action,elapsed);
   status.restSiteKind=action.restSite?.kind??null;
   status.rests=action.rests;status.grounded=action.grounded;
   status.feedingProgress=+action.feedingProgress.toFixed(2);
@@ -327,8 +358,14 @@ function renderBird(time,frameDt,alpha){
     bank:action.bank,pitch:action.pitch,grounded:action.grounded,speed:action.speed,
     floating:action.floating,waterPitch:action.waterPitch,waterRoll:action.waterRoll,
     state:action.state,food:action.food,feedingProgress:action.feedingProgress},frameDt);
-  // Only transfer the pre-existing procedural pose; clip blending is VE-06.
-  bridgeProceduralPose(activeBirdAsset?.model,birdModel);
+  // GLB skeleton takes its intent from the *fixed-tick* BirdBrain state.
+  // The mixer seeks an absolute simulation time: no render-delta drift.
+  if(activeBirdAnimation){
+    status.animation=activeBirdAnimation.render(time,{
+      position:birdModel.position,heading:birdModel.rotation.y,
+      brain:action,query:worldQuery
+    });
+  }
   const visibleResource=forageVisuals?.update({...action,wingspan:currentBird.wingspan,rain:weatherState.rain},time);
   const visibleRest=restVisuals?.update(action,camera.position);
   status.perchVisible=Boolean(visibleRest?.visible);
@@ -415,7 +452,9 @@ function animate(now){
     resolve(sampleRenderedFrame());
   }
   if(pendingSnapshot)captureRenderedFrame();
-  status.frames++;renderFrames++;fpsTimer+=Math.min(deltaRaw,.25);
+  // Count the full observed wall interval for FPS. Capping at 250 ms
+  // falsely reports >=4 FPS on slow/software-rendered GPUs (VE-06 QA).
+  status.frames++;renderFrames++;fpsTimer+=deltaRaw;
   if(fpsTimer>=1){
     const measuredSeconds=fpsTimer;
     status.fps=Math.round(renderFrames/measuredSeconds);

@@ -86,7 +86,7 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 ### VE-06 — Animación esquelética piloto
 **Hacer:** clips/estados `flap`, `glide`, `takeoff`, `landing`, `perch`, `rest` enlazados con `THREE.AnimationMixer` y blending; el estado procede del `BirdBrain`, no del renderer. Resolver contacto de patas con una capa limitada de IK/ajuste al `WorldQuery`. Mantener versión procedural para comparación.  
 **Aceptar:** secuencias sin torsiones, alas extra, vibraciones, pops o penetraciones; 4 minutos de vuelo piloto, 15/30/60 FPS y pruebas de transición con snapshots.  
-**Evidencia/PR/CI:** pendiente.
+**Evidencia/PR/CI:** [PR #45 en validación](https://github.com/akumanomi1988/FlyingFree/pull/45), rama `feat/VE-06-kingfisher-skeletal-animation`; diseño y límites en [docs/ANIMATION_PILOT.md](./docs/ANIMATION_PILOT.md). Se han integrado en la rama seis clips `THREE.AnimationMixer`, blending temporal, puente de ticks de `BirdBrain`, contactos acotados `WorldQuery`, dos LOD, fallback procedural, tests Node a 15/30/60 FPS y replay lógico de 7.200 ticks (4 min), más capturas WebGL de las seis poses. **Hito todavía no aceptado:** CI del HEAD final, revisión humana de capturas, grabación visual continua de 240 s y métricas en GPU/TV pendientes. No marcar `[x]` ni fusionar antes de satisfacer las puertas; rollback: revertir PR #45 / `?assets=procedural`.
 
 ### VE-07 — Adaptación de las 12 aves
 **Hacer:** extender la pipeline probada a doce arquetipos sin mezclar anatomía incompatibles; agrupación por locomoción (rapaces, planeadoras marinas, pequeñas, zancudas y especializadas). Introducir diferencias de envergadura/frecuencia y LOD de animación; documentar excepción biológica por especie.  

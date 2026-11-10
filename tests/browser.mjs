@@ -366,6 +366,11 @@ try{
           null,{timeout:30000});
         const asset=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.asset);
         assert.equal(asset.species,'kingfisher');
+        assert.ok(asset.visibleMeshes>0,
+          'VE-06 regression: hiding procedural meshes also hid every skinned GLB mesh');
+        const animation=await page.evaluate(()=>window.__FLYINGFREE_STATUS__.animation);
+        assert.equal(animation?.mixers,2,'GLB must be actively animated in the documentary runtime');
+        assert.equal(animation?.clipCount,6,'Six skeletal clips must be available in the live world');
         assert.equal(asset.near.bones>=10,true,'Exported GLB must include anatomical skeleton');
         assert.ok(asset.near.triangles>asset.far.triangles*1.7);
       });
@@ -460,6 +465,30 @@ try{
           name+' physical wingspan '+metrics.sizeMetres.x);
         assert.ok(metrics.drawCalls>3&&metrics.drawCalls<65,name+' draw call budget');
         assert.ok(metrics.renderedTriangles>100,'Real GLB must render triangles');
+        await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled'});
+        report.scenarios.push({name,success:true,stats:metrics});
+      }finally{await page.close();}
+    }
+  }
+  // VE-06: real WebGL anatomical pose sheets; the VE-05 baseline is unchanged.
+  for(const clip of ['flap','glide','takeoff','landing','perch','rest']){
+    for(const view of ['front','side']){
+      const name='VE06-'+clip+'-'+view;
+      const page=await browser.newPage({viewport:{width:960,height:750},deviceScaleFactor:1});
+      page.on('pageerror',error=>report.errors.push(name+': '+error.message));
+      try{
+        const response=await page.goto(root+'asset-preview.html?clip='+clip+
+          '&phase=0.25&view='+view+'&lod=0',{waitUntil:'domcontentloaded',timeout:20000});
+        assert.equal(response?.status(),200,'VE-06 pose viewer unavailable');
+        await page.waitForFunction(()=>window.__VE05_PREVIEW__?.ready||
+          window.__VE05_PREVIEW__?.error,null,{timeout:30000});
+        const metrics=await page.evaluate(()=>window.__VE05_PREVIEW__);
+        assert.equal(metrics.error,null,name+' skeletal preview failed');
+        assert.equal(metrics.animation?.mode,clip,'Wrong animation bound to skeleton');
+        assert.equal(metrics.animation?.mixers,2,'Both LODs must use AnimationMixer');
+        assert.equal(metrics.animation?.clipCount,6,'Missing anatomical clips');
+        assert.equal(metrics.bones,12,'Imported GLB must retain 12-bone armature');
+        assert.ok(metrics.drawCalls>3&&metrics.drawCalls<65,'Duplicate geometry regression');
         await page.screenshot({path:directory+'/'+name+'.png',animations:'disabled'});
         report.scenarios.push({name,success:true,stats:metrics});
       }finally{await page.close();}

@@ -1,6 +1,7 @@
 // VE-05: neutral GLB quality-inspection scene (never part of the ecology runtime).
 import * as THREE from 'three';
 import {BirdAssetLibrary} from './BirdAssetLibrary.js';
+import {BirdAnimationController,BIRD_CLIPS} from '../animation/BirdAnimationController.js';
 const params=new URLSearchParams(location.search);
 const requested=params.get('view')||'threeQuarter';
 const views={
@@ -9,6 +10,8 @@ const views={
 };
 const view=Object.hasOwn(views,requested)?requested:'threeQuarter';
 const lod=params.get('lod')==='1'?1:0;
+const clip=BIRD_CLIPS.includes(params.get('clip'))?params.get('clip'):null;
+const phase=THREE.MathUtils.clamp(Number(params.get('phase')||.25),0,.95);
 const target=document.getElementById('asset-viewport');
 const info=document.getElementById('qa-status');
 for(const a of document.querySelectorAll('nav a[data-view]')){
@@ -20,7 +23,7 @@ for(const a of document.querySelectorAll('nav a[data-lod]')){
   if(Number(a.dataset.lod)===lod)a.setAttribute('aria-current','page');
 }
 window.__VE05_PREVIEW__={ready:false,view,lod,error:null};
-let renderer,handle,library;
+let renderer,handle,library,previewAnimation;
 async function init(){
   const width=Math.max(600,target.clientWidth);
   const height=Math.max(360,target.clientHeight);
@@ -45,6 +48,15 @@ async function init(){
   for(let i=0;i<handle.model.levels.length;i++)
     handle.model.levels[i].object.visible=(i===lod);
   scene.add(handle.model);
+  if(clip){
+    const action=clip==='flap'?{state:'patrol',speed:0}:
+      clip==='glide'?{state:'aerial_rest'}:
+      clip==='perch'?{state:'feed',aerialFeeding:false}:
+      {state:clip,grounded:clip==='rest',resting:clip==='rest'};
+    previewAnimation=new BirdAnimationController(handle.model);
+    previewAnimation.sync(action,0);
+    previewAnimation.render(1+phase,{brain:action});
+  }
   const aspect=width/height,verticalSize=.31;
   const camera=new THREE.OrthographicCamera(
     -verticalSize*aspect/2,verticalSize*aspect/2,
@@ -59,7 +71,8 @@ async function init(){
   renderer.render(scene,camera);
   const metrics=handle.statistics[lod?'far':'near'];
   const snapshot={
-    ready:true,view,lod,error:null,
+    ready:true,view,lod,clip,phase,error:null,
+    animation:previewAnimation?.snapshot??null,
     sizeMetres:{x:size.x,y:size.y,z:size.z},
     drawCalls:renderer.info.render.calls,renderedTriangles:renderer.info.render.triangles,
     gpuGeometries:renderer.info.memory.geometries,
@@ -78,6 +91,7 @@ init().catch(error=>{
   console.error('VE05 asset preview',error);
 });
 window.addEventListener('pagehide',()=>{
+  previewAnimation?.dispose();
   if(handle)handle.release();
   library?.dispose();
   renderer?.dispose();
