@@ -4,6 +4,7 @@
 
 - Los fotogramas de 250–2000 ms se conservan en P95/P99 y ya no se clasifican erróneamente como pausas del navegador. Solo se excluyen intervalos superiores a 2000 ms (suspensión prolongada).
 - El LOD de árboles cercanos utiliza un índice espacial fijo de celdas de 256 metros, en vez de recorrer los 4400 registros de vegetación en cada actualización. Mantiene el mismo radio, el mismo pool de mallas, la selección 3D y los tres draw calls.
+- El shader del océano omite cuatro muestras adicionales de gradiente de batimetría si el píxel no pertenece a la franja costera; no altera foam ni agua cerca de la costa, porque ese factor ya era exactamente cero en mar abierto. El ahorro de GPU aún no está medido en hardware.
 - El estado `window.__FLYINGFREE_STATUS__.performance` expone P95 de tiempo de simulación, actualizaciones de escena, subgrupo de vegetación y tiempo de la llamada `renderer.render`; también intenta identificar renderer/vendor mediante `WEBGL_debug_renderer_info`.
 - Estos son **tiempos de CPU** (incluyendo esperas que pueda provocar el driver), no consultas de tiempo real de ejecución en GPU. No afirmar que una tarjeta dedicada se utiliza si `graphicsBackend.verifiedHardware` es falso.
 
