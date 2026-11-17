@@ -84,16 +84,16 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 
 
 ### VE-06 — Animación esquelética piloto
-**Avance 2026-11-17 (agente gpt6-ve06-20261117-1536utc; candidato, sin cierre):** PR #45 ya está integrada en `main` desde 2026-11-10; se corrige en rama reservada el salto de altura visual al despegue desde una percha. Nueva regresión determinista compara ambos LOD y 15/60 FPS. CI, capturas continuas, seis modos naturales, GPU física, revisión humana y TV siguen sujetos a verificación independiente. Se conserva `[ ]`.
+**Avance 2026-11-17 (agente gpt6-ve06-20261117-1536utc; candidato, sin cierre):** PR #45 ya está integrada en `main` desde 2026-11-10; [PR #48](https://github.com/akumanomi1988/FlyingFree/pull/48) corrige en rama reservada el salto de altura visual al despegue desde una percha. Nueva regresión determinista compara ambos LOD y 15/60 FPS. CI, capturas continuas, seis modos naturales, GPU física, revisión humana y TV siguen sujetos a verificación independiente. Se conserva `[ ]`.
 
 
 **EN CURSO — AGENTE gpt6-ve06-20261117-1536utc**  
 Estoy desarrollando: validación del piloto esquelético de martín pescador ya fusionado en PR #45 y corrección funcional verificable de sus defectos pendientes, sin saltar a VE-07.  
 Alcance: `src/animation/BirdAnimationController.js`, `tests/birdAnimation.test.js`, `scripts/capture-ve06-continuous.mjs`, `docs/ANIMATION_PILOT.md`, `docs/NEXT_SESSION.md`; pruebas sobre las seis transiciones y contacto suelo/percha, además de evidencia de observación natural si CI la permite.  
 No modificaré: VE-07–VE-12, modelos de las otras once aves, geografía, audio, cámara, física, infraestructura, otros archivos o trabajos ajenos.  
-Rama: `feat/VE-06-validation-gpt6-20261117` (se creará tras fusionar la coordinación); reserva exclusiva: `refs/heads/claims/VE-06`.  
-PR: coordinación pendiente; PR funcional pendiente.  
-Inicio / última actualización: 2026-11-17 15:36 UTC.  
+Rama: `feat/VE-06-validation-gpt6-20261117` (publicada); reserva exclusiva: `refs/heads/claims/VE-06`.  
+PR: [coordinación #47 fusionada](https://github.com/akumanomi1988/FlyingFree/pull/47); [implementación #48 en borrador](https://github.com/akumanomi1988/FlyingFree/pull/48), CI final y revisión visual pendientes.  
+Inicio: 2026-11-17 15:36 UTC; última actualización: 2026-11-17 15:52 UTC.  
 Próximo objetivo: corregir un defecto real con test reproducible y obtener CI Node/Vite/Playwright para el último HEAD; no declarar aceptación perceptiva, GPU física ni TV sin evidencia.  
 **Estado real:** PR #45 ya se fusionó en `main` mediante `59abd2a652812321182d8f9758ee92d9763e61ac`; la referencia anterior a «PR #45 en validación» es histórica, no una PR abierta. VE-06 continúa `[ ]` hasta demostrar criterios de aceptación y publicar el cierre.
 

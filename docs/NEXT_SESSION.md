@@ -279,5 +279,5 @@ con lease y publicación comprobada del SHA de `main` vía Pages.
 - Se inspeccionó `main@42dffad`: PR #45 ya fusionada en `59abd2a`, pero VE-06 sigue `[ ]` por evidencia visual, transiciones naturales, GPU física y TV pendientes.
 - Reserva exclusiva `refs/heads/claims/VE-06`; coordinación en PR #47 fusionada como `0333bfe`.
 - Corrección funcional candidata: preservar progresivamente el offset de contacto visual durante el despegue, evitando que una ave de 14,5 cm salte aproximadamente 14 cm al abandonar rama. La fase aérea no crea colisiones ni muta la IA.
-- Añadida prueba de regresión que compara 15 y 60 FPS, ambos LOD y ausencia de raycasts aéreos. Las pruebas, WebGL y revisión perceptiva deben comprobarse en la PR del código; **ningún resultado ni despliegue nuevo se presume**.
+- Añadida prueba de regresión que compara 15 y 60 FPS, ambos LOD y ausencia de raycasts aéreos. Las pruebas, WebGL y revisión perceptiva deben comprobarse en [PR #48](https://github.com/akumanomi1988/FlyingFree/pull/48); **ningún resultado ni despliegue nuevo se presume**.
 - No se modifica VE-07, ni se marca VE-06 completado. Si la CI resulta verde, todavía falta verificar continuidad natural de seis estados, GPU física y revisión humana; conservar la reserva para reanudar con pruebas reproducibles.
