@@ -41,3 +41,16 @@ Si careces de permisos de push, merge, acceso a GPU o revisión humana, **no dec
 
 ## Prompt de ejecución corto (también utilizable fuera de este repositorio)
 > Trabaja en `akumanomi1988/FlyingFree`. Lee `AGENTS.md` y `ROADMAP.md`, inspecciona `main` y las PR abiertas y desarrolla **el primer hito pendiente** (o continúa su PR). Implementa código y tests, verifica Node/Vite/WebGL, actualiza su checkbox y evidencias **en el mismo push**, abre PR, intégrala solo con CI verde y comprueba el SHA publicado en Pages. Si algo bloquea la aceptación, no lo declares completado: documenta el bloqueo y entrega enlaces/SHAs. No avances otro hito.
+
+## Coordinación multiagente — reservas exclusivas
+
+Esta sección prevalece sobre cualquier instrucción anterior que indique crear directamente una rama de implementación. Es obligatoria al iniciar cada ejecución y al reanudar un trabajo interrumpido.
+
+1. Actualizar `main`, PR, workflows y `refs/heads/claims/*`; leer la reserva visible en `ROADMAP.md` antes de escribir código. La ausencia de PR no demuestra ausencia de un agente.
+2. Identificarse con un ID de ejecución único. Para VE-XX crear **una sola vez** `refs/heads/claims/VE-XX` usando la operación GitHub de creación de referencia (POST, sin update/upsert). Si ya existe o su creación falla por conflicto, no actualizarla, no hacer force push ni apropiársela. Comprobar de nuevo la referencia después de crearla. Una reserva es exclusiva por hito.
+3. Antes de tocar código, publicar una **PR de coordinación mínima** hacia `main` con anotación de agente, alcance y exclusiones en la sección VE-XX de `ROADMAP.md`; fusionarla tras verificar reserva y último `main`. Ningún cambio funcional precede a esa fusión.
+4. Para desarrollar, partir del `main` que ya contiene la coordinación; usar rama y PR propias. Si se amplía alcance o aparece conflicto, actualizar la anotación mediante PR. Otros agentes no deben modificar archivos o componentes reservados, ni saltar el primer hito pendiente salvo tareas expresamente independientes y autorizadas por el roadmap.
+5. Las reservas **no caducan automáticamente**. Ante actividad antigua, examinar commits, PR y estado del responsable y coordinar una recuperación sin sobrescribir la rama de reserva. Si no hay trabajo paralelo seguro, detenerse.
+6. Fusionar implementación solo con CI verde y aceptación del hito; verificar SHA desplegado. Cerrar el hito con otra PR de roadmap y evidencia. **Liberar la referencia exclusiva solo después de verificar el cierre fusionado**; nunca eliminar reservas de otros agentes ni liberar una reserva por timeout. Si la sesión termina sin cerrar, conservar el registro para reanudación.
+
+El identificador de reserva Git es el bloqueo; el texto del roadmap es el registro legible. Una PR/documentación sin referencia exclusiva **no** autoriza empezar. Si una herramienta de creación de rama pudiera sobrescribir referencias existentes, emplear únicamente una operación atómica de creación que falle ante referencia preexistente.

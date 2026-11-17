@@ -84,6 +84,18 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 
 
 ### VE-06 — Animación esquelética piloto
+
+**EN CURSO — AGENTE gpt6-ve06-20261117-1536utc**  
+Estoy desarrollando: validación del piloto esquelético de martín pescador ya fusionado en PR #45 y corrección funcional verificable de sus defectos pendientes, sin saltar a VE-07.  
+Alcance: `src/animation/BirdAnimationController.js`, `tests/birdAnimation.test.js`, `scripts/capture-ve06-continuous.mjs`, `docs/ANIMATION_PILOT.md`, `docs/NEXT_SESSION.md`; pruebas sobre las seis transiciones y contacto suelo/percha, además de evidencia de observación natural si CI la permite.  
+No modificaré: VE-07–VE-12, modelos de las otras once aves, geografía, audio, cámara, física, infraestructura, otros archivos o trabajos ajenos.  
+Rama: `feat/VE-06-validation-gpt6-20261117` (se creará tras fusionar la coordinación); reserva exclusiva: `refs/heads/claims/VE-06`.  
+PR: coordinación pendiente; PR funcional pendiente.  
+Inicio / última actualización: 2026-11-17 15:36 UTC.  
+Próximo objetivo: corregir un defecto real con test reproducible y obtener CI Node/Vite/Playwright para el último HEAD; no declarar aceptación perceptiva, GPU física ni TV sin evidencia.  
+**Estado real:** PR #45 ya se fusionó en `main` mediante `59abd2a652812321182d8f9758ee92d9763e61ac`; la referencia anterior a «PR #45 en validación» es histórica, no una PR abierta. VE-06 continúa `[ ]` hasta demostrar criterios de aceptación y publicar el cierre.
+
+
 **Hacer:** clips/estados `flap`, `glide`, `takeoff`, `landing`, `perch`, `rest` enlazados con `THREE.AnimationMixer` y blending; el estado procede del `BirdBrain`, no del renderer. Resolver contacto de patas con una capa limitada de IK/ajuste al `WorldQuery`. Mantener versión procedural para comparación.  
 **Aceptar:** secuencias sin torsiones, alas extra, vibraciones, pops o penetraciones; 4 minutos de vuelo piloto, 15/30/60 FPS y pruebas de transición con snapshots.  
 **Evidencia/PR/CI:** [PR #45 en validación](https://github.com/akumanomi1988/FlyingFree/pull/45), rama `feat/VE-06-kingfisher-skeletal-animation`; diseño y límites en [docs/ANIMATION_PILOT.md](./docs/ANIMATION_PILOT.md). Se han integrado en la rama seis clips `THREE.AnimationMixer`, blending temporal, puente de ticks de `BirdBrain`, contactos acotados `WorldQuery`, dos LOD, fallback procedural, tests Node a 15/30/60 FPS y replay lógico de 7.200 ticks (4 min), más capturas WebGL de las seis poses. **Hito todavía no aceptado:** CI del HEAD final, revisión humana de capturas, grabación visual continua de 240 s y métricas en GPU/TV pendientes. No marcar `[x]` ni fusionar antes de satisfacer las puertas; rollback: revertir PR #45 / `?assets=procedural`.
