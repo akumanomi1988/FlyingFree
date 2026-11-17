@@ -1,8 +1,17 @@
 # VE-06 — Piloto de animación esquelética (martín pescador)
 
-Estado: **PR #45 en validación**. El checkbox VE-06 de `ROADMAP.md`
-permanece sin marcar hasta aceptación visual de cuatro minutos y CI verde
-del último HEAD. VE-07 queda expresamente fuera de alcance.
+Estado actualizado: **PR #45 ya fusionada en main** (commit `59abd2a`).
+VE-06 sigue sin aceptar: la CI técnica no equivale a observación natural
+completa, revisión perceptiva, GPU física o TV. Su checkbox permanece
+sin marcar y VE-07 está fuera de alcance.
+
+La revisión de 2026-11-17 corrige el salto vertical al despegar desde
+una rama: la compensación visual de contacto persiste en el primer frame
+aéreo y se desvanece siguiendo los pesos del clip anterior. El cambio
+no modifica `BirdBrain`, coordenadas físicas, Raycast ni el reloj fijo.
+Se añade replay comparado 15/60 FPS y regresión de offset de ambos LOD.
+**Candidato pendiente de CI y revisión visual**; no considerar cerrado
+VE-06 mientras falte la aceptación humana del clip natural continuo.
 
 ## Contrato y decisiones
 
