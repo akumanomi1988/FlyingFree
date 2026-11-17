@@ -145,6 +145,10 @@ export class BirdAnimationController{
     this.lastTick=-Infinity;
     this.lastRender=-Infinity;
     this.lastContact={active:false,offset:0,feet:0,penetration:0};
+    // The grounded pose's target offset persists briefly when BirdBrain
+    // starts takeoff. Otherwise presentation snaps a 14.5cm bird upward
+    // by ~14cm in one render frame despite the skeletal crossfade.
+    this.contactAnchor=null;
     this.disposed=false;
   }
   sync(action,seconds){
@@ -188,11 +192,18 @@ export class BirdAnimationController{
       state==='feed'&&!brain?.aerialFeeding||isLanding)&&!brain?.floating;
     const sumFold=weights.perch+weights.rest+weights.landing;
     if(!wantsGround||!position||!query?.sampleSurface||sumFold<.001){
-      this.lastContact={active:false,offset:0,feet:0,penetration:0};
+      // Once the brain leaves its perch, the visible skeleton must release
+      // its contact offset on the same deterministic fade as the wing clips.
+      // Never extend physical grounding or alter the bird's world position.
+      const releasing=!wantsGround&&sumFold>=.001&&this.contactAnchor;
+      const offset=releasing?this.contactAnchor.targetOffset*clamp(sumFold):0;
+      this.lastContact={active:false,offset,feet:0,penetration:0,
+        releasing:Boolean(releasing&&offset>1e-5)};
       for(const level of this.levels){
-        level.root.position.y=0;
+        level.root.position.y=-offset;
         for(const side of ['L','R'])level.bones.get('Foot_'+side).position.copy(level.footRest[side]);
       }
+      if(!releasing)this.contactAnchor=null;
       return;
     }
     // The brain's roost is an explicit branch record. WorldQuery intentionally
@@ -202,6 +213,7 @@ export class BirdAnimationController{
       {y:branch.branchY,normal:{x:0,y:1,z:0},kind:'branch'}:
       query.sampleSurface(position.x,position.z);
     if(!surface){
+      this.contactAnchor=null;
       this.lastContact={active:false,offset:0,feet:0,penetration:0};
       for(const level of this.levels){
         level.root.position.y=0;
@@ -215,7 +227,9 @@ export class BirdAnimationController{
     const influence=clamp(sumFold*contactEase);
     // The behavioral clearance is shared across species (min .18m), whereas
     // this 26cm animal has a ~43mm thorax-to-ankle distance.
-    const offset=clamp(clearance-.043,0,.15)*influence;
+    const targetOffset=clamp(clearance-.043,0,.15);
+    const offset=targetOffset*influence;
+    if(influence>.01)this.contactAnchor={targetOffset};
     // One pair of surface samples serves *both* LODs; the IK does not
     // double BVH work merely because the renderer keeps two skeletons.
     const footHits={};

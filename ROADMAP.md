@@ -84,6 +84,8 @@ Mantener **Three.js 0.180.x** como renderer hasta nueva decisión respaldada por
 
 
 ### VE-06 — Animación esquelética piloto
+**Avance 2026-11-17 (agente gpt6-ve06-20261117-1536utc; candidato, sin cierre):** PR #45 ya está integrada en `main` desde 2026-11-10; se corrige en rama reservada el salto de altura visual al despegue desde una percha. Nueva regresión determinista compara ambos LOD y 15/60 FPS. CI, capturas continuas, seis modos naturales, GPU física, revisión humana y TV siguen sujetos a verificación independiente. Se conserva `[ ]`.
+
 
 **EN CURSO — AGENTE gpt6-ve06-20261117-1536utc**  
 Estoy desarrollando: validación del piloto esquelético de martín pescador ya fusionado en PR #45 y corrección funcional verificable de sus defectos pendientes, sin saltar a VE-07.  

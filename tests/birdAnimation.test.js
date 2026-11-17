@@ -245,3 +245,44 @@ test('VE-06: real kingfisher parent scale cancels in GLB, never multiplies IK of
   }
   controller.dispose();
 });
+
+test('VE-06: takeoff releases perch root correction smoothly and deterministically at 15/60 FPS',()=>{
+  const releaseAt=fps=>{
+    const lod=model(),controller=new BirdAnimationController(lod);
+    const position={x:0,y:.18,z:0};
+    const resting={state:'rest',grounded:true,resting:true,
+      restSite:{kind:'branch',branchY:0}};
+    const takingOff={state:'takeoff',grounded:false,resting:false};
+    let surfaceQueries=0;
+    const query={sampleSurface:()=>{surfaceQueries++;return {
+      y:0,normal:{x:0,y:1,z:0},kind:'terrain'
+    };}};
+    controller.sync(resting,0);
+    controller.render(.8,{position,brain:resting,query});
+    const groundedY=lod.levels[0].object.position.y;
+    assert.ok(groundedY<-.1,'Expected branch contact before takeoff');
+    controller.sync(takingOff,1);
+    const offsets=[];
+    for(let frame=0;frame<=fps*.6;frame++){
+      const time=1+frame/fps;
+      const contact=controller.render(time,{position,brain:takingOff,query}).contact;
+      if(frame%(fps/15)===0){
+        offsets.push(+lod.levels[0].object.position.y.toFixed(8));
+        assert.equal(contact.active,false,'Takeoff does not restore physical grounding');
+        assert.ok(Math.abs(lod.levels[1].object.position.y-
+          lod.levels[0].object.position.y)<1e-10,'LODs must not pop independently');
+      }
+    }
+    assert.equal(surfaceQueries,0,'Takeoff release must not raycast for a non-grounded bird');
+    controller.dispose();
+    return {groundedY:+groundedY.toFixed(8),offsets};
+  };
+  const slow=releaseAt(15),fast=releaseAt(60);
+  assert.deepEqual(slow,fast,'The contact fade must not depend on render FPS');
+  assert.equal(slow.offsets[0],slow.groundedY,
+    'The very first takeoff frame must not jump by an entire body length');
+  assert.ok(slow.offsets[1]>slow.offsets[0]&&slow.offsets[1]<0,
+    'The contact correction must release gradually while takeoff blends in');
+  assert.equal(slow.offsets.at(-1),0,
+    'The bird must return to its unshifted airborne rig by the end of the fade');
+});
